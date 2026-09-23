@@ -32,6 +32,10 @@ object InterruptOverlay {
   var challengeOutstanding: Boolean = false
     private set
 
+  /** After "Open challenge", skip re-show briefly so the Activity can come up. */
+  @Volatile
+  private var suppressReshowUntilElapsed: Long = 0L
+
   fun canDrawOverlays(context: Context): Boolean {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       Settings.canDrawOverlays(context)
@@ -41,6 +45,9 @@ object InterruptOverlay {
   }
 
   fun isShowing(): Boolean = attachedView != null
+
+  fun isReshowSuppressed(): Boolean =
+    android.os.SystemClock.elapsedRealtime() < suppressReshowUntilElapsed
 
   fun show(context: Context) {
     if (!canDrawOverlays(context)) {
@@ -116,6 +123,7 @@ object InterruptOverlay {
           setTextColor(Color.WHITE)
           setOnClickListener {
             // Hide shield only while Unloop is in front — outstanding stays true.
+            suppressReshowUntilElapsed = android.os.SystemClock.elapsedRealtime() + 4_000L
             launchApp(appContext)
             dismissLocked(appContext, clearOutstanding = false)
           }
