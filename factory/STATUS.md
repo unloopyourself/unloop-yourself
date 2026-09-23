@@ -4,19 +4,21 @@ Last updated: 2026-09-23
 
 ## Active item
 
-None. Factory bootstrap complete. Next ready item after human review: **P0-03** (scaffold monorepo / Core package).
+None. **P0-03** done. Next ready items: **P0-04** (domain contracts), **P0-06** (typed event emitter) — both depend only on P0-03 for emitter; contracts preferred first for FSM/ports.
 
 ## Last gate result
 
-- `scripts/check-boundaries.sh`: **PASSED** (2026-09-23; no package manifests yet; Core isolation skipped).
-- Application code: not scaffolded (by design).
+- `npm test`: **PASSED** (Core smoke)
+- `npm run typecheck -w @unloop/core`: **PASSED**
+- `scripts/check-boundaries.sh`: **PASSED**
+- Expo / `apps/mobile`: not scaffolded (by design until Phase 1)
 
 ## Human decisions pending
 
-- Review Software Factory bootstrap artifacts and approve starting **P0-03** (application/monorepo scaffold).
-- GitHub/`gh` CLI auth repair (deferred; not blocking local work).
+- None. Human authorized autonomous Phase 0 progress (commit/push + continue backlog without per-item confirmation).
+- Stop for escalate list / P1-08 device milestone only.
 
 ## Notes
 
-- Do not start Expo/app implementation until the human explicitly approves proceeding past factory review.
-- Physical Android device is available for Phase 1 acceptance (P1-08).
+- Prefer sequential Core work: P0-04 → P0-05 / P0-07; P0-06 can proceed after P0-03 in parallel only if explicitly requested.
+- Physical Android device remains available for Phase 1 acceptance (P1-08).

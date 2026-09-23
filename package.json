@@ -1,0 +1,18 @@
+{
+  "name": "unloop-yourself",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Unloop — privacy-first doomscroll interruption (monorepo)",
+  "license": "AGPL-3.0-only",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "npm run test -w @unloop/core",
+    "typecheck": "npm run typecheck -w @unloop/core",
+    "check-boundaries": "scripts/check-boundaries.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

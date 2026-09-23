@@ -23,7 +23,7 @@ Roadmap: [`docs/roadmap.md`](docs/roadmap.md).
 | [`scripts/check-boundaries.sh`](scripts/check-boundaries.sh) | Deterministic privacy / isolation checks |
 | [`docs/`](docs/) | Product and architecture documentation (English) |
 
-There is no multi-agent orchestration layer, no project skills swarm, and no application scaffold until a backlog item explicitly requires it.
+There is no multi-agent orchestration layer and no project skills swarm. Scaffold application packages only when a backlog item requires them (Core from P0-03; Expo app from Phase 1).
 
 ## Resuming a session
 
@@ -39,7 +39,7 @@ There is no multi-agent orchestration layer, no project skills swarm, and no app
 3. Run the item’s declared test command (when code exists) and `scripts/check-boundaries.sh`.
 4. On failure: diagnose and iterate while making concrete progress. Use a practical retry budget (default around three cycles) as a **safeguard**, not a hard stop. Escalate when attempts fail without new information or progress, or when the diagnosis points to architecture, environment, scope, or a human decision.
 5. Mark the item `done` (or `blocked`) in BACKLOG; refresh STATUS.
-6. Do not start application scaffolding (Expo/monorepo packages) until a backlog item says to.
+6. Scaffold only what the active backlog item requires (no premature Expo app).
 
 ## Architecture expectations
 
@@ -87,3 +87,4 @@ Do **not** escalate routine implementation details omitted by the spec—choose 
 - Never commit secrets. MVP needs none.
 - Ideas outside MVP: [`docs/ideas_parking_lot.md`](docs/ideas_parking_lot.md).
 - Parallel implementation agents: default **no**. Prefer one local session completing one backlog item.
+- **Autonomy (Phase 0–1 implementation):** After a backlog item’s gates pass, commit and push to `main` without waiting for confirmation. Do not ask for permission on routine next-item selection within Phase 0. Stop only for the Human escalation list or Phase 1 device milestone (P1-08).
