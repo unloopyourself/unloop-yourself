@@ -120,6 +120,7 @@ object InterruptOverlay {
 
         wm.addView(root, params)
         attachedView = root
+        PlaybackPauser.pause(appContext)
         Log.i(TAG, "interrupt overlay shown (no auto startActivity)")
       } catch (t: Throwable) {
         Log.e(TAG, "failed to show interrupt overlay", t)
@@ -144,6 +145,7 @@ object InterruptOverlay {
       Log.w(TAG, "overlay dismiss failed", t)
     } finally {
       attachedView = null
+      PlaybackPauser.release(context)
     }
   }
 
