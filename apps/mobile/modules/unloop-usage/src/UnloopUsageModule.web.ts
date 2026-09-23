@@ -21,7 +21,7 @@ const UnloopUsageModule = {
   dismissInterruptOverlay(): void {
     /* no-op */
   },
-  startNativeMonitoring(_packageName: string, _thresholdMs: number): void {
+  startNativeMonitoring(_packagesCsv: string, _thresholdMs: number): void {
     /* no-op */
   },
   stopNativeMonitoring(): void {

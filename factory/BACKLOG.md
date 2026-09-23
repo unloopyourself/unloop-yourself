@@ -137,3 +137,10 @@ Pick the first `ready` item whose dependencies are all `done`. Update this file 
 - **AC:** On a physical Android device: configure target short-video app → exceed threshold → interrupt → complete ShakeChallenge → unlock. Human signs off in STATUS.
 - **Tests:** Manual acceptance checklist (E2E framework deferred).
 - **Escalate if:** Always—this item is human milestone acceptance.
+
+### P1-09 — Android polish (thresholds, multi-feed, look & feel)
+- **Status:** done
+- **Deps:** P1-08
+- **AC:** Production threshold/cooldown; selectable short-video feeds (not YouTube-only); on-device settings persistence; cohesive light theme + app icon; interrupt overlay matches brand.
+- **Tests:** App typecheck; device smoke (Start watching + UI).
+- **Escalate if:** —

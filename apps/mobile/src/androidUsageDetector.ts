@@ -9,6 +9,7 @@ export type ThresholdListener = (event: UsageThresholdEvent) => void;
 /**
  * Android UsageStats detector backed by a native Foreground Service so polling
  * continues while another app (e.g. YouTube) is in the foreground.
+ * `appId` may be a comma-separated list of package names.
  */
 export class AndroidUsageDetector implements UsageDetectorPort {
   private subscription: { remove: () => void } | null = null;

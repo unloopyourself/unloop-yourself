@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import {
-  CORE_PACKAGE_NAME,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { LinearGradient } from "expo-linear-gradient";
+import { useFonts, Outfit_400Regular, Outfit_600SemiBold, Outfit_500Medium } from "@expo-google-fonts/outfit";
+import { Fraunces_700Bold } from "@expo-google-fonts/fraunces";
+import {
   SessionFsm,
   TypedEventEmitter,
   evaluatePolicy,
@@ -13,9 +22,14 @@ import { MemoryStoragePort } from "./src/memoryStorage";
 import { ShakeChallengeView } from "./src/ShakeChallengeView";
 import { LocalAuditTrail } from "./src/localAuditTrail";
 import UnloopUsage from "./modules/unloop-usage/src/UnloopUsageModule";
-
-const DEBUG_TARGET_PACKAGE = "com.google.android.youtube";
-const DEBUG_THRESHOLD_MS = 20_000;
+import { colors, typography } from "./src/theme";
+import {
+  COOLDOWN_MS,
+  SHORT_VIDEO_APPS,
+  THRESHOLD_MS,
+  packagesForLabels,
+} from "./src/targets";
+import { loadSettings, saveSettings } from "./src/settings";
 
 type DomainEvents = {
   CHALLENGE_COMPLETED: { atMs: number };
@@ -23,6 +37,13 @@ type DomainEvents = {
 };
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Fraunces_700Bold,
+  });
+
   const storage = useMemo(() => new MemoryStoragePort(), []);
   const audit = useMemo(() => new LocalAuditTrail(storage), [storage]);
   const bus = useMemo(() => new TypedEventEmitter<DomainEvents>(), []);
@@ -33,9 +54,14 @@ export default function App() {
   const [overlayPermission, setOverlayPermission] = useState<boolean | null>(
     null,
   );
+  const [enabledLabels, setEnabledLabels] = useState<string[]>([]);
   const [message, setMessage] = useState(
     "I’m here because you asked me to interrupt autopilot.",
   );
+
+  useEffect(() => {
+    void loadSettings().then((s) => setEnabledLabels(s.enabledLabels));
+  }, []);
 
   useEffect(() => {
     return bus.on("CHALLENGE_COMPLETED", (payload) => {
@@ -86,6 +112,17 @@ export default function App() {
     }
   }, [detector]);
 
+  const toggleLabel = (label: string) => {
+    setEnabledLabels((prev) => {
+      const next = prev.includes(label)
+        ? prev.filter((l) => l !== label)
+        : [...prev, label];
+      const safe = next.length === 0 ? [label] : next;
+      void saveSettings({ enabledLabels: safe });
+      return safe;
+    });
+  };
+
   const startMonitoring = async () => {
     if (Platform.OS !== "android") {
       setMessage("Usage detection is Android-first (Phase 2 for iOS).");
@@ -101,21 +138,26 @@ export default function App() {
     if (!detector.hasOverlayPermission()) {
       setOverlayPermission(false);
       setMessage(
-        "Allow “Display over other apps” so I can cover YouTube when the threshold hits, then Start again.",
+        "Allow “Display over other apps” so I can cover the feed when the threshold hits, then Start again.",
       );
       detector.openOverlaySettings();
       return;
     }
     setOverlayPermission(true);
+    const packages = packagesForLabels(enabledLabels);
+    if (packages.length === 0) {
+      setMessage("Pick at least one feed to watch.");
+      return;
+    }
     if (fsm.state === "PAUSED") {
       setSessionState(fsm.dispatch({ type: "START_MONITORING" }));
     }
     await detector.start({
-      appId: DEBUG_TARGET_PACKAGE,
-      thresholdUnits: DEBUG_THRESHOLD_MS,
+      appId: packages.join(","),
+      thresholdUnits: THRESHOLD_MS,
     });
     setMessage(
-      `Monitoring ${DEBUG_TARGET_PACKAGE}. Keep Unloop’s notification — I’ll cover the screen when the threshold hits.`,
+      `Watching ${enabledLabels.join(", ")}. After ~${THRESHOLD_MS / 1000}s in a feed I’ll interrupt — then ${COOLDOWN_MS / 1000}s of grace.`,
     );
   };
 
@@ -124,7 +166,7 @@ export default function App() {
     if (fsm.state !== "PAUSED") {
       setSessionState(fsm.dispatch({ type: "STOP" }));
     }
-    setMessage("Monitoring stopped.");
+    setMessage("Monitoring stopped. The feeds are yours again.");
   };
 
   const completeChallenge = () => {
@@ -132,111 +174,207 @@ export default function App() {
       UnloopUsage.dismissInterruptOverlay();
       setSessionState(fsm.dispatch({ type: "CHALLENGE_COMPLETED" }));
       bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
-      setMessage("Nice. Cooldown started — then monitoring resumes.");
+      setMessage(
+        `Nice. ${COOLDOWN_MS / 1000}s grace — then I’ll watch again if you ask me to.`,
+      );
       setTimeout(() => {
         if (fsm.state === "COOLDOWN") {
           setSessionState(fsm.dispatch({ type: "COOLDOWN_ELAPSED" }));
+          setMessage("Back on watch. You’ve got this.");
         }
-      }, 3_000);
+      }, COOLDOWN_MS);
     }
   };
 
   const inChallenge = sessionState === "CHALLENGE";
+  const monitoring = sessionState === "MONITORING" || sessionState === "COOLDOWN";
+
+  if (!fontsLoaded) {
+    return (
+      <View style={[styles.boot, { justifyContent: "center", alignItems: "center" }]}>
+        <Text style={{ color: colors.ink, fontSize: 28, fontWeight: "700" }}>Unloop</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, inChallenge && styles.shield]}>
-      <Text style={styles.brand}>Unloop</Text>
-      <Text style={styles.meta}>
-        {CORE_PACKAGE_NAME} · {sessionState}
-        {lastDelta != null ? ` · ΔU ${Math.round(lastDelta / 1000)}s` : ""}
-      </Text>
-      {!inChallenge && <Text style={styles.copy}>{message}</Text>}
-      {inChallenge && <ShakeChallengeView onComplete={completeChallenge} />}
-      {Platform.OS === "android" && !inChallenge && (
-        <Text style={styles.meta}>
-          Usage Access:{" "}
-          {permission == null ? "…" : permission ? "granted" : "needed"}
-          {" · "}
-          Overlay:{" "}
-          {overlayPermission == null
-            ? "…"
-            : overlayPermission
-              ? "granted"
-              : "needed"}
+    <LinearGradient
+      colors={
+        inChallenge
+          ? [colors.ink, colors.inkSoft]
+          : [colors.mist, colors.mistEnd]
+      }
+      style={styles.gradient}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={[styles.brand, inChallenge && styles.brandOnInk]}>
+          Unloop
         </Text>
-      )}
-      {!inChallenge && (
-        <>
-          <Pressable style={styles.button} onPress={() => void startMonitoring()}>
-            <Text style={styles.buttonLabel}>Start monitoring</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.button, styles.secondary]}
-            onPress={() => void stopMonitoring()}
-          >
-            <Text style={styles.buttonLabel}>Stop</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.button, styles.secondary]}
-            onPress={() => {
-              if (fsm.state === "MONITORING") {
-                setSessionState(fsm.dispatch({ type: "THRESHOLD_REACHED" }));
-                setMessage("Debug interrupt.");
-              }
-            }}
-          >
-            <Text style={styles.buttonLabel}>Debug: force interrupt</Text>
-          </Pressable>
-        </>
-      )}
-      <StatusBar style="auto" />
-    </View>
+        <Text style={[styles.tagline, inChallenge && styles.textOnInk]}>
+          Exit the tunnel. You’re the one who asked.
+        </Text>
+        <Text style={[styles.meta, inChallenge && styles.textOnInkMuted]}>
+          {sessionState}
+          {lastDelta != null ? ` · last bout ${Math.round(lastDelta / 1000)}s` : ""}
+        </Text>
+
+        {!inChallenge && <Text style={styles.copy}>{message}</Text>}
+        {inChallenge && <ShakeChallengeView onComplete={completeChallenge} />}
+
+        {!inChallenge && (
+          <>
+            <Text style={styles.section}>Feeds to interrupt</Text>
+            <View style={styles.chips}>
+              {SHORT_VIDEO_APPS.map((app) => {
+                const on = enabledLabels.includes(app.label);
+                return (
+                  <Pressable
+                    key={app.label}
+                    onPress={() => toggleLabel(app.label)}
+                    style={[styles.chip, on && styles.chipOn]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>
+                      {app.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {Platform.OS === "android" && (
+              <Text style={styles.meta}>
+                Usage Access:{" "}
+                {permission == null ? "…" : permission ? "ok" : "needed"}
+                {" · "}
+                Overlay:{" "}
+                {overlayPermission == null
+                  ? "…"
+                  : overlayPermission
+                    ? "ok"
+                    : "needed"}
+              </Text>
+            )}
+
+            <Pressable
+              style={[styles.button, styles.primary]}
+              onPress={() => void (monitoring ? stopMonitoring() : startMonitoring())}
+            >
+              <Text style={styles.buttonLabel}>
+                {monitoring ? "Stop watching" : "Start watching"}
+              </Text>
+            </Pressable>
+          </>
+        )}
+        <StatusBar style={inChallenge ? "light" : "dark"} />
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  boot: {
     flex: 1,
-    backgroundColor: "#f4f7f5",
+    backgroundColor: colors.mist,
+  },
+  gradient: {
+    flex: 1,
+  },
+  container: {
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  shield: {
-    backgroundColor: "#e8f0ec",
+    paddingHorizontal: 28,
+    paddingVertical: 48,
+    gap: 14,
   },
   brand: {
-    fontSize: 36,
-    fontWeight: "700",
-    color: "#1a3c34",
+    fontSize: typography.brandSize,
+    fontFamily: "Fraunces_700Bold",
+    color: colors.ink,
+    letterSpacing: -0.5,
+  },
+  brandOnInk: {
+    color: colors.emberSoft,
+  },
+  tagline: {
+    fontSize: 15,
+    fontFamily: "Outfit_500Medium",
+    color: colors.teal,
+    textAlign: "center",
+    marginTop: -4,
   },
   meta: {
-    fontSize: 14,
-    color: "#4a635c",
+    fontSize: typography.metaSize,
+    fontFamily: "Outfit_400Regular",
+    color: colors.textMuted,
     textAlign: "center",
+  },
+  textOnInk: {
+    color: colors.textOnInk,
+  },
+  textOnInkMuted: {
+    color: colors.emberSoft,
   },
   copy: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: typography.bodySize,
+    fontFamily: "Outfit_400Regular",
+    lineHeight: 24,
     textAlign: "center",
-    color: "#24352f",
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: 4,
+    maxWidth: 340,
+  },
+  section: {
+    marginTop: 8,
+    fontSize: 13,
+    fontFamily: "Outfit_600SemiBold",
+    color: colors.textMuted,
+    alignSelf: "flex-start",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "center",
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: colors.chipOff,
+  },
+  chipOn: {
+    backgroundColor: colors.chipOn,
+  },
+  chipLabel: {
+    fontFamily: "Outfit_600SemiBold",
+    color: colors.ink,
+    fontSize: 14,
+  },
+  chipLabelOn: {
+    color: colors.white,
   },
   button: {
-    backgroundColor: "#1a3c34",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    minWidth: 220,
+    marginTop: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 14,
+    minWidth: 240,
     alignItems: "center",
   },
-  secondary: {
-    backgroundColor: "#4a635c",
+  primary: {
+    backgroundColor: colors.ember,
   },
   buttonLabel: {
-    color: "#f4f7f5",
+    color: colors.white,
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: "Outfit_600SemiBold",
   },
 });

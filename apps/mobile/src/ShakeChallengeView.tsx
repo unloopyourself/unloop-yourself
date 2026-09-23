@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { advanceShakeProgress } from "@unloop/core";
 import { subscribeAccelerometer } from "./expoSensorPort";
+import { colors, typography } from "./theme";
 
 type Props = {
   onComplete: () => void;
@@ -41,9 +42,10 @@ export function ShakeChallengeView({ onComplete }: Props) {
 
   return (
     <View style={styles.wrap} accessibilityLabel="Shake challenge">
-      <Text style={styles.title}>Shake the phone</Text>
+      <Text style={styles.title}>Shake to come back</Text>
       <Text style={styles.subtitle}>
-        You asked me to interrupt. Give it a shake for a few seconds.
+        You asked me to interrupt. Move your body for a few seconds — scrolling
+        can’t do that for you.
       </Text>
       <View style={styles.barTrack}>
         <View style={[styles.barFill, { width: `${ratio * 100}%` }]} />
@@ -57,33 +59,36 @@ const styles = StyleSheet.create({
   wrap: {
     width: "100%",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
     paddingVertical: 16,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#1a3c34",
+    fontSize: typography.titleSize,
+    fontFamily: "Fraunces_700Bold",
+    color: colors.white,
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: typography.bodySize,
+    fontFamily: "Outfit_400Regular",
+    lineHeight: 24,
     textAlign: "center",
-    color: "#24352f",
+    color: colors.textOnInk,
+    opacity: 0.92,
   },
   barTrack: {
     width: "100%",
-    height: 12,
-    backgroundColor: "#d5e0db",
-    borderRadius: 6,
+    height: 14,
+    backgroundColor: colors.inkSoft,
+    borderRadius: 8,
     overflow: "hidden",
   },
   barFill: {
     height: "100%",
-    backgroundColor: "#1a3c34",
+    backgroundColor: colors.ember,
   },
   meta: {
-    fontSize: 14,
-    color: "#4a635c",
+    fontSize: typography.metaSize,
+    fontFamily: "Outfit_500Medium",
+    color: colors.emberSoft,
   },
 });

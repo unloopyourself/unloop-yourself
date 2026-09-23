@@ -34,7 +34,7 @@ public class UnloopUsageModule: Module {
       // no-op
     }
 
-    Function("startNativeMonitoring") { (_packageName: String, _thresholdMs: Double) in
+    Function("startNativeMonitoring") { (_packagesCsv: String, _thresholdMs: Double) in
       // no-op on iOS stub
     }
 

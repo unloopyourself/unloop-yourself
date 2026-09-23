@@ -83,24 +83,23 @@ object InterruptOverlay {
 
         val root = LinearLayout(appContext).apply {
           orientation = LinearLayout.VERTICAL
-          setBackgroundColor(Color.parseColor("#F21A3C34"))
+          setBackgroundColor(Color.parseColor("#F20A2540"))
           setPadding(dp(28), dp(48), dp(28), dp(48))
           gravity = Gravity.CENTER
-          // Consume touches so YouTube underneath (or PiP) cannot be used.
           isClickable = true
           isFocusable = true
         }
 
         val brand = TextView(appContext).apply {
           text = "Unloop"
-          setTextColor(Color.WHITE)
-          setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)
+          setTextColor(Color.parseColor("#FF8A5B"))
+          setTextSize(TypedValue.COMPLEX_UNIT_SP, 40f)
           gravity = Gravity.CENTER
         }
 
         val copy = TextView(appContext).apply {
-          text = "I’m interrupting you because you asked me to.\nOpen the challenge to continue."
-          setTextColor(Color.WHITE)
+          text = "I’m interrupting you because you asked me to.\nTake a breath — then open the challenge."
+          setTextColor(Color.parseColor("#F2F5F8"))
           setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
           gravity = Gravity.CENTER
           setPadding(0, dp(16), 0, dp(28))
@@ -108,6 +107,8 @@ object InterruptOverlay {
 
         val open = Button(appContext).apply {
           text = "Open challenge"
+          setBackgroundColor(Color.parseColor("#E85D04"))
+          setTextColor(Color.WHITE)
           setOnClickListener {
             launchApp(appContext)
             dismissLocked(appContext)
