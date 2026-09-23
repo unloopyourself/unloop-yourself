@@ -61,6 +61,14 @@ class UnloopUsageModule : Module() {
       InterruptOverlay.resolve(context)
     }
 
+    Function("setCooldownUntilMs") { epochMs: Double ->
+      UsageMonitorService.setCooldownUntilEpochMs(epochMs.toLong())
+    }
+
+    Function("clearCooldown") {
+      UsageMonitorService.setCooldownUntilEpochMs(0L)
+    }
+
     Function("startNativeMonitoring") { packagesCsv: String, thresholdMs: Double ->
       UsageMonitorService.start(context, packagesCsv, thresholdMs.toLong())
     }

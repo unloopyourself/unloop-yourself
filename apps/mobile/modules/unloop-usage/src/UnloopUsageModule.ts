@@ -14,6 +14,8 @@ type UnloopUsageNativeModule = {
   getUsageMsForPackage(packageName: string, startMs: number, endMs: number): number;
   bringAppToForeground(): void;
   dismissInterruptOverlay(): void;
+  setCooldownUntilMs(epochMs: number): void;
+  clearCooldown(): void;
   /** Comma-separated Android package names. */
   startNativeMonitoring(packagesCsv: string, thresholdMs: number): void;
   stopNativeMonitoring(): void;

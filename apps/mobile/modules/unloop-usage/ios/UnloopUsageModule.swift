@@ -34,6 +34,14 @@ public class UnloopUsageModule: Module {
       // no-op
     }
 
+    Function("setCooldownUntilMs") { (_epochMs: Double) in
+      // no-op
+    }
+
+    Function("clearCooldown") { () in
+      // no-op
+    }
+
     Function("startNativeMonitoring") { (_packagesCsv: String, _thresholdMs: Double) in
       // no-op on iOS stub
     }
