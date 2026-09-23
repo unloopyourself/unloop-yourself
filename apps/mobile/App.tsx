@@ -4,23 +4,44 @@ import { StatusBar } from "expo-status-bar";
 import {
   CORE_PACKAGE_NAME,
   SessionFsm,
+  TypedEventEmitter,
   evaluatePolicy,
   type UsageThresholdEvent,
 } from "@unloop/core";
 import { AndroidUsageDetector } from "./src/androidUsageDetector";
 import { MemoryStoragePort } from "./src/memoryStorage";
+import { ShakeChallengeView } from "./src/ShakeChallengeView";
+import { LocalAuditTrail } from "./src/localAuditTrail";
 
-/** Debug default: YouTube package; change in-app later. Threshold 1 minute of ΔU. */
 const DEBUG_TARGET_PACKAGE = "com.google.android.youtube";
 const DEBUG_THRESHOLD_MS = 60_000;
 
+type DomainEvents = {
+  CHALLENGE_COMPLETED: { atMs: number };
+  THRESHOLD_REACHED: { appId: string; deltaU: number };
+};
+
 export default function App() {
   const storage = useMemo(() => new MemoryStoragePort(), []);
+  const audit = useMemo(() => new LocalAuditTrail(storage), [storage]);
+  const bus = useMemo(() => new TypedEventEmitter<DomainEvents>(), []);
   const fsm = useMemo(() => new SessionFsm(), []);
   const [sessionState, setSessionState] = useState(fsm.state);
   const [lastDelta, setLastDelta] = useState<number | null>(null);
   const [permission, setPermission] = useState<boolean | null>(null);
-  const [message, setMessage] = useState("Scaffold ready.");
+  const [message, setMessage] = useState(
+    "I’m here because you asked me to interrupt autopilot.",
+  );
+
+  useEffect(() => {
+    return bus.on("CHALLENGE_COMPLETED", (payload) => {
+      void audit.append({
+        type: "CHALLENGE_COMPLETED",
+        atMs: payload.atMs,
+        detail: "shake",
+      });
+    });
+  }, [audit, bus]);
 
   const onThreshold = useCallback(
     (event: UsageThresholdEvent) => {
@@ -34,10 +55,19 @@ export default function App() {
       }
       if (fsm.state === "MONITORING") {
         setSessionState(fsm.dispatch({ type: "THRESHOLD_REACHED" }));
-        setMessage("Threshold reached — challenge UI comes in P1-05/P1-06.");
+        bus.emit("THRESHOLD_REACHED", {
+          appId: event.appId,
+          deltaU: event.deltaU,
+        });
+        void audit.append({
+          type: "THRESHOLD_REACHED",
+          atMs: event.observedAtMs,
+          detail: event.appId,
+        });
+        setMessage("Pause. Shake to continue — you asked for this.");
       }
     },
-    [fsm],
+    [audit, bus, fsm],
   );
 
   const detector = useMemo(
@@ -53,7 +83,7 @@ export default function App() {
 
   const startMonitoring = async () => {
     if (Platform.OS !== "android") {
-      setMessage("Usage detection is Android-first (see roadmap Phase 2 for iOS).");
+      setMessage("Usage detection is Android-first (Phase 2 for iOS).");
       return;
     }
     if (!detector.hasPermission()) {
@@ -70,7 +100,7 @@ export default function App() {
       appId: DEBUG_TARGET_PACKAGE,
       thresholdUnits: DEBUG_THRESHOLD_MS,
     });
-    setMessage(`Monitoring ${DEBUG_TARGET_PACKAGE} (ΔU ≥ ${DEBUG_THRESHOLD_MS} ms).`);
+    setMessage(`Monitoring ${DEBUG_TARGET_PACKAGE}.`);
   };
 
   const stopMonitoring = async () => {
@@ -81,25 +111,59 @@ export default function App() {
     setMessage("Monitoring stopped.");
   };
 
+  const completeChallenge = () => {
+    if (fsm.state === "CHALLENGE") {
+      setSessionState(fsm.dispatch({ type: "CHALLENGE_COMPLETED" }));
+      bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
+      setMessage("Nice. Cooldown started — then monitoring resumes.");
+      setTimeout(() => {
+        if (fsm.state === "COOLDOWN") {
+          setSessionState(fsm.dispatch({ type: "COOLDOWN_ELAPSED" }));
+        }
+      }, 3_000);
+    }
+  };
+
+  const inChallenge = sessionState === "CHALLENGE";
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, inChallenge && styles.shield]}>
       <Text style={styles.brand}>Unloop</Text>
       <Text style={styles.meta}>
         {CORE_PACKAGE_NAME} · {sessionState}
         {lastDelta != null ? ` · ΔU ${Math.round(lastDelta / 1000)}s` : ""}
       </Text>
-      <Text style={styles.copy}>{message}</Text>
-      {Platform.OS === "android" && (
+      {!inChallenge && <Text style={styles.copy}>{message}</Text>}
+      {inChallenge && <ShakeChallengeView onComplete={completeChallenge} />}
+      {Platform.OS === "android" && !inChallenge && (
         <Text style={styles.meta}>
           Usage Access: {permission == null ? "…" : permission ? "granted" : "needed"}
         </Text>
       )}
-      <Pressable style={styles.button} onPress={() => void startMonitoring()}>
-        <Text style={styles.buttonLabel}>Start monitoring</Text>
-      </Pressable>
-      <Pressable style={[styles.button, styles.secondary]} onPress={() => void stopMonitoring()}>
-        <Text style={styles.buttonLabel}>Stop</Text>
-      </Pressable>
+      {!inChallenge && (
+        <>
+          <Pressable style={styles.button} onPress={() => void startMonitoring()}>
+            <Text style={styles.buttonLabel}>Start monitoring</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.button, styles.secondary]}
+            onPress={() => void stopMonitoring()}
+          >
+            <Text style={styles.buttonLabel}>Stop</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.button, styles.secondary]}
+            onPress={() => {
+              if (fsm.state === "MONITORING") {
+                setSessionState(fsm.dispatch({ type: "THRESHOLD_REACHED" }));
+                setMessage("Debug interrupt.");
+              }
+            }}
+          >
+            <Text style={styles.buttonLabel}>Debug: force interrupt</Text>
+          </Pressable>
+        </>
+      )}
       <StatusBar style="auto" />
     </View>
   );
@@ -113,6 +177,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
     gap: 12,
+  },
+  shield: {
+    backgroundColor: "#e8f0ec",
   },
   brand: {
     fontSize: 36,
