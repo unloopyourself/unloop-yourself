@@ -132,7 +132,7 @@ Pick the first `ready` item whose dependencies are all `done`. Update this file 
 - **Escalate if:** —
 
 ### P1-08 — Phase 1 human acceptance (physical Android)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P1-04, P1-05, P1-06, P1-07
 - **AC:** On a physical Android device: configure target short-video app → exceed threshold → interrupt → complete ShakeChallenge → unlock. Human signs off in STATUS.
 - **Tests:** Manual acceptance checklist (E2E framework deferred).
