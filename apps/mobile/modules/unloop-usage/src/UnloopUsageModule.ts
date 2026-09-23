@@ -9,8 +9,11 @@ export type ThresholdNativeEvent = {
 type UnloopUsageNativeModule = {
   hasUsagePermission(): boolean;
   openUsageAccessSettings(): void;
+  hasOverlayPermission(): boolean;
+  openOverlaySettings(): void;
   getUsageMsForPackage(packageName: string, startMs: number, endMs: number): number;
   bringAppToForeground(): void;
+  dismissInterruptOverlay(): void;
   startNativeMonitoring(packageName: string, thresholdMs: number): void;
   stopNativeMonitoring(): void;
   addListener(

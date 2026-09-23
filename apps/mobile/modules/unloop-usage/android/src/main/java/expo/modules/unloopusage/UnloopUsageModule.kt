@@ -4,8 +4,11 @@ import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Process
 import android.provider.Settings
+import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -28,6 +31,21 @@ class UnloopUsageModule : Module() {
       context.startActivity(intent)
     }
 
+    Function("hasOverlayPermission") {
+      InterruptOverlay.canDrawOverlays(context)
+    }
+
+    Function("openOverlaySettings") {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val intent = Intent(
+          Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+          Uri.parse("package:${context.packageName}"),
+        )
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+      }
+    }
+
     Function("getUsageMsForPackage") { packageName: String, startMs: Double, endMs: Double ->
       if (!hasUsagePermission()) {
         return@Function -1.0
@@ -37,6 +55,10 @@ class UnloopUsageModule : Module() {
 
     Function("bringAppToForeground") {
       bringAppToForeground(context)
+    }
+
+    Function("dismissInterruptOverlay") {
+      InterruptOverlay.dismiss(context)
     }
 
     Function("startNativeMonitoring") { packageName: String, thresholdMs: Double ->
@@ -77,6 +99,8 @@ class UnloopUsageModule : Module() {
   }
 
   companion object {
+    private const val TAG = "UnloopUsageMonitor"
+
     fun queryUsageMs(context: Context, packageName: String, startMs: Long, endMs: Long): Long {
       val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
       val stats = usm.queryAndAggregateUsageStats(startMs, endMs)
@@ -84,14 +108,8 @@ class UnloopUsageModule : Module() {
     }
 
     fun bringAppToForeground(context: Context) {
-      val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
-      launch.addFlags(
-        Intent.FLAG_ACTIVITY_NEW_TASK or
-          Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-          Intent.FLAG_ACTIVITY_SINGLE_TOP or
-          Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED,
-      )
-      context.startActivity(launch)
+      Log.i(TAG, "bringAppToForeground → overlay + startActivity")
+      InterruptOverlay.show(context)
     }
   }
 

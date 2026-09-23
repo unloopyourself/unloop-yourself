@@ -6,10 +6,19 @@ const UnloopUsageModule = {
   openUsageAccessSettings(): void {
     /* no-op */
   },
+  hasOverlayPermission(): boolean {
+    return false;
+  },
+  openOverlaySettings(): void {
+    /* no-op */
+  },
   getUsageMsForPackage(_packageName: string, _startMs: number, _endMs: number): number {
     return -1;
   },
   bringAppToForeground(): void {
+    /* no-op */
+  },
+  dismissInterruptOverlay(): void {
     /* no-op */
   },
   startNativeMonitoring(_packageName: string, _thresholdMs: number): void {

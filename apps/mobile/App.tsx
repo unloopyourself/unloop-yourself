@@ -12,6 +12,7 @@ import { AndroidUsageDetector } from "./src/androidUsageDetector";
 import { MemoryStoragePort } from "./src/memoryStorage";
 import { ShakeChallengeView } from "./src/ShakeChallengeView";
 import { LocalAuditTrail } from "./src/localAuditTrail";
+import UnloopUsage from "./modules/unloop-usage/src/UnloopUsageModule";
 
 const DEBUG_TARGET_PACKAGE = "com.google.android.youtube";
 const DEBUG_THRESHOLD_MS = 20_000;
@@ -29,6 +30,9 @@ export default function App() {
   const [sessionState, setSessionState] = useState(fsm.state);
   const [lastDelta, setLastDelta] = useState<number | null>(null);
   const [permission, setPermission] = useState<boolean | null>(null);
+  const [overlayPermission, setOverlayPermission] = useState<boolean | null>(
+    null,
+  );
   const [message, setMessage] = useState(
     "I’m here because you asked me to interrupt autopilot.",
   );
@@ -78,6 +82,7 @@ export default function App() {
   useEffect(() => {
     if (Platform.OS === "android") {
       setPermission(detector.hasPermission());
+      setOverlayPermission(detector.hasOverlayPermission());
     }
   }, [detector]);
 
@@ -93,6 +98,15 @@ export default function App() {
       return;
     }
     setPermission(true);
+    if (!detector.hasOverlayPermission()) {
+      setOverlayPermission(false);
+      setMessage(
+        "Allow “Display over other apps” so I can cover YouTube when the threshold hits, then Start again.",
+      );
+      detector.openOverlaySettings();
+      return;
+    }
+    setOverlayPermission(true);
     if (fsm.state === "PAUSED") {
       setSessionState(fsm.dispatch({ type: "START_MONITORING" }));
     }
@@ -101,8 +115,9 @@ export default function App() {
       thresholdUnits: DEBUG_THRESHOLD_MS,
     });
     setMessage(
-      `Monitoring ${DEBUG_TARGET_PACKAGE}. Keep Unloop’s notification — I’ll bring you back when the threshold hits.`,
-    );  };
+      `Monitoring ${DEBUG_TARGET_PACKAGE}. Keep Unloop’s notification — I’ll cover the screen when the threshold hits.`,
+    );
+  };
 
   const stopMonitoring = async () => {
     await detector.stop();
@@ -114,6 +129,7 @@ export default function App() {
 
   const completeChallenge = () => {
     if (fsm.state === "CHALLENGE") {
+      UnloopUsage.dismissInterruptOverlay();
       setSessionState(fsm.dispatch({ type: "CHALLENGE_COMPLETED" }));
       bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
       setMessage("Nice. Cooldown started — then monitoring resumes.");
@@ -138,7 +154,15 @@ export default function App() {
       {inChallenge && <ShakeChallengeView onComplete={completeChallenge} />}
       {Platform.OS === "android" && !inChallenge && (
         <Text style={styles.meta}>
-          Usage Access: {permission == null ? "…" : permission ? "granted" : "needed"}
+          Usage Access:{" "}
+          {permission == null ? "…" : permission ? "granted" : "needed"}
+          {" · "}
+          Overlay:{" "}
+          {overlayPermission == null
+            ? "…"
+            : overlayPermission
+              ? "granted"
+              : "needed"}
         </Text>
       )}
       {!inChallenge && (

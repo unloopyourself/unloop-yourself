@@ -35,6 +35,7 @@ export class AndroidUsageDetector implements UsageDetectorPort {
     this.subscription = null;
     if (Platform.OS === "android") {
       UnloopUsage.stopNativeMonitoring();
+      UnloopUsage.dismissInterruptOverlay();
     }
   }
 
@@ -42,7 +43,15 @@ export class AndroidUsageDetector implements UsageDetectorPort {
     return UnloopUsage.hasUsagePermission();
   }
 
+  hasOverlayPermission(): boolean {
+    return Platform.OS === "android" && UnloopUsage.hasOverlayPermission();
+  }
+
   openSettings(): void {
     UnloopUsage.openUsageAccessSettings();
+  }
+
+  openOverlaySettings(): void {
+    UnloopUsage.openOverlaySettings();
   }
 }
