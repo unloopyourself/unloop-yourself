@@ -71,8 +71,8 @@ export default function App() {
   );
 
   const detector = useMemo(
-    () => new AndroidUsageDetector(storage, onThreshold),
-    [storage, onThreshold],
+    () => new AndroidUsageDetector(onThreshold),
+    [onThreshold],
   );
 
   useEffect(() => {
@@ -100,8 +100,9 @@ export default function App() {
       appId: DEBUG_TARGET_PACKAGE,
       thresholdUnits: DEBUG_THRESHOLD_MS,
     });
-    setMessage(`Monitoring ${DEBUG_TARGET_PACKAGE}.`);
-  };
+    setMessage(
+      `Monitoring ${DEBUG_TARGET_PACKAGE}. Keep Unloop’s notification — I’ll bring you back when the threshold hits.`,
+    );  };
 
   const stopMonitoring = async () => {
     await detector.stop();
