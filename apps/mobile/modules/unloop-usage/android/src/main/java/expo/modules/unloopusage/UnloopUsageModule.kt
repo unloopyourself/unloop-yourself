@@ -108,7 +108,7 @@ class UnloopUsageModule : Module() {
     }
 
     fun bringAppToForeground(context: Context) {
-      Log.i(TAG, "bringAppToForeground → overlay + startActivity")
+      Log.i(TAG, "bringAppToForeground → overlay only (avoid PiP)")
       InterruptOverlay.show(context)
     }
   }
