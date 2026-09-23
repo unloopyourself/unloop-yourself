@@ -58,7 +58,7 @@ class UnloopUsageModule : Module() {
     }
 
     Function("dismissInterruptOverlay") {
-      InterruptOverlay.dismiss(context)
+      InterruptOverlay.resolve(context)
     }
 
     Function("startNativeMonitoring") { packagesCsv: String, thresholdMs: Double ->
