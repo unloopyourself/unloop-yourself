@@ -46,6 +46,10 @@ public class UnloopUsageModule: Module {
       // no-op on iOS stub
     }
 
+    Function("updateMonitoredPackages") { (_packagesCsv: String) in
+      // no-op
+    }
+
     Function("stopNativeMonitoring") { () in
       // no-op
     }

@@ -126,10 +126,7 @@ class UsageMonitorService : Service() {
         val raw = intent.getStringExtra(EXTRA_PACKAGES)
           ?: intent.getStringExtra(EXTRA_PACKAGE)
           ?: ""
-        packageTargets = raw.split(',')
-          .map { it.trim() }
-          .filter { it.isNotEmpty() }
-          .toSet()
+        packageTargets = parsePackages(raw)
         thresholdMs = intent.getLongExtra(EXTRA_THRESHOLD_MS, 60_000L)
         accumulatedMs = 0L
         lastTickElapsedRealtime = 0L
@@ -146,9 +143,34 @@ class UsageMonitorService : Service() {
         lastTickElapsedRealtime = SystemClock.elapsedRealtime()
         handler.post(tick)
       }
+      ACTION_UPDATE_PACKAGES -> {
+        val raw = intent.getStringExtra(EXTRA_PACKAGES) ?: ""
+        val next = parsePackages(raw)
+        if (next.isEmpty()) {
+          Log.w(TAG, "UPDATE packages ignored — empty list")
+          return START_STICKY
+        }
+        packageTargets = next
+        if (matchingPlaybackPackage != null && matchingPlaybackPackage !in packageTargets) {
+          matchingPlaybackPackage = null
+        }
+        // Drop in-progress bout if the current feed was removed from the watch list.
+        if (matchedTargetPackage() == null) {
+          accumulatedMs = 0L
+          wasMatching = false
+        }
+        Log.i(TAG, "UPDATE packages $packageTargets (cooldown=${inCooldown()})")
+        updateNotification(friendlyStatus(matchedTargetPackage() != null, matchedTargetPackage()))
+      }
     }
     return START_STICKY
   }
+
+  private fun parsePackages(raw: String): Set<String> =
+    raw.split(',')
+      .map { it.trim() }
+      .filter { it.isNotEmpty() }
+      .toSet()
 
   override fun onDestroy() {
     handler.removeCallbacks(tick)
@@ -300,6 +322,7 @@ class UsageMonitorService : Service() {
     private const val TAG = "UnloopUsageMonitor"
     const val ACTION_START = "dev.unloopyourself.usage.START"
     const val ACTION_STOP = "dev.unloopyourself.usage.STOP"
+    const val ACTION_UPDATE_PACKAGES = "dev.unloopyourself.usage.UPDATE_PACKAGES"
     const val EXTRA_PACKAGE = "package"
     const val EXTRA_PACKAGES = "packages"
     const val EXTRA_THRESHOLD_MS = "thresholdMs"
@@ -333,6 +356,15 @@ class UsageMonitorService : Service() {
       } else {
         context.startService(intent)
       }
+    }
+
+    /** Swap watch list without clearing cooldown or the fired latch. */
+    fun updatePackages(context: Context, packagesCsv: String) {
+      val intent = Intent(context, UsageMonitorService::class.java).apply {
+        action = ACTION_UPDATE_PACKAGES
+        putExtra(EXTRA_PACKAGES, packagesCsv)
+      }
+      context.startService(intent)
     }
 
     fun stop(context: Context) {

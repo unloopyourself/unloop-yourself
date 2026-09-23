@@ -30,6 +30,9 @@ const UnloopUsageModule = {
   startNativeMonitoring(_packagesCsv: string, _thresholdMs: number): void {
     /* no-op */
   },
+  updateMonitoredPackages(_packagesCsv: string): void {
+    /* no-op */
+  },
   stopNativeMonitoring(): void {
     /* no-op */
   },
