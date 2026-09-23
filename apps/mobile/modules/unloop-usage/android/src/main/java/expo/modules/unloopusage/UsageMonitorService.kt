@@ -70,6 +70,17 @@ class UsageMonitorService : Service() {
           thresholdCallback?.invoke(appId, accumulatedMs)
           UnloopUsageModule.bringAppToForeground(this@UsageMonitorService)
         }
+
+        // User opened the challenge then pressed Home / returned to a feed:
+        // re-cover immediately until the shake is completed.
+        if (
+          InterruptOverlay.challengeOutstanding &&
+          matching &&
+          !InterruptOverlay.isShowing()
+        ) {
+          Log.i(TAG, "challenge still outstanding — re-showing overlay over feed")
+          InterruptOverlay.show(this@UsageMonitorService)
+        }
       } catch (t: Throwable) {
         Log.e(TAG, "tick failed", t)
       } finally {
@@ -209,7 +220,7 @@ class UsageMonitorService : Service() {
 
   private fun stopSelfSafe() {
     handler.removeCallbacks(tick)
-    InterruptOverlay.dismiss(this)
+    InterruptOverlay.resolve(this)
     stopForeground(STOP_FOREGROUND_REMOVE)
     stopSelf()
   }

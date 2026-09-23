@@ -17,17 +17,20 @@ import android.widget.TextView
 /**
  * Full-screen TYPE_APPLICATION_OVERLAY interrupt.
  *
- * Do not auto-start MainActivity here: on Samsung that often demotes the
- * target app (YouTube) into Picture-in-Picture so the video keeps looping
- * in a bubble while Unloop is "resumed" underneath — the interrupt looks
- * like it failed. Cover the screen with the overlay; open the app only on
- * an explicit user tap.
+ * Opening the challenge only hides the shield temporarily. Until the challenge
+ * is resolved, [challengeOutstanding] stays true so the monitor can re-cover
+ * the feed if the user presses Home and returns to YouTube mid-challenge.
  */
 object InterruptOverlay {
   private const val TAG = "UnloopUsageMonitor"
 
   @Volatile
   private var attachedView: android.view.View? = null
+
+  /** True from first interrupt until shake completed / monitoring stopped. */
+  @Volatile
+  var challengeOutstanding: Boolean = false
+    private set
 
   fun canDrawOverlays(context: Context): Boolean {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -45,12 +48,14 @@ object InterruptOverlay {
       return
     }
 
+    challengeOutstanding = true
     val appContext = context.applicationContext
     val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     mainHandler.post {
       try {
         if (attachedView != null) {
           Log.i(TAG, "interrupt overlay already showing")
+          PlaybackPauser.pause(appContext)
           return@post
         }
         val wm = appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -98,7 +103,7 @@ object InterruptOverlay {
         }
 
         val copy = TextView(appContext).apply {
-          text = "I’m interrupting you because you asked me to.\nTake a breath — then open the challenge."
+          text = "I’m interrupting you because you asked me to.\nFinish the shake challenge to continue."
           setTextColor(Color.parseColor("#F2F5F8"))
           setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
           gravity = Gravity.CENTER
@@ -110,8 +115,9 @@ object InterruptOverlay {
           setBackgroundColor(Color.parseColor("#E85D04"))
           setTextColor(Color.WHITE)
           setOnClickListener {
+            // Hide shield only while Unloop is in front — outstanding stays true.
             launchApp(appContext)
-            dismissLocked(appContext)
+            dismissLocked(appContext, clearOutstanding = false)
           }
         }
 
@@ -122,26 +128,40 @@ object InterruptOverlay {
         wm.addView(root, params)
         attachedView = root
         PlaybackPauser.pause(appContext)
-        Log.i(TAG, "interrupt overlay shown (no auto startActivity)")
+        Log.i(TAG, "interrupt overlay shown (outstanding=$challengeOutstanding)")
       } catch (t: Throwable) {
         Log.e(TAG, "failed to show interrupt overlay", t)
       }
     }
   }
 
-  fun dismiss(context: Context) {
+  /** Call when the challenge is completed or monitoring stops. */
+  fun resolve(context: Context) {
+    challengeOutstanding = false
     val appContext = context.applicationContext
     android.os.Handler(android.os.Looper.getMainLooper()).post {
-      dismissLocked(appContext)
+      dismissLocked(appContext, clearOutstanding = false)
     }
   }
 
-  private fun dismissLocked(context: Context) {
-    val view = attachedView ?: return
+  fun dismiss(context: Context) {
+    resolve(context)
+  }
+
+  private fun dismissLocked(context: Context, clearOutstanding: Boolean) {
+    if (clearOutstanding) {
+      challengeOutstanding = false
+    }
+    val view = attachedView ?: run {
+      if (!challengeOutstanding) {
+        PlaybackPauser.release(context)
+      }
+      return
+    }
     try {
       val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
       wm.removeView(view)
-      Log.i(TAG, "interrupt overlay dismissed")
+      Log.i(TAG, "interrupt overlay dismissed (outstanding=$challengeOutstanding)")
     } catch (t: Throwable) {
       Log.w(TAG, "overlay dismiss failed", t)
     } finally {
