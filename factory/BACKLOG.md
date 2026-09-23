@@ -111,21 +111,21 @@ Pick the first `ready` item whose dependencies are all `done`. Update this file 
 - **Escalate if:** OEM/background limits make MVP infeasible.
 
 ### P1-05 — ShakeChallenge + SensorPort adapter
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-09, P1-02
 - **AC:** ShakeChallenge declares accelerometer capability; completes in ~5–10s; unit tests for challenge contract; sensor adapter on Android.
 - **Tests:** Core tests + manual shake on device when available.
 - **Escalate if:** —
 
 ### P1-06 — Shield / interrupt UI (non-punitive copy)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P1-04, P1-05
 - **AC:** On interrupt, show shield/challenge UI; tone matches manifesto (“you asked for this”); unlock on success.
 - **Tests:** Manual on device/emulator.
 - **Escalate if:** Copy/tone trade-offs need product call.
 
 ### P1-07 — Local audit trail subscriber
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-06, P1-06
 - **AC:** Domain events append to on-device log only; no network.
 - **Tests:** Boundary script; manual confirm no egress.

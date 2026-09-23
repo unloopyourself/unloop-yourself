@@ -40,6 +40,13 @@ export {
 export type { ChallengeSelectionInput, PolicyDecision, PolicyInput } from "./policy.js";
 export { evaluatePolicy, selectChallenge } from "./policy.js";
 
+export {
+  SHAKE_CHALLENGE_ID,
+  advanceShakeProgress,
+  shakeChallenge,
+} from "./shakeChallenge.js";
+export type { ShakeProgress, ShakeProgressInput } from "./shakeChallenge.js";
+
 /** Unloop core package entry — domain logic only (no React Native / Expo). */
 
 export const CORE_PACKAGE_NAME = "@unloop/core" as const;

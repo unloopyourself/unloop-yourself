@@ -4,21 +4,25 @@ Last updated: 2026-09-23
 
 ## Active item
 
-None after P1-04 commit. Next: **P1-05** ShakeChallenge + SensorPort adapter.
+**P1-08 — Phase 1 human acceptance (physical Android)** — waiting on human.
+
+Autonomous implementation paused here by design (device milestone).
 
 ## Last gate result
 
-- Core tests: **PASSED** (21)
+- `npm test`: **PASSED** (24)
 - typecheck core + mobile: **PASSED**
 - boundaries: **PASSED**
-- P1-04: Expo Module `UnloopUsage` + `AndroidUsageDetector` wired to FSM in App debug UI
-- Native rebuild (`npx expo run:android`) required on device before live UsageStats works; JS poll is debug-only while process alive (FGS later)
+- P1-05 ShakeChallenge + sensor stream: **done**
+- P1-06 shield / interrupt UI (non-punitive copy): **done**
+- P1-07 local audit trail subscriber: **done**
 
 ## Human decisions pending
 
-- None for continuing P1-05/06/07
-- **P1-08** physical device acceptance remains human-gated
+- **P1-08:** On a physical Android device: `npx expo run:android` (dev client required for UsageStats module) → grant Usage Access → Start monitoring → exceed threshold (or Debug force interrupt) → complete ShakeChallenge → unlock/cooldown. Sign off here when accepted.
+- Optional later: Foreground Service for background survival; AsyncStorage instead of memory KV.
 
 ## Notes
 
-- Never `git add -f` workspace trees (previously pulled ignored node_modules).
+- Autopilot covered Phase 0 through P1-07 with commit/push.
+- Expo tree still reports moderate advisories; not force-upgrading mid-MVP.
