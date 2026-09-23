@@ -5,24 +5,29 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
+import android.util.Log
 import androidx.core.app.NotificationCompat
 
 /**
- * Keeps UsageStats polling alive while Unloop is not in the foreground.
- * On threshold, brings the app to the front (MVP interrupt — not a system overlay yet).
+ * Polls UsageEvents (not delayed aggregate totals) and accumulates wall-clock time
+ * while the target package is in the foreground.
  */
 class UsageMonitorService : Service() {
   private val handler = Handler(Looper.getMainLooper())
   private var packageNameTarget: String = ""
   private var thresholdMs: Long = 60_000L
-  private var baselineMs: Long = -1L
-  private var dayStartMs: Long = 0L
+  private var accumulatedMs: Long = 0L
+  private var lastTickElapsedRealtime: Long = 0L
+  private var lastKnownFgPackage: String? = null
   private var fired = false
 
   private val tick = object : Runnable {
@@ -30,15 +35,22 @@ class UsageMonitorService : Service() {
       if (packageNameTarget.isEmpty()) {
         return
       }
-      val endMs = System.currentTimeMillis()
-      val usage = UnloopUsageModule.queryUsageMs(this@UsageMonitorService, packageNameTarget, dayStartMs, endMs)
-      if (baselineMs < 0L) {
-        baselineMs = usage
+      refreshForegroundState()
+      val targetInForeground = lastKnownFgPackage == packageNameTarget
+      val nowElapsed = SystemClock.elapsedRealtime()
+      if (lastTickElapsedRealtime > 0L && targetInForeground && !fired) {
+        accumulatedMs += (nowElapsed - lastTickElapsedRealtime)
       }
-      val delta = usage - baselineMs
-      if (!fired && delta >= thresholdMs) {
+      lastTickElapsedRealtime = nowElapsed
+
+      Log.d(
+        TAG,
+        "tick target=$packageNameTarget fgPkg=$lastKnownFgPackage matching=$targetInForeground acc=${accumulatedMs}ms thr=${thresholdMs}ms",
+      )
+
+      if (!fired && accumulatedMs >= thresholdMs) {
         fired = true
-        thresholdCallback?.invoke(packageNameTarget, delta)
+        thresholdCallback?.invoke(packageNameTarget, accumulatedMs)
         UnloopUsageModule.bringAppToForeground(this@UsageMonitorService)
       }
       handler.postDelayed(this, POLL_MS)
@@ -56,16 +68,14 @@ class UsageMonitorService : Service() {
       ACTION_START -> {
         packageNameTarget = intent.getStringExtra(EXTRA_PACKAGE) ?: ""
         thresholdMs = intent.getLongExtra(EXTRA_THRESHOLD_MS, 60_000L)
-        val now = java.util.Calendar.getInstance()
-        now.set(java.util.Calendar.HOUR_OF_DAY, 0)
-        now.set(java.util.Calendar.MINUTE, 0)
-        now.set(java.util.Calendar.SECOND, 0)
-        now.set(java.util.Calendar.MILLISECOND, 0)
-        dayStartMs = now.timeInMillis
-        baselineMs = -1L
+        accumulatedMs = 0L
+        lastTickElapsedRealtime = 0L
+        lastKnownFgPackage = null
         fired = false
         startForeground(NOTIFICATION_ID, buildNotification())
         handler.removeCallbacks(tick)
+        refreshForegroundState()
+        lastTickElapsedRealtime = SystemClock.elapsedRealtime()
         handler.post(tick)
       }
     }
@@ -75,6 +85,36 @@ class UsageMonitorService : Service() {
   override fun onDestroy() {
     handler.removeCallbacks(tick)
     super.onDestroy()
+  }
+
+  private fun refreshForegroundState() {
+    val usm = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
+    val end = System.currentTimeMillis()
+    val begin = end - LOOKBACK_MS
+    val events = usm.queryEvents(begin, end)
+    val event = UsageEvents.Event()
+    var sawEvent = false
+    while (events.hasNextEvent()) {
+      events.getNextEvent(event)
+      sawEvent = true
+      when (event.eventType) {
+        UsageEvents.Event.ACTIVITY_RESUMED,
+        UsageEvents.Event.MOVE_TO_FOREGROUND,
+        -> {
+          lastKnownFgPackage = event.packageName
+        }
+        UsageEvents.Event.ACTIVITY_PAUSED,
+        UsageEvents.Event.MOVE_TO_BACKGROUND,
+        -> {
+          if (event.packageName == lastKnownFgPackage) {
+            lastKnownFgPackage = null
+          }
+        }
+      }
+    }
+    if (!sawEvent) {
+      Log.d(TAG, "no usage events in lookback; keeping fg=$lastKnownFgPackage")
+    }
   }
 
   private fun stopSelfSafe() {
@@ -115,13 +155,15 @@ class UsageMonitorService : Service() {
   }
 
   companion object {
+    private const val TAG = "UnloopUsageMonitor"
     const val ACTION_START = "dev.unloopyourself.usage.START"
     const val ACTION_STOP = "dev.unloopyourself.usage.STOP"
     const val EXTRA_PACKAGE = "package"
     const val EXTRA_THRESHOLD_MS = "thresholdMs"
     private const val CHANNEL_ID = "unloop_monitoring"
     private const val NOTIFICATION_ID = 42001
-    private const val POLL_MS = 5_000L
+    private const val POLL_MS = 2_000L
+    private const val LOOKBACK_MS = 30_000L
 
     @Volatile
     var thresholdCallback: ((packageName: String, deltaU: Long) -> Unit)? = null
