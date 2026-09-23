@@ -154,6 +154,7 @@ export default function App() {
 
   const stopMonitoring = async () => {
     await detector.stop();
+    UnloopUsage.clearCooldown();
     if (fsm.state !== "PAUSED") {
       setSessionState(fsm.dispatch({ type: "STOP" }));
     }
@@ -163,6 +164,7 @@ export default function App() {
   const completeChallenge = () => {
     if (fsm.state === "CHALLENGE") {
       UnloopUsage.dismissInterruptOverlay();
+      UnloopUsage.setCooldownUntilMs(Date.now() + COOLDOWN_MS);
       setSessionState(fsm.dispatch({ type: "CHALLENGE_COMPLETED" }));
       bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
       setMessage(
@@ -170,6 +172,7 @@ export default function App() {
       );
       setTimeout(() => {
         if (fsm.state === "COOLDOWN") {
+          UnloopUsage.clearCooldown();
           setSessionState(fsm.dispatch({ type: "COOLDOWN_ELAPSED" }));
           setMessage("Back on watch. You’ve got this.");
         }

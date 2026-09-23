@@ -122,6 +122,12 @@ object InterruptOverlay {
           setBackgroundColor(Color.parseColor("#E85D04"))
           setTextColor(Color.WHITE)
           setOnClickListener {
+            if (UsageMonitorService.inCooldown()) {
+              Log.i(TAG, "open tapped during cooldown — dismissing shield only")
+              InterruptOverlay.resolve(appContext)
+              launchApp(appContext)
+              return@setOnClickListener
+            }
             // Hide shield only while Unloop is in front — outstanding stays true.
             suppressReshowUntilElapsed = android.os.SystemClock.elapsedRealtime() + 4_000L
             launchApp(appContext)

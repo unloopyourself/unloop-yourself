@@ -21,6 +21,12 @@ const UnloopUsageModule = {
   dismissInterruptOverlay(): void {
     /* no-op */
   },
+  setCooldownUntilMs(_epochMs: number): void {
+    /* no-op */
+  },
+  clearCooldown(): void {
+    /* no-op */
+  },
   startNativeMonitoring(_packagesCsv: string, _thresholdMs: number): void {
     /* no-op */
   },

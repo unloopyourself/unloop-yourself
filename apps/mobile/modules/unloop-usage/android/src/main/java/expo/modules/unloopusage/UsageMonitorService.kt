@@ -34,6 +34,7 @@ class UsageMonitorService : Service() {
   private var matchingPlaybackPackage: String? = null
   private var fired = false
   private var wasMatching = false
+  private var wasInCooldown = false
 
   private val tick = object : Runnable {
     override fun run() {
@@ -45,6 +46,26 @@ class UsageMonitorService : Service() {
         val matchedPackage = matchedTargetPackage()
         val matching = matchedPackage != null
         val nowElapsed = SystemClock.elapsedRealtime()
+        val cooling = inCooldown()
+
+        if (wasInCooldown && !cooling) {
+          Log.i(TAG, "cooldown elapsed — re-arming accumulator")
+          fired = false
+          accumulatedMs = 0L
+        }
+        if (cooling && !wasInCooldown) {
+          Log.i(TAG, "cooldown started — clearing shield + accumulator")
+          InterruptOverlay.resolve(this@UsageMonitorService)
+          accumulatedMs = 0L
+          fired = true
+        }
+        wasInCooldown = cooling
+
+        if (cooling) {
+          updateNotification("Cooldown — you’re free for a bit")
+          lastTickElapsedRealtime = nowElapsed
+          return
+        }
 
         if (fired && matching && !wasMatching) {
           Log.i(TAG, "target returned to use — resetting fired latch")
@@ -116,6 +137,8 @@ class UsageMonitorService : Service() {
         matchingPlaybackPackage = null
         fired = false
         wasMatching = false
+        wasInCooldown = false
+        cooldownUntilEpochMs = 0L
         Log.i(TAG, "START monitoring $packageTargets thr=${thresholdMs}ms")
         startForeground(NOTIFICATION_ID, buildNotification("Watching for autopilot…"))
         handler.removeCallbacks(tick)
@@ -287,6 +310,17 @@ class UsageMonitorService : Service() {
 
     @Volatile
     var thresholdCallback: ((packageName: String, deltaU: Long) -> Unit)? = null
+
+    /** Wall-clock ms; monitor ignores thresholds while now < this. */
+    @Volatile
+    var cooldownUntilEpochMs: Long = 0L
+
+    fun inCooldown(): Boolean = System.currentTimeMillis() < cooldownUntilEpochMs
+
+    fun setCooldownUntilEpochMs(epochMs: Long) {
+      cooldownUntilEpochMs = epochMs
+      Log.i(TAG, "setCooldownUntilEpochMs=$epochMs (inCooldown=${inCooldown()})")
+    }
 
     fun start(context: Context, packagesCsv: String, thresholdMs: Long) {
       val intent = Intent(context, UsageMonitorService::class.java).apply {
