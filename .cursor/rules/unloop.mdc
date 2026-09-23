@@ -12,5 +12,5 @@ Concise always-on constraints for agent work. Project workflow, backlog, and arc
 - Do not use Cursor Cloud Agents or other paid/metered cloud agent paths. Prefer local execution.
 - Do not add analytics, crash-reporting, or behavioral telemetry SDKs. Do not send usage/behavior data off-device.
 - Do not commit secrets or create paid/external accounts/deployments unless the human explicitly approved.
-- Do not scaffold the application (Expo/app packages) unless the active `factory/BACKLOG.md` item requires it.
+- Do not scaffold Expo / `apps/mobile` unless the active `factory/BACKLOG.md` item requires it.
 - Prefer deterministic scripts and tests over extra agent/persona passes for the same check.

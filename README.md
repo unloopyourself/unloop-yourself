@@ -8,7 +8,15 @@ Unloop is an open-source, non-profit, privacy-first mobile app. It gives you a s
 
 ## Status
 
-Software Factory bootstrap is in place. **Application code is not scaffolded yet.** See [`AGENTS.md`](AGENTS.md) and [`factory/STATUS.md`](factory/STATUS.md).
+Phase 0 scaffolding started: npm workspaces + `@unloop/core` (TypeScript + Vitest). **No Expo app yet.** See [`AGENTS.md`](AGENTS.md) and [`factory/STATUS.md`](factory/STATUS.md).
+
+## Develop
+
+```bash
+npm install
+npm test
+npm run check-boundaries
+```
 
 ## Documentation
 

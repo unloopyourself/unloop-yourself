@@ -23,7 +23,7 @@ Pick the first `ready` item whose dependencies are all `done`. Update this file 
 - **Escalate if:** —
 
 ### P0-03 — Scaffold monorepo (npm workspaces) with empty Core package
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-02
 - **AC:** Root npm workspace; `packages/core` with TypeScript + Vitest wired; `npm test` runs Core tests (can be a smoke test). No Expo app yet unless required to host the workspace—prefer Core-only until P0 ports exist.
 - **Tests:** `npm test` in repo root (or package) passes; `scripts/check-boundaries.sh` passes.
