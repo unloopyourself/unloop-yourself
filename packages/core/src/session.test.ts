@@ -33,4 +33,11 @@ describe("Session FSM", () => {
     expect(transition("CHALLENGE", { type: "STOP" })).toBe("PAUSED");
     expect(transition("COOLDOWN", { type: "STOP" })).toBe("PAUSED");
   });
+
+  it("hydrates state for process-death recovery", () => {
+    const fsm = new SessionFsm();
+    expect(fsm.hydrate("CHALLENGE")).toBe("CHALLENGE");
+    expect(fsm.state).toBe("CHALLENGE");
+    expect(fsm.dispatch({ type: "CHALLENGE_COMPLETED" })).toBe("COOLDOWN");
+  });
 });

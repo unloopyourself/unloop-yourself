@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AppState,
   Platform,
   Pressable,
   StyleSheet,
@@ -13,13 +14,17 @@ import {
   SessionFsm,
   TypedEventEmitter,
   evaluatePolicy,
+  type SessionState,
   type UsageThresholdEvent,
 } from "@unloop/core";
 import { AndroidUsageDetector } from "./src/androidUsageDetector";
 import { MemoryStoragePort } from "./src/memoryStorage";
 import { ShakeChallengeView } from "./src/ShakeChallengeView";
 import { LocalAuditTrail } from "./src/localAuditTrail";
-import UnloopUsage from "./modules/unloop-usage/src/UnloopUsageModule";
+import UnloopUsage, {
+  addOpenChallengeListener,
+  type MonitorSnapshot,
+} from "./modules/unloop-usage/src/UnloopUsageModule";
 import { colors, typography } from "./src/theme";
 import {
   COOLDOWN_MS,
@@ -34,11 +39,25 @@ type DomainEvents = {
   THRESHOLD_REACHED: { appId: string; deltaU: number };
 };
 
+function targetStateFromSnapshot(snap: MonitorSnapshot): SessionState | null {
+  if (!snap.monitoring) {
+    return null;
+  }
+  if (snap.challengeOutstanding && !snap.inCooldown) {
+    return "CHALLENGE";
+  }
+  if (snap.inCooldown) {
+    return "COOLDOWN";
+  }
+  return "MONITORING";
+}
+
 export default function App() {
   const storage = useMemo(() => new MemoryStoragePort(), []);
   const audit = useMemo(() => new LocalAuditTrail(storage), [storage]);
   const bus = useMemo(() => new TypedEventEmitter<DomainEvents>(), []);
   const fsm = useMemo(() => new SessionFsm(), []);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionState, setSessionState] = useState(fsm.state);
   const [lastDelta, setLastDelta] = useState<number | null>(null);
   const [permission, setPermission] = useState<boolean | null>(null);
@@ -48,6 +67,51 @@ export default function App() {
   const [enabledLabels, setEnabledLabels] = useState<string[]>([]);
   const [message, setMessage] = useState(
     "I’m here because you asked me to interrupt autopilot.",
+  );
+
+  const clearCooldownTimer = useCallback(() => {
+    if (cooldownTimerRef.current != null) {
+      clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleCooldownEnd = useCallback(
+    (untilMs: number) => {
+      clearCooldownTimer();
+      const wait = Math.max(0, untilMs - Date.now());
+      cooldownTimerRef.current = setTimeout(() => {
+        cooldownTimerRef.current = null;
+        if (fsm.state === "COOLDOWN") {
+          UnloopUsage.clearCooldown();
+          setSessionState(fsm.dispatch({ type: "COOLDOWN_ELAPSED" }));
+          setMessage("Back on watch. You’ve got this.");
+        }
+      }, wait);
+    },
+    [clearCooldownTimer, fsm],
+  );
+
+  const enterChallengeFromNative = useCallback(
+    (deltaU?: number) => {
+      if (deltaU != null && deltaU > 0) {
+        setLastDelta(deltaU);
+      }
+      if (fsm.state === "CHALLENGE") {
+        setMessage("Pause. Shake to continue — you asked for this.");
+        return;
+      }
+      if (fsm.state === "PAUSED") {
+        fsm.hydrate("MONITORING");
+      }
+      if (fsm.state === "MONITORING") {
+        setSessionState(fsm.dispatch({ type: "THRESHOLD_REACHED" }));
+      } else {
+        setSessionState(fsm.hydrate("CHALLENGE"));
+      }
+      setMessage("Pause. Shake to continue — you asked for this.");
+    },
+    [fsm],
   );
 
   useEffect(() => {
@@ -96,12 +160,76 @@ export default function App() {
     [onThreshold],
   );
 
+  // syncFromNative closes over detector — redefine dependency by calling after detector exists
   useEffect(() => {
-    if (Platform.OS === "android") {
-      setPermission(detector.hasPermission());
-      setOverlayPermission(detector.hasOverlayPermission());
+    if (Platform.OS !== "android") {
+      return;
     }
-  }, [detector]);
+    setPermission(detector.hasPermission());
+    setOverlayPermission(detector.hasOverlayPermission());
+    const snap = UnloopUsage.getMonitorSnapshot();
+    if (snap.monitoring) {
+      detector.ensureListening();
+      const target = targetStateFromSnapshot(snap);
+      if (target != null && fsm.state !== target) {
+        setSessionState(fsm.hydrate(target));
+        if (target === "CHALLENGE") {
+          setMessage("Pause. Shake to continue — you asked for this.");
+        } else if (target === "COOLDOWN") {
+          scheduleCooldownEnd(snap.cooldownUntilMs);
+        }
+      }
+      if (snap.lastDeltaU > 0) {
+        setLastDelta(snap.lastDeltaU);
+      }
+    }
+  }, [detector, fsm, scheduleCooldownEnd]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+    const onAppState = (next: string) => {
+      if (next !== "active") {
+        return;
+      }
+      const snap = UnloopUsage.getMonitorSnapshot();
+      if (!snap.monitoring) {
+        return;
+      }
+      detector.ensureListening();
+      const target = targetStateFromSnapshot(snap);
+      if (target == null) {
+        return;
+      }
+      if (fsm.state !== target) {
+        setSessionState(fsm.hydrate(target));
+      }
+      if (target === "CHALLENGE") {
+        setMessage("Pause. Shake to continue — you asked for this.");
+      } else if (target === "COOLDOWN") {
+        scheduleCooldownEnd(snap.cooldownUntilMs);
+      }
+      if (snap.lastDeltaU > 0) {
+        setLastDelta(snap.lastDeltaU);
+      }
+    };
+    const sub = AppState.addEventListener("change", onAppState);
+    return () => sub.remove();
+  }, [detector, fsm, scheduleCooldownEnd]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+    const sub = addOpenChallengeListener(() => {
+      const snap = UnloopUsage.getMonitorSnapshot();
+      enterChallengeFromNative(snap.lastDeltaU);
+    });
+    return () => sub.remove();
+  }, [enterChallengeFromNative]);
+
+  useEffect(() => () => clearCooldownTimer(), [clearCooldownTimer]);
 
   const toggleLabel = (label: string) => {
     const next = enabledLabels.includes(label)
@@ -163,6 +291,7 @@ export default function App() {
   };
 
   const stopMonitoring = async () => {
+    clearCooldownTimer();
     await detector.stop();
     UnloopUsage.clearCooldown();
     if (fsm.state !== "PAUSED") {
@@ -176,20 +305,15 @@ export default function App() {
       return;
     }
     UnloopUsage.dismissInterruptOverlay();
-    UnloopUsage.setCooldownUntilMs(Date.now() + COOLDOWN_MS);
+    const until = Date.now() + COOLDOWN_MS;
+    UnloopUsage.setCooldownUntilMs(until);
     setSessionState(fsm.dispatch({ type: "CHALLENGE_COMPLETED" }));
     bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
     setMessage(
       `Nice. ${COOLDOWN_MS / 1000}s grace — then I’ll watch again if you ask me to.`,
     );
-    setTimeout(() => {
-      if (fsm.state === "COOLDOWN") {
-        UnloopUsage.clearCooldown();
-        setSessionState(fsm.dispatch({ type: "COOLDOWN_ELAPSED" }));
-        setMessage("Back on watch. You’ve got this.");
-      }
-    }, COOLDOWN_MS);
-  }, [bus, fsm]);
+    scheduleCooldownEnd(until);
+  }, [bus, fsm, scheduleCooldownEnd]);
 
   const inChallenge = sessionState === "CHALLENGE";
   const monitoring = sessionState === "MONITORING" || sessionState === "COOLDOWN";

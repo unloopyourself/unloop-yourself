@@ -62,4 +62,13 @@ export class SessionFsm {
     this.#state = transition(this.#state, event);
     return this.#state;
   }
+
+  /**
+   * Force state after process/Activity death when native monitor is still alive.
+   * Not a domain transition — hydration only.
+   */
+  hydrate(state: SessionState): SessionState {
+    this.#state = state;
+    return this.#state;
+  }
 }

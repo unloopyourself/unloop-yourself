@@ -19,7 +19,7 @@ class UnloopUsageModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("UnloopUsage")
 
-    Events("onThresholdReached")
+    Events("onThresholdReached", "onOpenChallenge")
 
     Function("hasUsagePermission") {
       hasUsagePermission()
@@ -81,6 +81,10 @@ class UnloopUsageModule : Module() {
       UsageMonitorService.stop(context)
     }
 
+    Function("getMonitorSnapshot") {
+      UsageMonitorService.monitorSnapshot()
+    }
+
     OnCreate {
       UsageMonitorService.thresholdCallback = { packageName, deltaU ->
         sendEvent(
@@ -93,10 +97,15 @@ class UnloopUsageModule : Module() {
         )
         bringAppToForeground(context)
       }
+      InterruptOverlay.openChallengeCallback = {
+        Log.i(TAG, "open challenge → notifying JS")
+        sendEvent("onOpenChallenge", emptyMap<String, Any>())
+      }
     }
 
     OnDestroy {
       UsageMonitorService.thresholdCallback = null
+      InterruptOverlay.openChallengeCallback = null
     }
   }
 

@@ -32,6 +32,10 @@ object InterruptOverlay {
   var challengeOutstanding: Boolean = false
     private set
 
+  /** JS resumes here when the user taps Open challenge (Activity may have been killed). */
+  @Volatile
+  var openChallengeCallback: (() -> Unit)? = null
+
   /** After "Open challenge", skip re-show briefly so the Activity can come up. */
   @Volatile
   private var suppressReshowUntilElapsed: Long = 0L
@@ -130,6 +134,7 @@ object InterruptOverlay {
             }
             // Hide shield only while Unloop is in front — outstanding stays true.
             suppressReshowUntilElapsed = android.os.SystemClock.elapsedRealtime() + 4_000L
+            openChallengeCallback?.invoke()
             launchApp(appContext)
             dismissLocked(appContext, clearOutstanding = false)
           }
@@ -187,11 +192,11 @@ object InterruptOverlay {
   private fun launchApp(context: Context) {
     try {
       val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+      // Avoid CLEAR_TOP — it remounts React and drops the in-memory FSM.
       launch.addFlags(
         Intent.FLAG_ACTIVITY_NEW_TASK or
           Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-          Intent.FLAG_ACTIVITY_SINGLE_TOP or
-          Intent.FLAG_ACTIVITY_CLEAR_TOP,
+          Intent.FLAG_ACTIVITY_SINGLE_TOP,
       )
       context.startActivity(launch)
     } catch (t: Throwable) {
