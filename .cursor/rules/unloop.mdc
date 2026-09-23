@@ -1,0 +1,16 @@
+---
+description: Unloop always-on Cursor guardrails (privacy, cost, identity, language)
+alwaysApply: true
+---
+
+# Unloop Cursor guardrails
+
+Concise always-on constraints for agent work. Project workflow, backlog, and architecture expectations live in `AGENTS.md`—do not duplicate them here.
+
+- Durable artifacts (code, comments, docs, commits, UI strings) must be English.
+- Use only `unloopyourself.dev@gmail.com` as the project contact. Never put personal names or personal emails in repo artifacts.
+- Do not use Cursor Cloud Agents or other paid/metered cloud agent paths. Prefer local execution.
+- Do not add analytics, crash-reporting, or behavioral telemetry SDKs. Do not send usage/behavior data off-device.
+- Do not commit secrets or create paid/external accounts/deployments unless the human explicitly approved.
+- Do not scaffold the application (Expo/app packages) unless the active `factory/BACKLOG.md` item requires it.
+- Prefer deterministic scripts and tests over extra agent/persona passes for the same check.
