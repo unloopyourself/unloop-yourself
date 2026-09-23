@@ -104,7 +104,7 @@ Pick the first `ready` item whose dependencies are all `done`. Update this file 
 - **Escalate if:** —
 
 ### P1-04 — Android UsageDetector adapter
-- **Status:** ready
+- **Status:** done
 - **Deps:** P1-01, P1-02, P1-03
 - **AC:** Adapter implements UsageDetectorPort; threshold events reach Core FSM in debug builds.
 - **Tests:** As feasible without device; manual note on device/emulator.
