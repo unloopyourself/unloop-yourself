@@ -62,11 +62,11 @@ class UnloopUsageModule : Module() {
     }
 
     Function("setCooldownUntilMs") { epochMs: Double ->
-      UsageMonitorService.setCooldownUntilEpochMs(epochMs.toLong())
+      UsageMonitorService.armCooldownUntil(epochMs.toLong())
     }
 
     Function("clearCooldown") {
-      UsageMonitorService.setCooldownUntilEpochMs(0L)
+      UsageMonitorService.armCooldownUntil(0L)
     }
 
     Function("startNativeMonitoring") { packagesCsv: String, thresholdMs: Double ->

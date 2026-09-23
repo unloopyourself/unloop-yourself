@@ -138,7 +138,7 @@ class UsageMonitorService : Service() {
         fired = false
         wasMatching = false
         wasInCooldown = false
-        cooldownUntilEpochMs = 0L
+        armCooldownUntil(0L)
         Log.i(TAG, "START monitoring $packageTargets thr=${thresholdMs}ms")
         startForeground(NOTIFICATION_ID, buildNotification("Watching for autopilot…"))
         handler.removeCallbacks(tick)
@@ -313,13 +313,13 @@ class UsageMonitorService : Service() {
 
     /** Wall-clock ms; monitor ignores thresholds while now < this. */
     @Volatile
-    var cooldownUntilEpochMs: Long = 0L
+    private var cooldownUntilEpochMs: Long = 0L
 
     fun inCooldown(): Boolean = System.currentTimeMillis() < cooldownUntilEpochMs
 
-    fun setCooldownUntilEpochMs(epochMs: Long) {
+    fun armCooldownUntil(epochMs: Long) {
       cooldownUntilEpochMs = epochMs
-      Log.i(TAG, "setCooldownUntilEpochMs=$epochMs (inCooldown=${inCooldown()})")
+      Log.i(TAG, "armCooldownUntil=$epochMs (inCooldown=${inCooldown()})")
     }
 
     fun start(context: Context, packagesCsv: String, thresholdMs: Long) {
