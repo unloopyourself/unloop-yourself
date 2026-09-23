@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { advanceShakeProgress } from "@unloop/core";
 import { subscribeAccelerometer } from "./expoSensorPort";
@@ -8,9 +8,13 @@ type Props = {
   onComplete: () => void;
 };
 
+const REQUIRED_MS = 5_000;
+
 export function ShakeChallengeView({ onComplete }: Props) {
   const [activeMs, setActiveMs] = useState(0);
-  const requiredMs = 5_000;
+  const [done, setDone] = useState(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     let current = 0;
@@ -22,7 +26,7 @@ export function ShakeChallengeView({ onComplete }: Props) {
       const progress = advanceShakeProgress(current, {
         magnitude,
         deltaMs,
-        requiredMs,
+        requiredMs: REQUIRED_MS,
         magnitudeThreshold: 0.6,
       });
       current = progress.activeMs;
@@ -30,15 +34,22 @@ export function ShakeChallengeView({ onComplete }: Props) {
       if (progress.complete) {
         finished = true;
         stop();
-        onComplete();
+        setDone(true);
+        // Defer so the 100% paint lands before parent unmounts this view.
+        queueMicrotask(() => {
+          onCompleteRef.current();
+        });
       }
     });
     return () => {
       stop();
     };
-  }, [onComplete]);
+  }, []);
 
-  const ratio = Math.min(1, activeMs / requiredMs);
+  // Never show 100% until the challenge actually completed (Math.round lied).
+  const pct = done
+    ? 100
+    : Math.min(99, Math.floor((activeMs / REQUIRED_MS) * 100));
 
   return (
     <View style={styles.wrap} accessibilityLabel="Shake challenge">
@@ -48,9 +59,9 @@ export function ShakeChallengeView({ onComplete }: Props) {
         can’t do that for you.
       </Text>
       <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${ratio * 100}%` }]} />
+        <View style={[styles.barFill, { width: `${pct}%` }]} />
       </View>
-      <Text style={styles.meta}>{Math.round(ratio * 100)}%</Text>
+      <Text style={styles.meta}>{pct}%</Text>
     </View>
   );
 }
