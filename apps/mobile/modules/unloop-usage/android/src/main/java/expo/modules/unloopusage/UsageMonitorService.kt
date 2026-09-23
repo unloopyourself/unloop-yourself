@@ -1,5 +1,6 @@
 package expo.modules.unloopusage
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -71,14 +72,17 @@ class UsageMonitorService : Service() {
           UnloopUsageModule.bringAppToForeground(this@UsageMonitorService)
         }
 
-        // User opened the challenge then pressed Home / returned to a feed:
-        // re-cover immediately until the shake is completed.
+        // Re-cover only when a watched feed is in front again — not while the
+        // user is inside Unloop finishing the shake (we exclude self from FG
+        // detection, so "matching" can stay true from YouTube audio/history).
         if (
           InterruptOverlay.challengeOutstanding &&
           matching &&
-          !InterruptOverlay.isShowing()
+          !InterruptOverlay.isShowing() &&
+          !InterruptOverlay.isReshowSuppressed() &&
+          !isUnloopActivityInForeground()
         ) {
-          Log.i(TAG, "challenge still outstanding — re-showing overlay over feed")
+          Log.i(TAG, "challenge outstanding + feed in front — re-showing overlay")
           InterruptOverlay.show(this@UsageMonitorService)
         }
       } catch (t: Throwable) {
@@ -127,6 +131,12 @@ class UsageMonitorService : Service() {
     handler.removeCallbacks(tick)
     Log.i(TAG, "service destroyed")
     super.onDestroy()
+  }
+
+  private fun isUnloopActivityInForeground(): Boolean {
+    val info = ActivityManager.RunningAppProcessInfo()
+    ActivityManager.getMyMemoryState(info)
+    return info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
   }
 
   private fun matchedTargetPackage(): String? {

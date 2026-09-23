@@ -6,8 +6,6 @@ import {
   Text,
   View,
   ScrollView,
-  AppState,
-  type AppStateStatus,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -65,20 +63,6 @@ export default function App() {
       });
     });
   }, [audit, bus]);
-
-  // If the user leaves Unloop mid-challenge (Home, app switch), re-raise the shield.
-  useEffect(() => {
-    if (Platform.OS !== "android") {
-      return;
-    }
-    const onChange = (next: AppStateStatus) => {
-      if (next !== "active" && sessionState === "CHALLENGE") {
-        UnloopUsage.bringAppToForeground();
-      }
-    };
-    const sub = AppState.addEventListener("change", onChange);
-    return () => sub.remove();
-  }, [sessionState]);
 
   const onThreshold = useCallback(
     (event: UsageThresholdEvent) => {
