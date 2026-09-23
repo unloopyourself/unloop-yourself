@@ -51,9 +51,9 @@ class UsageMonitorService : Service() {
 
         if (!fired && accumulatedMs >= thresholdMs) {
           fired = true
-          Log.i(TAG, "THRESHOLD reached — bringing Unloop to foreground")
+          Log.i(TAG, "THRESHOLD reached — interrupting from background")
           thresholdCallback?.invoke(packageNameTarget, accumulatedMs)
-          UnloopUsageModule.bringAppToForeground(this@UsageMonitorService)
+          UnloopUsageModule.interruptFromBackground(this@UsageMonitorService)
         }
       } catch (t: Throwable) {
         Log.e(TAG, "tick failed", t)
