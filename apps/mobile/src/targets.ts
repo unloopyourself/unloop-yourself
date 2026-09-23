@@ -5,7 +5,11 @@ export type ShortVideoApp = {
   packages: string[];
 };
 
-/** Short-video / infinite-feed apps Unloop can watch for autopilot. */
+/**
+ * Feeds / doomscroll surfaces Unloop can watch.
+ * “Browsers” is one chip covering common Chromium/Gecko browsers — Android has
+ * no generic “any browser” API, so we list packages explicitly.
+ */
 export const SHORT_VIDEO_APPS: ShortVideoApp[] = [
   {
     label: "YouTube",
@@ -22,6 +26,38 @@ export const SHORT_VIDEO_APPS: ShortVideoApp[] = [
   {
     label: "Snapchat",
     packages: ["com.snapchat.android"],
+  },
+  {
+    label: "Facebook",
+    packages: ["com.facebook.katana", "com.facebook.lite"],
+  },
+  {
+    label: "X",
+    packages: ["com.twitter.android"],
+  },
+  {
+    label: "Reddit",
+    packages: ["com.reddit.frontpage"],
+  },
+  {
+    label: "Browsers",
+    packages: [
+      "com.android.chrome",
+      "com.chrome.beta",
+      "com.chrome.dev",
+      "org.mozilla.firefox",
+      "org.mozilla.firefox_beta",
+      "org.mozilla.focus",
+      "com.opera.browser",
+      "com.opera.mini.native",
+      "com.brave.browser",
+      "com.microsoft.emmx",
+      "com.sec.android.app.sbrowser",
+      "com.duckduckgo.mobile.android",
+      "com.vivaldi.browser",
+      "com.kiwibrowser.browser",
+      "org.torproject.torbrowser",
+    ],
   },
 ];
 
