@@ -29,6 +29,14 @@ export type {
 } from "./ports.js";
 export { InMemoryStoragePort, computeDeltaU } from "./ports.js";
 
+export {
+  baselineKey,
+  clearBaseline,
+  loadBaseline,
+  observeUsageDelta,
+  saveBaseline,
+} from "./persistence.js";
+
 export type { ChallengeSelectionInput, PolicyDecision, PolicyInput } from "./policy.js";
 export { evaluatePolicy, selectChallenge } from "./policy.js";
 

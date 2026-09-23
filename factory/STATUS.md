@@ -4,18 +4,23 @@ Last updated: 2026-09-23
 
 ## Active item
 
-None. **P1-01** done (feasibility spike documented). Next: **P1-02** — scaffold Expo `apps/mobile`.
+**P1-04** next after commit — Android UsageDetector adapter (Expo Module).
 
 ## Last gate result
 
-- Phase 0: green (see prior)
-- P1-01: spike note [`docs/spike-android-usage-overlay.md`](../docs/spike-android-usage-overlay.md) — **feasible**, no paid infra; device demo deferred to P1-02+
+- `npm test`: **PASSED** (21)
+- typecheck core + mobile: **PASSED**
+- `check-boundaries.sh`: **PASSED**
+- P1-02 Expo scaffold + Core wiring: **done**
+- P1-03 ΔU persistence helpers: **done**
 
 ## Human decisions pending
 
-- None. Continuing autonomously into P1-02 unless Expo scaffold hits an environment blocker.
+- None. Continuing autonomously.
 - P1-08 remains human device acceptance.
+- Note: Expo dependency tree reports moderate advisories; not forcing major upgrades mid-MVP.
 
 ## Notes
 
-- Spike recommends Expo Module + UsageStats + FGS; overlay with Activity fallback; no Accessibility-first.
+- Autopilot authorized: commit/push routine WI without asking.
+- Nested `apps/mobile` created via create-expo-app; wired as `@unloop/mobile` workspace.

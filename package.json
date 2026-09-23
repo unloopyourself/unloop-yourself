@@ -5,12 +5,14 @@
   "description": "Unloop — privacy-first doomscroll interruption (monorepo)",
   "license": "AGPL-3.0-only",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "test": "npm run test -w @unloop/core",
-    "typecheck": "npm run typecheck -w @unloop/core",
-    "check-boundaries": "scripts/check-boundaries.sh"
+    "typecheck": "npm run typecheck -w @unloop/core && npm run typecheck -w @unloop/mobile",
+    "check-boundaries": "scripts/check-boundaries.sh",
+    "mobile": "npm run start -w @unloop/mobile"
   },
   "engines": {
     "node": ">=20"

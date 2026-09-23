@@ -90,14 +90,14 @@ Pick the first `ready` item whose dependencies are all `done`. Update this file 
 - **Escalate if:** Expo path blocked or requires paid infra; unclear permission UX trade-offs that change product promises.
 
 ### P1-02 — Scaffold Expo app (`apps/mobile`) wiring Core
-- **Status:** ready
+- **Status:** done
 - **Deps:** P1-01 (or parallel only if spike already proved path—default after P1-01)
 - **AC:** Expo TypeScript app depends on `packages/core`; app builds for Android locally.
 - **Tests:** App typecheck/build smoke; boundary script.
 - **Escalate if:** —
 
 ### P1-03 — StoragePort + ΔU persistence
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-07, P1-02
 - **AC:** Local persistence reconstructs monitoring baselines after restart; ΔU logic tested in Core with fake storage.
 - **Tests:** Core tests + app smoke.
