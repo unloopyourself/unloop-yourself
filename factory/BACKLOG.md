@@ -30,49 +30,49 @@ Pick the first `ready` item whose dependencies are all `done`. Update this file 
 - **Escalate if:** Tooling would require paid services.
 
 ### P0-04 — Core domain contracts (Challenge, Capability, DeviceContext)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-03
 - **AC:** Pure TS types/interfaces in Core matching architecture docs; no RN/Expo imports; unit tests for capability subset selection helper if introduced.
 - **Tests:** Core Vitest suite green.
 - **Escalate if:** Contract shape would break published ADR Challenge model.
 
 ### P0-05 — Session FSM (PAUSED, MONITORING, CHALLENGE, COOLDOWN)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-04
 - **AC:** Explicit FSM with tests for legal/illegal transitions; threshold treated as event not state.
 - **Tests:** Core Vitest suite covers transitions.
 - **Escalate if:** Need more than the four MVP states.
 
 ### P0-06 — Typed event emitter
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-03
 - **AC:** Minimal typed emitter in Core, no heavy third-party bus; tests for subscribe/emit.
 - **Tests:** Core Vitest green.
 - **Escalate if:** —
 
 ### P0-07 — Ports: UsageDetector, Storage, Sensor, Notification
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-04
 - **AC:** Port interfaces only in Core; fake in-memory adapters for tests.
 - **Tests:** Integration-style Vitest with fakes green.
 - **Escalate if:** New port categories beyond the four.
 
 ### P0-08 — Policy Engine (minimal MVP)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-05, P0-07
 - **AC:** Given threshold event + context, decides interrupt vs ignore and cooldown basics; tests with fakes.
 - **Tests:** Core Vitest green.
 - **Escalate if:** Policy needs Buddy/AI escalation (out of MVP).
 
 ### P0-09 — Challenge Engine (selection by capabilities)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-04, P0-08
 - **AC:** Selects challenge where `requires ⊆ availableCapabilities`; excludes incompatible; tests.
 - **Tests:** Core Vitest green.
 - **Escalate if:** —
 
 ### P0-10 — Phase 0 gate
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-05, P0-06, P0-07, P0-08, P0-09
 - **AC:** Core package documents how to run tests; `check-boundaries.sh` passes; STATUS notes Phase 0 complete.
 - **Tests:** Full Core suite + boundary script.

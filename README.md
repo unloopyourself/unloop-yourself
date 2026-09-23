@@ -8,7 +8,7 @@ Unloop is an open-source, non-profit, privacy-first mobile app. It gives you a s
 
 ## Status
 
-Phase 0 scaffolding started: npm workspaces + `@unloop/core` (TypeScript + Vitest). **No Expo app yet.** See [`AGENTS.md`](AGENTS.md) and [`factory/STATUS.md`](factory/STATUS.md).
+**Phase 0 complete** (`@unloop/core` with FSM, challenges, ports, policy). Next: Phase 1 Android spike. See [`factory/STATUS.md`](factory/STATUS.md).
 
 ## Develop
 

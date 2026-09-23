@@ -4,21 +4,21 @@ Last updated: 2026-09-23
 
 ## Active item
 
-None. **P0-03** done. Next ready items: **P0-04** (domain contracts), **P0-06** (typed event emitter) — both depend only on P0-03 for emitter; contracts preferred first for FSM/ports.
+None. **Phase 0 complete** (P0-01 … P0-10). Next: **P1-01** — Android UsageStats + overlay spike (Expo Module).
 
 ## Last gate result
 
-- `npm test`: **PASSED** (Core smoke)
+- `npm test`: **PASSED** (18 tests)
 - `npm run typecheck -w @unloop/core`: **PASSED**
 - `scripts/check-boundaries.sh`: **PASSED**
-- Expo / `apps/mobile`: not scaffolded (by design until Phase 1)
+- Phase 0 gate (P0-10): **PASSED**
 
 ## Human decisions pending
 
-- None. Human authorized autonomous Phase 0 progress (commit/push + continue backlog without per-item confirmation).
-- Stop for escalate list / P1-08 device milestone only.
+- None. Autonomous Phase 0 authorized by human.
+- Next natural pause: P1-01 may escalate if Expo UsageStats/overlay path is blocked; P1-08 is human device acceptance.
 
 ## Notes
 
-- Prefer sequential Core work: P0-04 → P0-05 / P0-07; P0-06 can proceed after P0-03 in parallel only if explicitly requested.
-- Physical Android device remains available for Phase 1 acceptance (P1-08).
+- Core modules: `challenge`, `session`, `events`, `ports`, `policy` under `packages/core/src/`.
+- No Expo / `apps/mobile` yet.
