@@ -4,23 +4,21 @@ Last updated: 2026-09-23
 
 ## Active item
 
-**P1-04** next after commit — Android UsageDetector adapter (Expo Module).
+None after P1-04 commit. Next: **P1-05** ShakeChallenge + SensorPort adapter.
 
 ## Last gate result
 
-- `npm test`: **PASSED** (21)
+- Core tests: **PASSED** (21)
 - typecheck core + mobile: **PASSED**
-- `check-boundaries.sh`: **PASSED**
-- P1-02 Expo scaffold + Core wiring: **done**
-- P1-03 ΔU persistence helpers: **done**
+- boundaries: **PASSED**
+- P1-04: Expo Module `UnloopUsage` + `AndroidUsageDetector` wired to FSM in App debug UI
+- Native rebuild (`npx expo run:android`) required on device before live UsageStats works; JS poll is debug-only while process alive (FGS later)
 
 ## Human decisions pending
 
-- None. Continuing autonomously.
-- P1-08 remains human device acceptance.
-- Note: Expo dependency tree reports moderate advisories; not forcing major upgrades mid-MVP.
+- None for continuing P1-05/06/07
+- **P1-08** physical device acceptance remains human-gated
 
 ## Notes
 
-- Autopilot authorized: commit/push routine WI without asking.
-- Nested `apps/mobile` created via create-expo-app; wired as `@unloop/mobile` workspace.
+- Never `git add -f` workspace trees (previously pulled ignored node_modules).
