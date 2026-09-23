@@ -16,9 +16,10 @@ export class AndroidUsageDetector implements UsageDetectorPort {
 
   constructor(private readonly onThreshold: ThresholdListener) {}
 
-  async start(config: ThresholdConfig): Promise<void> {
+  /** Re-attach JS listener without restarting the native FGS (Activity remount). */
+  ensureListening(): void {
     if (Platform.OS !== "android") {
-      throw new Error("AndroidUsageDetector is Android-only");
+      return;
     }
     this.subscription?.remove();
     this.subscription = addThresholdListener((event) => {
@@ -28,6 +29,13 @@ export class AndroidUsageDetector implements UsageDetectorPort {
         observedAtMs: event.observedAtMs,
       });
     });
+  }
+
+  async start(config: ThresholdConfig): Promise<void> {
+    if (Platform.OS !== "android") {
+      throw new Error("AndroidUsageDetector is Android-only");
+    }
+    this.ensureListening();
     UnloopUsage.startNativeMonitoring(config.appId, config.thresholdUnits);
   }
 

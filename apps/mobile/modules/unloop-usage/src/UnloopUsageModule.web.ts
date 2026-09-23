@@ -1,3 +1,5 @@
+import type { MonitorSnapshot, ThresholdNativeEvent } from "./UnloopUsageModule";
+
 /** Web stub — usage detection is Android-first. */
 const UnloopUsageModule = {
   hasUsagePermission(): boolean {
@@ -36,9 +38,26 @@ const UnloopUsageModule = {
   stopNativeMonitoring(): void {
     /* no-op */
   },
+  getMonitorSnapshot(): MonitorSnapshot {
+    return {
+      monitoring: false,
+      challengeOutstanding: false,
+      inCooldown: false,
+      cooldownUntilMs: 0,
+      packagesCsv: "",
+      lastAppId: "",
+      lastDeltaU: 0,
+    };
+  },
 };
 
-export function addThresholdListener(_listener: (event: unknown) => void): { remove: () => void } {
+export function addThresholdListener(
+  _listener: (event: ThresholdNativeEvent) => void,
+): { remove: () => void } {
+  return { remove: () => undefined };
+}
+
+export function addOpenChallengeListener(_listener: () => void): { remove: () => void } {
   return { remove: () => undefined };
 }
 

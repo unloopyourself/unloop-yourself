@@ -89,6 +89,8 @@ class UsageMonitorService : Service() {
           fired = true
           val appId = matchedPackage ?: packageTargets.first()
           Log.i(TAG, "THRESHOLD reached for $appId — showing overlay")
+          lastInterruptAppId = appId
+          lastInterruptDeltaU = accumulatedMs
           thresholdCallback?.invoke(appId, accumulatedMs)
           UnloopUsageModule.bringAppToForeground(this@UsageMonitorService)
         }
@@ -128,6 +130,8 @@ class UsageMonitorService : Service() {
           ?: ""
         packageTargets = parsePackages(raw)
         thresholdMs = intent.getLongExtra(EXTRA_THRESHOLD_MS, 60_000L)
+        packagesCsv = packageTargets.joinToString(",")
+        serviceRunning = true
         accumulatedMs = 0L
         lastTickElapsedRealtime = 0L
         lastKnownFgPackage = null
@@ -151,6 +155,7 @@ class UsageMonitorService : Service() {
           return START_STICKY
         }
         packageTargets = next
+        packagesCsv = packageTargets.joinToString(",")
         if (matchingPlaybackPackage != null && matchingPlaybackPackage !in packageTargets) {
           matchingPlaybackPackage = null
         }
@@ -174,6 +179,7 @@ class UsageMonitorService : Service() {
 
   override fun onDestroy() {
     handler.removeCallbacks(tick)
+    serviceRunning = false
     Log.i(TAG, "service destroyed")
     super.onDestroy()
   }
@@ -275,6 +281,7 @@ class UsageMonitorService : Service() {
 
   private fun stopSelfSafe() {
     handler.removeCallbacks(tick)
+    serviceRunning = false
     InterruptOverlay.resolve(this)
     stopForeground(STOP_FOREGROUND_REMOVE)
     stopSelf()
@@ -334,6 +341,22 @@ class UsageMonitorService : Service() {
     @Volatile
     var thresholdCallback: ((packageName: String, deltaU: Long) -> Unit)? = null
 
+    @Volatile
+    var serviceRunning: Boolean = false
+      private set
+
+    @Volatile
+    var packagesCsv: String = ""
+      private set
+
+    @Volatile
+    var lastInterruptAppId: String = ""
+      private set
+
+    @Volatile
+    var lastInterruptDeltaU: Long = 0L
+      private set
+
     /** Wall-clock ms; monitor ignores thresholds while now < this. */
     @Volatile
     private var cooldownUntilEpochMs: Long = 0L
@@ -344,6 +367,16 @@ class UsageMonitorService : Service() {
       cooldownUntilEpochMs = epochMs
       Log.i(TAG, "armCooldownUntil=$epochMs (inCooldown=${inCooldown()})")
     }
+
+    fun monitorSnapshot(): Map<String, Any> = mapOf(
+      "monitoring" to serviceRunning,
+      "challengeOutstanding" to InterruptOverlay.challengeOutstanding,
+      "inCooldown" to inCooldown(),
+      "cooldownUntilMs" to cooldownUntilEpochMs.toDouble(),
+      "packagesCsv" to packagesCsv,
+      "lastAppId" to lastInterruptAppId,
+      "lastDeltaU" to lastInterruptDeltaU.toDouble(),
+    )
 
     fun start(context: Context, packagesCsv: String, thresholdMs: Long) {
       val intent = Intent(context, UsageMonitorService::class.java).apply {

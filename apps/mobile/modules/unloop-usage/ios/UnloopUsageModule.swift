@@ -4,7 +4,7 @@ public class UnloopUsageModule: Module {
   public func definition() -> ModuleDefinition {
     Name("UnloopUsage")
 
-    Events("onThresholdReached")
+    Events("onThresholdReached", "onOpenChallenge")
 
     Function("hasUsagePermission") { () -> Bool in
       return false
@@ -52,6 +52,18 @@ public class UnloopUsageModule: Module {
 
     Function("stopNativeMonitoring") { () in
       // no-op
+    }
+
+    Function("getMonitorSnapshot") { () -> [String: Any] in
+      return [
+        "monitoring": false,
+        "challengeOutstanding": false,
+        "inCooldown": false,
+        "cooldownUntilMs": 0.0,
+        "packagesCsv": "",
+        "lastAppId": "",
+        "lastDeltaU": 0.0,
+      ]
     }
   }
 }
