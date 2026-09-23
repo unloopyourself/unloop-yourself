@@ -22,6 +22,18 @@ public class UnloopUsageModule: Module {
       // no-op on iOS stub
     }
 
+    Function("hasOverlayPermission") { () -> Bool in
+      return false
+    }
+
+    Function("openOverlaySettings") { () in
+      // no-op
+    }
+
+    Function("dismissInterruptOverlay") { () in
+      // no-op
+    }
+
     Function("startNativeMonitoring") { (_packageName: String, _thresholdMs: Double) in
       // no-op on iOS stub
     }
