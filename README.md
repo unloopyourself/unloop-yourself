@@ -8,7 +8,7 @@ Unloop is an open-source, non-profit, privacy-first mobile app. It gives you a s
 
 ## Status
 
-**Phase 0 complete** (`@unloop/core` with FSM, challenges, ports, policy). Next: Phase 1 Android spike. See [`factory/STATUS.md`](factory/STATUS.md).
+Phase 0 complete. Phase 1 in progress: Expo app `@unloop/mobile` wired to `@unloop/core`. See [`factory/STATUS.md`](factory/STATUS.md).
 
 ## Develop
 
