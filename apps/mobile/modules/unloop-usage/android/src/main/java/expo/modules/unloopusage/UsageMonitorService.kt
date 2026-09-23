@@ -18,8 +18,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 
 /**
- * Polls UsageEvents (not delayed aggregate totals) and accumulates wall-clock time
- * while the target package is in the foreground.
+ * Accumulates wall-clock time while the target package is the most recently used app
+ * (UsageStats lastTimeUsed), which updates more reliably than aggregate foreground totals.
  */
 class UsageMonitorService : Service() {
   private val handler = Handler(Looper.getMainLooper())
@@ -32,28 +32,34 @@ class UsageMonitorService : Service() {
 
   private val tick = object : Runnable {
     override fun run() {
-      if (packageNameTarget.isEmpty()) {
-        return
-      }
-      refreshForegroundState()
-      val targetInForeground = lastKnownFgPackage == packageNameTarget
-      val nowElapsed = SystemClock.elapsedRealtime()
-      if (lastTickElapsedRealtime > 0L && targetInForeground && !fired) {
-        accumulatedMs += (nowElapsed - lastTickElapsedRealtime)
-      }
-      lastTickElapsedRealtime = nowElapsed
+      try {
+        if (packageNameTarget.isEmpty()) {
+          return
+        }
+        refreshForegroundState()
+        val matching = lastKnownFgPackage == packageNameTarget
+        val nowElapsed = SystemClock.elapsedRealtime()
+        if (lastTickElapsedRealtime > 0L && matching && !fired) {
+          accumulatedMs += (nowElapsed - lastTickElapsedRealtime)
+        }
+        lastTickElapsedRealtime = nowElapsed
 
-      Log.d(
-        TAG,
-        "tick target=$packageNameTarget fgPkg=$lastKnownFgPackage matching=$targetInForeground acc=${accumulatedMs}ms thr=${thresholdMs}ms",
-      )
+        val msg =
+          "fg=$lastKnownFgPackage match=$matching acc=${accumulatedMs / 1000}s / ${thresholdMs / 1000}s"
+        Log.i(TAG, msg)
+        updateNotification(msg)
 
-      if (!fired && accumulatedMs >= thresholdMs) {
-        fired = true
-        thresholdCallback?.invoke(packageNameTarget, accumulatedMs)
-        UnloopUsageModule.bringAppToForeground(this@UsageMonitorService)
+        if (!fired && accumulatedMs >= thresholdMs) {
+          fired = true
+          Log.i(TAG, "THRESHOLD reached — bringing Unloop to foreground")
+          thresholdCallback?.invoke(packageNameTarget, accumulatedMs)
+          UnloopUsageModule.bringAppToForeground(this@UsageMonitorService)
+        }
+      } catch (t: Throwable) {
+        Log.e(TAG, "tick failed", t)
+      } finally {
+        handler.postDelayed(this, POLL_MS)
       }
-      handler.postDelayed(this, POLL_MS)
     }
   }
 
@@ -72,7 +78,8 @@ class UsageMonitorService : Service() {
         lastTickElapsedRealtime = 0L
         lastKnownFgPackage = null
         fired = false
-        startForeground(NOTIFICATION_ID, buildNotification())
+        Log.i(TAG, "START monitoring $packageNameTarget thr=${thresholdMs}ms")
+        startForeground(NOTIFICATION_ID, buildNotification("Starting…"))
         handler.removeCallbacks(tick)
         refreshForegroundState()
         lastTickElapsedRealtime = SystemClock.elapsedRealtime()
@@ -84,6 +91,7 @@ class UsageMonitorService : Service() {
 
   override fun onDestroy() {
     handler.removeCallbacks(tick)
+    Log.i(TAG, "service destroyed")
     super.onDestroy()
   }
 
@@ -91,29 +99,33 @@ class UsageMonitorService : Service() {
     val usm = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
     val end = System.currentTimeMillis()
     val begin = end - LOOKBACK_MS
+    val self = packageName
+
+    // Primary: most recently used package, excluding Unloop itself (FGS/notifications
+    // can refresh our lastTimeUsed and falsely look like we are in the foreground).
+    val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, begin, end)
+    val top = stats
+      ?.filter { it.packageName != self }
+      ?.maxByOrNull { it.lastTimeUsed }
+    if (top != null && top.lastTimeUsed >= begin) {
+      lastKnownFgPackage = top.packageName
+      return
+    }
+
+    // Fallback: walk UsageEvents; last ACTIVITY_RESUMED wins (ignore our package).
     val events = usm.queryEvents(begin, end)
     val event = UsageEvents.Event()
-    var sawEvent = false
     while (events.hasNextEvent()) {
       events.getNextEvent(event)
-      sawEvent = true
-      when (event.eventType) {
-        UsageEvents.Event.ACTIVITY_RESUMED,
-        UsageEvents.Event.MOVE_TO_FOREGROUND,
-        -> {
-          lastKnownFgPackage = event.packageName
-        }
-        UsageEvents.Event.ACTIVITY_PAUSED,
-        UsageEvents.Event.MOVE_TO_BACKGROUND,
-        -> {
-          if (event.packageName == lastKnownFgPackage) {
-            lastKnownFgPackage = null
-          }
-        }
+      if (event.packageName == self) {
+        continue
       }
-    }
-    if (!sawEvent) {
-      Log.d(TAG, "no usage events in lookback; keeping fg=$lastKnownFgPackage")
+      if (
+        event.eventType == UsageEvents.Event.ACTIVITY_RESUMED ||
+        event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND
+      ) {
+        lastKnownFgPackage = event.packageName
+      }
     }
   }
 
@@ -123,7 +135,12 @@ class UsageMonitorService : Service() {
     stopSelf()
   }
 
-  private fun buildNotification(): Notification {
+  private fun updateNotification(content: String) {
+    val manager = getSystemService(NotificationManager::class.java)
+    manager.notify(NOTIFICATION_ID, buildNotification(content))
+  }
+
+  private fun buildNotification(content: String): Notification {
     ensureChannel()
     val launch = packageManager.getLaunchIntentForPackage(packageName)
     val pending = PendingIntent.getActivity(
@@ -134,10 +151,12 @@ class UsageMonitorService : Service() {
     )
     return NotificationCompat.Builder(this, CHANNEL_ID)
       .setContentTitle("Unloop is monitoring")
-      .setContentText("I’ll interrupt when you asked me to — tap to open.")
+      .setContentText(content)
+      .setStyle(NotificationCompat.BigTextStyle().bigText(content))
       .setSmallIcon(android.R.drawable.ic_popup_reminder)
       .setContentIntent(pending)
       .setOngoing(true)
+      .setOnlyAlertOnce(true)
       .build()
   }
 
@@ -163,7 +182,7 @@ class UsageMonitorService : Service() {
     private const val CHANNEL_ID = "unloop_monitoring"
     private const val NOTIFICATION_ID = 42001
     private const val POLL_MS = 2_000L
-    private const val LOOKBACK_MS = 30_000L
+    private const val LOOKBACK_MS = 60_000L
 
     @Volatile
     var thresholdCallback: ((packageName: String, deltaU: Long) -> Unit)? = null

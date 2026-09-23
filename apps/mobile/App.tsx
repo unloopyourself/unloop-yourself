@@ -14,7 +14,7 @@ import { ShakeChallengeView } from "./src/ShakeChallengeView";
 import { LocalAuditTrail } from "./src/localAuditTrail";
 
 const DEBUG_TARGET_PACKAGE = "com.google.android.youtube";
-const DEBUG_THRESHOLD_MS = 60_000;
+const DEBUG_THRESHOLD_MS = 20_000;
 
 type DomainEvents = {
   CHALLENGE_COMPLETED: { atMs: number };
