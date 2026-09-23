@@ -9,6 +9,8 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
+import android.media.AudioPlaybackConfiguration
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -18,8 +20,9 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 
 /**
- * Accumulates wall-clock time while the target package is the most recently used app
- * (UsageStats lastTimeUsed), which updates more reliably than aggregate foreground totals.
+ * Accumulates wall-clock time while the target package is actively in use:
+ * recent UsageStats/UsageEvents foreground, or active media playback (covers
+ * YouTube Picture-in-Picture / Shorts looping when UsageStats reports systemui).
  */
 class UsageMonitorService : Service() {
   private val handler = Handler(Looper.getMainLooper())
@@ -28,7 +31,9 @@ class UsageMonitorService : Service() {
   private var accumulatedMs: Long = 0L
   private var lastTickElapsedRealtime: Long = 0L
   private var lastKnownFgPackage: String? = null
+  private var matchingPlayback: Boolean = false
   private var fired = false
+  private var wasMatching = false
 
   private val tick = object : Runnable {
     override fun run() {
@@ -37,21 +42,31 @@ class UsageMonitorService : Service() {
           return
         }
         refreshForegroundState()
-        val matching = lastKnownFgPackage == packageNameTarget
+        val matching = isTargetInUse()
         val nowElapsed = SystemClock.elapsedRealtime()
+
+        // New doomscroll bout after an interrupt: allow firing again.
+        if (fired && matching && !wasMatching) {
+          Log.i(TAG, "target returned to use — resetting fired latch")
+          fired = false
+          accumulatedMs = 0L
+        }
+        wasMatching = matching
+
         if (lastTickElapsedRealtime > 0L && matching && !fired) {
           accumulatedMs += (nowElapsed - lastTickElapsedRealtime)
         }
         lastTickElapsedRealtime = nowElapsed
 
         val msg =
-          "fg=$lastKnownFgPackage match=$matching acc=${accumulatedMs / 1000}s / ${thresholdMs / 1000}s"
+          "fg=$lastKnownFgPackage play=$matchingPlayback match=$matching " +
+            "acc=${accumulatedMs / 1000}s / ${thresholdMs / 1000}s"
         Log.i(TAG, msg)
         updateNotification(msg)
 
         if (!fired && accumulatedMs >= thresholdMs) {
           fired = true
-          Log.i(TAG, "THRESHOLD reached — bringing Unloop to foreground")
+          Log.i(TAG, "THRESHOLD reached — showing overlay (no PiP kick)")
           thresholdCallback?.invoke(packageNameTarget, accumulatedMs)
           UnloopUsageModule.bringAppToForeground(this@UsageMonitorService)
         }
@@ -77,7 +92,9 @@ class UsageMonitorService : Service() {
         accumulatedMs = 0L
         lastTickElapsedRealtime = 0L
         lastKnownFgPackage = null
+        matchingPlayback = false
         fired = false
+        wasMatching = false
         Log.i(TAG, "START monitoring $packageNameTarget thr=${thresholdMs}ms")
         startForeground(NOTIFICATION_ID, buildNotification("Starting…"))
         handler.removeCallbacks(tick)
@@ -95,14 +112,23 @@ class UsageMonitorService : Service() {
     super.onDestroy()
   }
 
+  private fun isTargetInUse(): Boolean {
+    if (lastKnownFgPackage == packageNameTarget) {
+      return true
+    }
+    // YouTube (etc.) often keeps playing in PiP while UsageStats points at
+    // systemui / launcher — count active media from the target package.
+    return matchingPlayback
+  }
+
   private fun refreshForegroundState() {
     val usm = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
     val end = System.currentTimeMillis()
     val begin = end - LOOKBACK_MS
     val self = packageName
 
-    // Primary: most recently used package, excluding Unloop itself (FGS/notifications
-    // can refresh our lastTimeUsed and falsely look like we are in the foreground).
+    matchingPlayback = targetHasActivePlayback()
+
     val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, begin, end)
     val top = stats
       ?.filter { it.packageName != self }
@@ -112,7 +138,6 @@ class UsageMonitorService : Service() {
       return
     }
 
-    // Fallback: walk UsageEvents; last ACTIVITY_RESUMED wins (ignore our package).
     val events = usm.queryEvents(begin, end)
     val event = UsageEvents.Event()
     while (events.hasNextEvent()) {
@@ -129,8 +154,45 @@ class UsageMonitorService : Service() {
     }
   }
 
+  private fun targetHasActivePlayback(): Boolean {
+    if (packageNameTarget.isEmpty()) {
+      return false
+    }
+    return try {
+      val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+      val configs: List<AudioPlaybackConfiguration> = audio.activePlaybackConfigurations
+      // Use reflection: player/client accessors vary by API and OEM stubs.
+      val getUid = AudioPlaybackConfiguration::class.java.getMethod("getClientUid")
+      val getState = try {
+        AudioPlaybackConfiguration::class.java.getMethod("getPlayerState")
+      } catch (_: Throwable) {
+        null
+      }
+      val started = try {
+        AudioPlaybackConfiguration::class.java.getField("PLAYER_STATE_STARTED").getInt(null)
+      } catch (_: Throwable) {
+        2 // AudioPlaybackConfiguration.PLAYER_STATE_STARTED
+      }
+      configs.any { cfg ->
+        if (getState != null) {
+          val state = getState.invoke(cfg) as Int
+          if (state != started) {
+            return@any false
+          }
+        }
+        val uid = getUid.invoke(cfg) as Int
+        val packages = packageManager.getPackagesForUid(uid) ?: return@any false
+        packages.contains(packageNameTarget)
+      }
+    } catch (t: Throwable) {
+      Log.w(TAG, "active playback probe failed", t)
+      false
+    }
+  }
+
   private fun stopSelfSafe() {
     handler.removeCallbacks(tick)
+    InterruptOverlay.dismiss(this)
     stopForeground(STOP_FOREGROUND_REMOVE)
     stopSelf()
   }

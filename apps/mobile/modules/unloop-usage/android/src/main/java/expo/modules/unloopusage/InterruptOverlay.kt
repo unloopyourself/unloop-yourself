@@ -15,9 +15,13 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * Full-screen TYPE_APPLICATION_OVERLAY interrupt. On modern Samsung devices,
- * background Activity starts are blocked while the screen is on; an overlay
- * with the user-granted "Display over other apps" permission is the reliable path.
+ * Full-screen TYPE_APPLICATION_OVERLAY interrupt.
+ *
+ * Do not auto-start MainActivity here: on Samsung that often demotes the
+ * target app (YouTube) into Picture-in-Picture so the video keeps looping
+ * in a bubble while Unloop is "resumed" underneath — the interrupt looks
+ * like it failed. Cover the screen with the overlay; open the app only on
+ * an explicit user tap.
  */
 object InterruptOverlay {
   private const val TAG = "UnloopUsageMonitor"
@@ -33,6 +37,8 @@ object InterruptOverlay {
     }
   }
 
+  fun isShowing(): Boolean = attachedView != null
+
   fun show(context: Context) {
     if (!canDrawOverlays(context)) {
       Log.w(TAG, "overlay permission missing — cannot cover other apps")
@@ -43,7 +49,10 @@ object InterruptOverlay {
     val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     mainHandler.post {
       try {
-        dismissLocked(appContext)
+        if (attachedView != null) {
+          Log.i(TAG, "interrupt overlay already showing")
+          return@post
+        }
         val wm = appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
           WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -63,6 +72,10 @@ object InterruptOverlay {
         ).apply {
           gravity = Gravity.CENTER
           title = "Unloop interrupt"
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            layoutInDisplayCutoutMode =
+              WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+          }
         }
 
         val density = appContext.resources.displayMetrics.density
@@ -70,9 +83,12 @@ object InterruptOverlay {
 
         val root = LinearLayout(appContext).apply {
           orientation = LinearLayout.VERTICAL
-          setBackgroundColor(Color.parseColor("#E61A3C34"))
+          setBackgroundColor(Color.parseColor("#F21A3C34"))
           setPadding(dp(28), dp(48), dp(28), dp(48))
           gravity = Gravity.CENTER
+          // Consume touches so YouTube underneath (or PiP) cannot be used.
+          isClickable = true
+          isFocusable = true
         }
 
         val brand = TextView(appContext).apply {
@@ -83,7 +99,7 @@ object InterruptOverlay {
         }
 
         val copy = TextView(appContext).apply {
-          text = "I’m interrupting you because you asked me to.\nShake in the app to continue."
+          text = "I’m interrupting you because you asked me to.\nOpen the challenge to continue."
           setTextColor(Color.WHITE)
           setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
           gravity = Gravity.CENTER
@@ -104,10 +120,7 @@ object InterruptOverlay {
 
         wm.addView(root, params)
         attachedView = root
-        Log.i(TAG, "interrupt overlay shown")
-
-        // Best-effort: also try to bring the Activity up under/over the shield.
-        launchApp(appContext)
+        Log.i(TAG, "interrupt overlay shown (no auto startActivity)")
       } catch (t: Throwable) {
         Log.e(TAG, "failed to show interrupt overlay", t)
       }
