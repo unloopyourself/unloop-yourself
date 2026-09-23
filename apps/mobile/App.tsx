@@ -171,24 +171,25 @@ export default function App() {
     setMessage("Monitoring stopped. The feeds are yours again.");
   };
 
-  const completeChallenge = () => {
-    if (fsm.state === "CHALLENGE") {
-      UnloopUsage.dismissInterruptOverlay();
-      UnloopUsage.setCooldownUntilMs(Date.now() + COOLDOWN_MS);
-      setSessionState(fsm.dispatch({ type: "CHALLENGE_COMPLETED" }));
-      bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
-      setMessage(
-        `Nice. ${COOLDOWN_MS / 1000}s grace — then I’ll watch again if you ask me to.`,
-      );
-      setTimeout(() => {
-        if (fsm.state === "COOLDOWN") {
-          UnloopUsage.clearCooldown();
-          setSessionState(fsm.dispatch({ type: "COOLDOWN_ELAPSED" }));
-          setMessage("Back on watch. You’ve got this.");
-        }
-      }, COOLDOWN_MS);
+  const completeChallenge = useCallback(() => {
+    if (fsm.state !== "CHALLENGE") {
+      return;
     }
-  };
+    UnloopUsage.dismissInterruptOverlay();
+    UnloopUsage.setCooldownUntilMs(Date.now() + COOLDOWN_MS);
+    setSessionState(fsm.dispatch({ type: "CHALLENGE_COMPLETED" }));
+    bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
+    setMessage(
+      `Nice. ${COOLDOWN_MS / 1000}s grace — then I’ll watch again if you ask me to.`,
+    );
+    setTimeout(() => {
+      if (fsm.state === "COOLDOWN") {
+        UnloopUsage.clearCooldown();
+        setSessionState(fsm.dispatch({ type: "COOLDOWN_ELAPSED" }));
+        setMessage("Back on watch. You’ve got this.");
+      }
+    }, COOLDOWN_MS);
+  }, [bus, fsm]);
 
   const inChallenge = sessionState === "CHALLENGE";
   const monitoring = sessionState === "MONITORING" || sessionState === "COOLDOWN";
