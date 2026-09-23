@@ -83,7 +83,7 @@ Pick the first `ready` item whose dependencies are all `done`. Update this file 
 ## Phase 1 — Android MVP (local engine)
 
 ### P1-01 — Spike: Android UsageStats + overlay via Expo Module
-- **Status:** ready
+- **Status:** done
 - **Deps:** P0-10
 - **AC:** Short spike notes in `docs/` or STATUS: feasible path for Usage Access + overlay (or explicit blocker). Prefer Expo Modules. No production polish required.
 - **Tests:** Spike demo on emulator or device as available; document result.

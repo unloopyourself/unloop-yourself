@@ -4,21 +4,18 @@ Last updated: 2026-09-23
 
 ## Active item
 
-None. **Phase 0 complete** (P0-01 … P0-10). Next: **P1-01** — Android UsageStats + overlay spike (Expo Module).
+None. **P1-01** done (feasibility spike documented). Next: **P1-02** — scaffold Expo `apps/mobile`.
 
 ## Last gate result
 
-- `npm test`: **PASSED** (18 tests)
-- `npm run typecheck -w @unloop/core`: **PASSED**
-- `scripts/check-boundaries.sh`: **PASSED**
-- Phase 0 gate (P0-10): **PASSED**
+- Phase 0: green (see prior)
+- P1-01: spike note [`docs/spike-android-usage-overlay.md`](../docs/spike-android-usage-overlay.md) — **feasible**, no paid infra; device demo deferred to P1-02+
 
 ## Human decisions pending
 
-- None. Autonomous Phase 0 authorized by human.
-- Next natural pause: P1-01 may escalate if Expo UsageStats/overlay path is blocked; P1-08 is human device acceptance.
+- None. Continuing autonomously into P1-02 unless Expo scaffold hits an environment blocker.
+- P1-08 remains human device acceptance.
 
 ## Notes
 
-- Core modules: `challenge`, `session`, `events`, `ports`, `policy` under `packages/core/src/`.
-- No Expo / `apps/mobile` yet.
+- Spike recommends Expo Module + UsageStats + FGS; overlay with Activity fallback; no Accessibility-first.
