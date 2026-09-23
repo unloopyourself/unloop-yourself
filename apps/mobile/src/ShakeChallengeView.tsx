@@ -64,12 +64,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.titleSize,
-    fontFamily: "Fraunces_700Bold",
+    fontWeight: "800",
     color: colors.white,
   },
   subtitle: {
     fontSize: typography.bodySize,
-    fontFamily: "Outfit_400Regular",
+    fontWeight: "400",
     lineHeight: 24,
     textAlign: "center",
     color: colors.textOnInk,
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: typography.metaSize,
-    fontFamily: "Outfit_500Medium",
+    fontWeight: "600",
     color: colors.emberSoft,
   },
 });

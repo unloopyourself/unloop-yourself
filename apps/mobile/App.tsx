@@ -9,8 +9,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFonts, Outfit_400Regular, Outfit_600SemiBold, Outfit_500Medium } from "@expo-google-fonts/outfit";
-import { Fraunces_700Bold } from "@expo-google-fonts/fraunces";
 import {
   SessionFsm,
   TypedEventEmitter,
@@ -37,13 +35,6 @@ type DomainEvents = {
 };
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
-    Outfit_400Regular,
-    Outfit_500Medium,
-    Outfit_600SemiBold,
-    Fraunces_700Bold,
-  });
-
   const storage = useMemo(() => new MemoryStoragePort(), []);
   const audit = useMemo(() => new LocalAuditTrail(storage), [storage]);
   const bus = useMemo(() => new TypedEventEmitter<DomainEvents>(), []);
@@ -189,14 +180,6 @@ export default function App() {
   const inChallenge = sessionState === "CHALLENGE";
   const monitoring = sessionState === "MONITORING" || sessionState === "COOLDOWN";
 
-  if (!fontsLoaded) {
-    return (
-      <View style={[styles.boot, { justifyContent: "center", alignItems: "center" }]}>
-        <Text style={{ color: colors.ink, fontSize: 28, fontWeight: "700" }}>Unloop</Text>
-      </View>
-    );
-  }
-
   return (
     <LinearGradient
       colors={
@@ -277,10 +260,6 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  boot: {
-    flex: 1,
-    backgroundColor: colors.mist,
-  },
   gradient: {
     flex: 1,
   },
@@ -294,23 +273,23 @@ const styles = StyleSheet.create({
   },
   brand: {
     fontSize: typography.brandSize,
-    fontFamily: "Fraunces_700Bold",
+    fontWeight: "800",
     color: colors.ink,
-    letterSpacing: -0.5,
+    letterSpacing: -1,
   },
   brandOnInk: {
     color: colors.emberSoft,
   },
   tagline: {
     fontSize: 15,
-    fontFamily: "Outfit_500Medium",
+    fontWeight: "600",
     color: colors.teal,
     textAlign: "center",
     marginTop: -4,
   },
   meta: {
     fontSize: typography.metaSize,
-    fontFamily: "Outfit_400Regular",
+    fontWeight: "400",
     color: colors.textMuted,
     textAlign: "center",
   },
@@ -322,7 +301,7 @@ const styles = StyleSheet.create({
   },
   copy: {
     fontSize: typography.bodySize,
-    fontFamily: "Outfit_400Regular",
+    fontWeight: "400",
     lineHeight: 24,
     textAlign: "center",
     color: colors.text,
@@ -332,7 +311,7 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 8,
     fontSize: 13,
-    fontFamily: "Outfit_600SemiBold",
+    fontWeight: "700",
     color: colors.textMuted,
     alignSelf: "flex-start",
     textTransform: "uppercase",
@@ -354,7 +333,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.chipOn,
   },
   chipLabel: {
-    fontFamily: "Outfit_600SemiBold",
+    fontWeight: "700",
     color: colors.ink,
     fontSize: 14,
   },
@@ -375,6 +354,6 @@ const styles = StyleSheet.create({
   buttonLabel: {
     color: colors.white,
     fontSize: 16,
-    fontFamily: "Outfit_600SemiBold",
+    fontWeight: "700",
   },
 });
