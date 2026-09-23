@@ -104,14 +104,24 @@ export default function App() {
   }, [detector]);
 
   const toggleLabel = (label: string) => {
-    setEnabledLabels((prev) => {
-      const next = prev.includes(label)
-        ? prev.filter((l) => l !== label)
-        : [...prev, label];
-      const safe = next.length === 0 ? [label] : next;
-      void saveSettings({ enabledLabels: safe });
-      return safe;
-    });
+    const next = enabledLabels.includes(label)
+      ? enabledLabels.filter((l) => l !== label)
+      : [...enabledLabels, label];
+    const safe = next.length === 0 ? [label] : next;
+    setEnabledLabels(safe);
+    void saveSettings({ enabledLabels: safe });
+    if (
+      Platform.OS === "android" &&
+      (sessionState === "MONITORING" || sessionState === "COOLDOWN")
+    ) {
+      const packages = packagesForLabels(safe);
+      if (packages.length > 0) {
+        UnloopUsage.updateMonitoredPackages(packages.join(","));
+        setMessage(
+          `Watching ${safe.join(", ")}. After ~${THRESHOLD_MS / 1000}s in a feed I’ll interrupt — then ${COOLDOWN_MS / 1000}s of grace.`,
+        );
+      }
+    }
   };
 
   const startMonitoring = async () => {

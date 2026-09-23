@@ -18,6 +18,8 @@ type UnloopUsageNativeModule = {
   clearCooldown(): void;
   /** Comma-separated Android package names. */
   startNativeMonitoring(packagesCsv: string, thresholdMs: number): void;
+  /** Hot-swap watch list while monitoring (keeps cooldown). */
+  updateMonitoredPackages(packagesCsv: string): void;
   stopNativeMonitoring(): void;
   addListener(
     eventName: "onThresholdReached",

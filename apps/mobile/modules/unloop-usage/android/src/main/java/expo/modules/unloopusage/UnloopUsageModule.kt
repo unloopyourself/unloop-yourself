@@ -73,6 +73,10 @@ class UnloopUsageModule : Module() {
       UsageMonitorService.start(context, packagesCsv, thresholdMs.toLong())
     }
 
+    Function("updateMonitoredPackages") { packagesCsv: String ->
+      UsageMonitorService.updatePackages(context, packagesCsv)
+    }
+
     Function("stopNativeMonitoring") {
       UsageMonitorService.stop(context)
     }
