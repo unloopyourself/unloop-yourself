@@ -14,7 +14,8 @@ type UnloopUsageNativeModule = {
   getUsageMsForPackage(packageName: string, startMs: number, endMs: number): number;
   bringAppToForeground(): void;
   dismissInterruptOverlay(): void;
-  startNativeMonitoring(packageName: string, thresholdMs: number): void;
+  /** Comma-separated Android package names. */
+  startNativeMonitoring(packagesCsv: string, thresholdMs: number): void;
   stopNativeMonitoring(): void;
   addListener(
     eventName: "onThresholdReached",

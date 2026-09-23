@@ -61,8 +61,8 @@ class UnloopUsageModule : Module() {
       InterruptOverlay.dismiss(context)
     }
 
-    Function("startNativeMonitoring") { packageName: String, thresholdMs: Double ->
-      UsageMonitorService.start(context, packageName, thresholdMs.toLong())
+    Function("startNativeMonitoring") { packagesCsv: String, thresholdMs: Double ->
+      UsageMonitorService.start(context, packagesCsv, thresholdMs.toLong())
     }
 
     Function("stopNativeMonitoring") {

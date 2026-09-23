@@ -20,32 +20,31 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 
 /**
- * Accumulates wall-clock time while the target package is actively in use:
- * recent UsageStats/UsageEvents foreground, or active media playback (covers
- * YouTube Picture-in-Picture / Shorts looping when UsageStats reports systemui).
+ * Accumulates wall-clock time while any configured target package is in use
+ * (UsageStats / UsageEvents, or active media playback for PiP / Shorts loops).
  */
 class UsageMonitorService : Service() {
   private val handler = Handler(Looper.getMainLooper())
-  private var packageNameTarget: String = ""
+  private var packageTargets: Set<String> = emptySet()
   private var thresholdMs: Long = 60_000L
   private var accumulatedMs: Long = 0L
   private var lastTickElapsedRealtime: Long = 0L
   private var lastKnownFgPackage: String? = null
-  private var matchingPlayback: Boolean = false
+  private var matchingPlaybackPackage: String? = null
   private var fired = false
   private var wasMatching = false
 
   private val tick = object : Runnable {
     override fun run() {
       try {
-        if (packageNameTarget.isEmpty()) {
+        if (packageTargets.isEmpty()) {
           return
         }
         refreshForegroundState()
-        val matching = isTargetInUse()
+        val matchedPackage = matchedTargetPackage()
+        val matching = matchedPackage != null
         val nowElapsed = SystemClock.elapsedRealtime()
 
-        // New doomscroll bout after an interrupt: allow firing again.
         if (fired && matching && !wasMatching) {
           Log.i(TAG, "target returned to use — resetting fired latch")
           fired = false
@@ -59,15 +58,16 @@ class UsageMonitorService : Service() {
         lastTickElapsedRealtime = nowElapsed
 
         val msg =
-          "fg=$lastKnownFgPackage play=$matchingPlayback match=$matching " +
+          "fg=$lastKnownFgPackage play=$matchingPlaybackPackage match=$matching " +
             "acc=${accumulatedMs / 1000}s / ${thresholdMs / 1000}s"
         Log.i(TAG, msg)
-        updateNotification(msg)
+        updateNotification(friendlyStatus(matching, matchedPackage))
 
         if (!fired && accumulatedMs >= thresholdMs) {
           fired = true
-          Log.i(TAG, "THRESHOLD reached — showing overlay (no PiP kick)")
-          thresholdCallback?.invoke(packageNameTarget, accumulatedMs)
+          val appId = matchedPackage ?: packageTargets.first()
+          Log.i(TAG, "THRESHOLD reached for $appId — showing overlay")
+          thresholdCallback?.invoke(appId, accumulatedMs)
           UnloopUsageModule.bringAppToForeground(this@UsageMonitorService)
         }
       } catch (t: Throwable) {
@@ -87,16 +87,22 @@ class UsageMonitorService : Service() {
         return START_NOT_STICKY
       }
       ACTION_START -> {
-        packageNameTarget = intent.getStringExtra(EXTRA_PACKAGE) ?: ""
+        val raw = intent.getStringExtra(EXTRA_PACKAGES)
+          ?: intent.getStringExtra(EXTRA_PACKAGE)
+          ?: ""
+        packageTargets = raw.split(',')
+          .map { it.trim() }
+          .filter { it.isNotEmpty() }
+          .toSet()
         thresholdMs = intent.getLongExtra(EXTRA_THRESHOLD_MS, 60_000L)
         accumulatedMs = 0L
         lastTickElapsedRealtime = 0L
         lastKnownFgPackage = null
-        matchingPlayback = false
+        matchingPlaybackPackage = null
         fired = false
         wasMatching = false
-        Log.i(TAG, "START monitoring $packageNameTarget thr=${thresholdMs}ms")
-        startForeground(NOTIFICATION_ID, buildNotification("Starting…"))
+        Log.i(TAG, "START monitoring $packageTargets thr=${thresholdMs}ms")
+        startForeground(NOTIFICATION_ID, buildNotification("Watching for autopilot…"))
         handler.removeCallbacks(tick)
         refreshForegroundState()
         lastTickElapsedRealtime = SystemClock.elapsedRealtime()
@@ -112,13 +118,21 @@ class UsageMonitorService : Service() {
     super.onDestroy()
   }
 
-  private fun isTargetInUse(): Boolean {
-    if (lastKnownFgPackage == packageNameTarget) {
-      return true
+  private fun matchedTargetPackage(): String? {
+    val fg = lastKnownFgPackage
+    if (fg != null && fg in packageTargets) {
+      return fg
     }
-    // YouTube (etc.) often keeps playing in PiP while UsageStats points at
-    // systemui / launcher — count active media from the target package.
-    return matchingPlayback
+    return matchingPlaybackPackage
+  }
+
+  private fun friendlyStatus(matching: Boolean, matched: String?): String {
+    return if (matching) {
+      val label = matched?.substringAfterLast('.') ?: "feed"
+      "In a feed ($label) · ${accumulatedMs / 1000}s"
+    } else {
+      "Idle · grace until you scroll again"
+    }
   }
 
   private fun refreshForegroundState() {
@@ -127,7 +141,7 @@ class UsageMonitorService : Service() {
     val begin = end - LOOKBACK_MS
     val self = packageName
 
-    matchingPlayback = targetHasActivePlayback()
+    matchingPlaybackPackage = playbackMatchingTarget()
 
     val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, begin, end)
     val top = stats
@@ -154,14 +168,13 @@ class UsageMonitorService : Service() {
     }
   }
 
-  private fun targetHasActivePlayback(): Boolean {
-    if (packageNameTarget.isEmpty()) {
-      return false
+  private fun playbackMatchingTarget(): String? {
+    if (packageTargets.isEmpty()) {
+      return null
     }
     return try {
       val audio = getSystemService(AUDIO_SERVICE) as AudioManager
       val configs: List<AudioPlaybackConfiguration> = audio.activePlaybackConfigurations
-      // Use reflection: player/client accessors vary by API and OEM stubs.
       val getUid = AudioPlaybackConfiguration::class.java.getMethod("getClientUid")
       val getState = try {
         AudioPlaybackConfiguration::class.java.getMethod("getPlayerState")
@@ -171,22 +184,26 @@ class UsageMonitorService : Service() {
       val started = try {
         AudioPlaybackConfiguration::class.java.getField("PLAYER_STATE_STARTED").getInt(null)
       } catch (_: Throwable) {
-        2 // AudioPlaybackConfiguration.PLAYER_STATE_STARTED
+        2
       }
-      configs.any { cfg ->
+      for (cfg in configs) {
         if (getState != null) {
           val state = getState.invoke(cfg) as Int
           if (state != started) {
-            return@any false
+            continue
           }
         }
         val uid = getUid.invoke(cfg) as Int
-        val packages = packageManager.getPackagesForUid(uid) ?: return@any false
-        packages.contains(packageNameTarget)
+        val packages = packageManager.getPackagesForUid(uid) ?: continue
+        val hit = packages.firstOrNull { it in packageTargets }
+        if (hit != null) {
+          return hit
+        }
       }
+      null
     } catch (t: Throwable) {
       Log.w(TAG, "active playback probe failed", t)
-      false
+      null
     }
   }
 
@@ -212,7 +229,7 @@ class UsageMonitorService : Service() {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
     return NotificationCompat.Builder(this, CHANNEL_ID)
-      .setContentTitle("Unloop is monitoring")
+      .setContentTitle("Unloop is with you")
       .setContentText(content)
       .setStyle(NotificationCompat.BigTextStyle().bigText(content))
       .setSmallIcon(android.R.drawable.ic_popup_reminder)
@@ -240,6 +257,7 @@ class UsageMonitorService : Service() {
     const val ACTION_START = "dev.unloopyourself.usage.START"
     const val ACTION_STOP = "dev.unloopyourself.usage.STOP"
     const val EXTRA_PACKAGE = "package"
+    const val EXTRA_PACKAGES = "packages"
     const val EXTRA_THRESHOLD_MS = "thresholdMs"
     private const val CHANNEL_ID = "unloop_monitoring"
     private const val NOTIFICATION_ID = 42001
@@ -249,10 +267,10 @@ class UsageMonitorService : Service() {
     @Volatile
     var thresholdCallback: ((packageName: String, deltaU: Long) -> Unit)? = null
 
-    fun start(context: Context, packageName: String, thresholdMs: Long) {
+    fun start(context: Context, packagesCsv: String, thresholdMs: Long) {
       val intent = Intent(context, UsageMonitorService::class.java).apply {
         action = ACTION_START
-        putExtra(EXTRA_PACKAGE, packageName)
+        putExtra(EXTRA_PACKAGES, packagesCsv)
         putExtra(EXTRA_THRESHOLD_MS, thresholdMs)
       }
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
