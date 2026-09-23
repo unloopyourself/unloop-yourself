@@ -16,6 +16,8 @@ class UnloopUsageModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("UnloopUsage")
 
+    Events("onThresholdReached")
+
     Function("hasUsagePermission") {
       hasUsagePermission()
     }
@@ -26,18 +28,41 @@ class UnloopUsageModule : Module() {
       context.startActivity(intent)
     }
 
-    /**
-     * Returns aggregate foreground time in milliseconds for [packageName]
-     * between [startMs] and [endMs] (epoch millis), or -1 if permission missing.
-     */
     Function("getUsageMsForPackage") { packageName: String, startMs: Double, endMs: Double ->
       if (!hasUsagePermission()) {
         return@Function -1.0
       }
-      val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-      val stats = usm.queryAndAggregateUsageStats(startMs.toLong(), endMs.toLong())
-      val entry = stats[packageName]
-      (entry?.totalTimeInForeground ?: 0L).toDouble()
+      queryUsageMs(packageName, startMs.toLong(), endMs.toLong()).toDouble()
+    }
+
+    Function("bringAppToForeground") {
+      bringAppToForeground(context)
+    }
+
+    Function("startNativeMonitoring") { packageName: String, thresholdMs: Double ->
+      UsageMonitorService.start(context, packageName, thresholdMs.toLong())
+    }
+
+    Function("stopNativeMonitoring") {
+      UsageMonitorService.stop(context)
+    }
+
+    OnCreate {
+      UsageMonitorService.thresholdCallback = { packageName, deltaU ->
+        sendEvent(
+          "onThresholdReached",
+          mapOf(
+            "appId" to packageName,
+            "deltaU" to deltaU.toDouble(),
+            "observedAtMs" to System.currentTimeMillis().toDouble(),
+          ),
+        )
+        bringAppToForeground(context)
+      }
+    }
+
+    OnDestroy {
+      UsageMonitorService.thresholdCallback = null
     }
   }
 
@@ -49,5 +74,28 @@ class UnloopUsageModule : Module() {
       context.packageName,
     )
     return mode == AppOpsManager.MODE_ALLOWED
+  }
+
+  companion object {
+    fun queryUsageMs(context: Context, packageName: String, startMs: Long, endMs: Long): Long {
+      val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+      val stats = usm.queryAndAggregateUsageStats(startMs, endMs)
+      return stats[packageName]?.totalTimeInForeground ?: 0L
+    }
+
+    fun bringAppToForeground(context: Context) {
+      val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+      launch.addFlags(
+        Intent.FLAG_ACTIVITY_NEW_TASK or
+          Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+          Intent.FLAG_ACTIVITY_SINGLE_TOP or
+          Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED,
+      )
+      context.startActivity(launch)
+    }
+  }
+
+  private fun queryUsageMs(packageName: String, startMs: Long, endMs: Long): Long {
+    return Companion.queryUsageMs(context, packageName, startMs, endMs)
   }
 }

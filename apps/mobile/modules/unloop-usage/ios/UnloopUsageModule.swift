@@ -4,6 +4,8 @@ public class UnloopUsageModule: Module {
   public func definition() -> ModuleDefinition {
     Name("UnloopUsage")
 
+    Events("onThresholdReached")
+
     Function("hasUsagePermission") { () -> Bool in
       return false
     }
@@ -14,6 +16,18 @@ public class UnloopUsageModule: Module {
 
     Function("getUsageMsForPackage") { (_packageName: String, _startMs: Double, _endMs: Double) -> Double in
       return -1
+    }
+
+    Function("bringAppToForeground") { () in
+      // no-op on iOS stub
+    }
+
+    Function("startNativeMonitoring") { (_packageName: String, _thresholdMs: Double) in
+      // no-op on iOS stub
+    }
+
+    Function("stopNativeMonitoring") { () in
+      // no-op
     }
   }
 }
