@@ -4,6 +4,8 @@ import type { Translate } from "../i18n";
 
 const APP_VERSION = "0.1.0";
 const CONTACT_EMAIL = "unloopyourself.dev@gmail.com";
+const REPO_URL = "https://github.com/unloopyourself/unloop-yourself";
+const ISSUES_URL = `${REPO_URL}/issues`;
 
 type Props = {
   t: Translate;
@@ -33,6 +35,20 @@ export function AboutScreen({ t, onBack }: Props) {
         accessibilityRole="link"
       >
         <Text style={styles.link}>{t("about.email")}</Text>
+      </Pressable>
+
+      <Text style={styles.section}>{t("about.source")}</Text>
+      <Pressable
+        onPress={() => void Linking.openURL(REPO_URL)}
+        accessibilityRole="link"
+      >
+        <Text style={styles.link}>{t("about.repo")}</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => void Linking.openURL(ISSUES_URL)}
+        accessibilityRole="link"
+      >
+        <Text style={styles.link}>{t("about.issues")}</Text>
       </Pressable>
 
       <Text style={styles.version}>
