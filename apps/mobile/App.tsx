@@ -2,11 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AppState,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
-  TextInput,
-  View,
   ScrollView,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -25,21 +22,23 @@ import UnloopUsage, {
   addOpenChallengeListener,
 } from "./modules/unloop-usage/src/UnloopUsageModule";
 import { colors, typography } from "./src/theme";
-import { WATCH_TARGETS, packagesForLabels } from "./src/targets";
+import { packagesForLabels } from "./src/targets";
 import { loadSettings, saveSettings, type UnloopSettings } from "./src/settings";
 import { createTranslator, detectLocale } from "./src/i18n";
-import {
-  CHALLENGE_CATALOG,
-  pickChallengeId,
-  type ChallengeId,
-} from "./src/challenges/registry";
+import { pickChallengeId, type ChallengeId } from "./src/challenges/registry";
 import { ChallengeHost } from "./src/challenges/ChallengeHost";
 import { ExpoSensorPort } from "./src/expoSensorPort";
+import { HomeScreen } from "./src/screens/HomeScreen";
+import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { AboutScreen } from "./src/screens/AboutScreen";
+import { MenuSheet } from "./src/screens/MenuSheet";
 
 type DomainEvents = {
   CHALLENGE_COMPLETED: { atMs: number };
   THRESHOLD_REACHED: { appId: string; deltaU: number };
 };
+
+type AppScreen = "home" | "settings" | "about";
 
 export default function App() {
   const t = useMemo(() => createTranslator(detectLocale()), []);
@@ -80,7 +79,8 @@ export default function App() {
   const [activeChallengeId, setActiveChallengeId] =
     useState<ChallengeId>("shake");
   const [message, setMessage] = useState(t("app.intro"));
-
+  const [screen, setScreen] = useState<AppScreen>("home");
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     settingsRef.current = settings;
     if (settings) {
@@ -433,6 +433,23 @@ export default function App() {
   const monitoring =
     sessionState === "MONITORING" || sessionState === "COOLDOWN";
 
+  const permissionLabel =
+    Platform.OS === "android"
+      ? `${t("app.usage")}: ${
+          permission == null
+            ? "…"
+            : permission
+              ? t("app.ok")
+              : t("app.needed")
+        } · ${t("app.overlay")}: ${
+          overlayPermission == null
+            ? "…"
+            : overlayPermission
+              ? t("app.ok")
+              : t("app.needed")
+        }`
+      : null;
+
   return (
     <LinearGradient
       colors={
@@ -442,25 +459,13 @@ export default function App() {
       }
       style={styles.gradient}
     >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={[styles.brand, inChallenge && styles.brandOnInk]}>
-          Unloop
-        </Text>
-        <Text style={[styles.tagline, inChallenge && styles.textOnInk]}>
-          {t("app.tagline")}
-        </Text>
-        <Text style={[styles.meta, inChallenge && styles.textOnInkMuted]}>
-          {sessionState}
-          {lastDelta != null
-            ? ` · last bout ${Math.round(lastDelta / 1000)}s`
-            : ""}
-        </Text>
-
-        {!inChallenge && <Text style={styles.copy}>{message}</Text>}
-        {inChallenge && settings && (
+      {inChallenge && settings ? (
+        <ScrollView
+          contentContainerStyle={styles.challengeContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.brandOnInk}>Unloop</Text>
+          <Text style={styles.taglineOnInk}>{t("app.tagline")}</Text>
           <ChallengeHost
             challengeId={activeChallengeId}
             timeoutMs={settings.challengeTimeoutMs}
@@ -468,143 +473,51 @@ export default function App() {
             onComplete={completeChallenge}
             onSoftFail={softFailChallenge}
           />
-        )}
+        </ScrollView>
+      ) : screen === "settings" && settings ? (
+        <SettingsScreen
+          t={t}
+          settings={settings}
+          deviceCaps={deviceCaps}
+          permission={permission}
+          overlayPermission={overlayPermission}
+          onBack={() => setScreen("home")}
+          onToggleLabel={toggleLabel}
+          onToggleChallenge={toggleChallenge}
+          onSetTiming={setTiming}
+        />
+      ) : screen === "about" ? (
+        <AboutScreen t={t} onBack={() => setScreen("home")} />
+      ) : (
+        <HomeScreen
+          t={t}
+          sessionState={sessionState}
+          lastDelta={lastDelta}
+          message={message}
+          monitoring={monitoring}
+          permissionLabel={permissionLabel}
+          onToggleMonitoring={() =>
+            void (monitoring ? stopMonitoring() : startMonitoring())
+          }
+          onOpenMenu={() => setMenuOpen(true)}
+        />
+      )}
 
-        {!inChallenge && settings && (
-          <>
-            <Text style={styles.section}>{t("app.feeds_section")}</Text>
-            <View style={styles.chips}>
-              {WATCH_TARGETS.map((app) => {
-                const on = settings.enabledLabels.includes(app.label);
-                return (
-                  <Pressable
-                    key={app.label}
-                    onPress={() => toggleLabel(app.label)}
-                    style={[styles.chip, on && styles.chipOn]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                  >
-                    <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>
-                      {app.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.section}>{t("app.challenges_section")}</Text>
-            <View style={styles.chips}>
-              {CHALLENGE_CATALOG.map((c) => {
-                const on = settings.enabledChallengeIds.includes(c.id);
-                const hardwareOk = [...c.requires].every((cap) =>
-                  deviceCaps.has(cap),
-                );
-                return (
-                  <Pressable
-                    key={c.id}
-                    onPress={() => toggleChallenge(c.id)}
-                    style={[
-                      styles.chip,
-                      on && styles.chipOn,
-                      !hardwareOk && styles.chipUnavailable,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    accessibilityHint={
-                      hardwareOk ? undefined : "Not available on this device"
-                    }
-                  >
-                    <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>
-                      {t(c.titleKey)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.section}>{t("app.timings_section")}</Text>
-            <TimingRow
-              label={t("app.threshold")}
-              seconds={Math.round(settings.thresholdMs / 1000)}
-              onCommit={(s) => setTiming("thresholdMs", s)}
-            />
-            <TimingRow
-              label={t("app.cooldown")}
-              seconds={Math.round(settings.cooldownMs / 1000)}
-              onCommit={(s) => setTiming("cooldownMs", s)}
-            />
-            <TimingRow
-              label={t("app.soft_timeout")}
-              seconds={Math.round(settings.challengeTimeoutMs / 1000)}
-              onCommit={(s) => setTiming("challengeTimeoutMs", s)}
-            />
-
-            {Platform.OS === "android" && (
-              <Text style={styles.meta}>
-                {t("app.usage")}:{" "}
-                {permission == null
-                  ? "…"
-                  : permission
-                    ? t("app.ok")
-                    : t("app.needed")}
-                {" · "}
-                {t("app.overlay")}:{" "}
-                {overlayPermission == null
-                  ? "…"
-                  : overlayPermission
-                    ? t("app.ok")
-                    : t("app.needed")}
-              </Text>
-            )}
-
-            <Pressable
-              style={[styles.button, styles.primary]}
-              onPress={() =>
-                void (monitoring ? stopMonitoring() : startMonitoring())
-              }
-            >
-              <Text style={styles.buttonLabel}>
-                {monitoring ? t("app.stop") : t("app.start")}
-              </Text>
-            </Pressable>
-          </>
-        )}
-        <StatusBar style={inChallenge ? "light" : "dark"} />
-      </ScrollView>
-    </LinearGradient>
-  );
-}
-
-function TimingRow({
-  label,
-  seconds,
-  onCommit,
-}: {
-  label: string;
-  seconds: number;
-  onCommit: (text: string) => void;
-}) {
-  const [text, setText] = useState(String(seconds));
-  useEffect(() => {
-    setText(String(seconds));
-  }, [seconds]);
-  return (
-    <View style={styles.timingRow}>
-      <Text style={styles.timingLabel}>{label}</Text>
-      <TextInput
-        style={styles.timingInput}
-        value={text}
-        onChangeText={setText}
-        onEndEditing={() => onCommit(text)}
-        keyboardType="number-pad"
+      <MenuSheet
+        visible={menuOpen && !inChallenge}
+        t={t}
+        onClose={() => setMenuOpen(false)}
+        onOpenSettings={() => setScreen("settings")}
+        onOpenAbout={() => setScreen("about")}
       />
-    </View>
+      <StatusBar style={inChallenge ? "light" : "dark"} />
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
-  container: {
+  challengeContainer: {
     flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -612,90 +525,17 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
     gap: 14,
   },
-  brand: {
+  brandOnInk: {
     fontSize: typography.brandSize,
     fontWeight: "800",
-    color: colors.ink,
+    color: colors.emberSoft,
     letterSpacing: -1,
   },
-  brandOnInk: { color: colors.emberSoft },
-  tagline: {
+  taglineOnInk: {
     fontSize: 15,
     fontWeight: "600",
-    color: colors.teal,
+    color: colors.textOnInk,
     textAlign: "center",
     marginTop: -4,
   },
-  meta: {
-    fontSize: typography.metaSize,
-    fontWeight: "400",
-    color: colors.textMuted,
-    textAlign: "center",
-  },
-  textOnInk: { color: colors.textOnInk },
-  textOnInkMuted: { color: colors.emberSoft },
-  copy: {
-    fontSize: typography.bodySize,
-    fontWeight: "400",
-    lineHeight: 24,
-    textAlign: "center",
-    color: colors.text,
-    marginBottom: 4,
-    maxWidth: 340,
-  },
-  section: {
-    marginTop: 8,
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textMuted,
-    alignSelf: "flex-start",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  chips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    justifyContent: "center",
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: colors.chipOff,
-  },
-  chipOn: { backgroundColor: colors.chipOn },
-  chipUnavailable: { opacity: 0.45 },
-  chipLabel: { fontWeight: "700", color: colors.ink, fontSize: 14 },
-  chipLabelOn: { color: colors.white },
-  timingRow: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  timingLabel: { flex: 1, color: colors.textMuted, fontSize: 13 },
-  timingInput: {
-    width: 72,
-    borderWidth: 1,
-    borderColor: colors.chipOff,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    textAlign: "center",
-    color: colors.ink,
-    backgroundColor: colors.white,
-    fontWeight: "700",
-  },
-  button: {
-    marginTop: 8,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 14,
-    minWidth: 240,
-    alignItems: "center",
-  },
-  primary: { backgroundColor: colors.ember },
-  buttonLabel: { color: colors.white, fontSize: 16, fontWeight: "700" },
 });
