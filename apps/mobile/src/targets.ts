@@ -1,16 +1,15 @@
-export type ShortVideoApp = {
-  /** Display name */
+export type WatchTarget = {
+  /** Display name (catalog key may differ; label used in chips). */
   label: string;
   /** One or more Android package ids (regional variants). */
   packages: string[];
 };
 
 /**
- * Feeds / doomscroll surfaces Unloop can watch.
- * “Browsers” is one chip covering common Chromium/Gecko browsers — Android has
- * no generic “any browser” API, so we list packages explicitly.
+ * Surfaces Unloop can watch for autopilot.
+ * “Browsers” / “AI chats” group several packages under one chip.
  */
-export const SHORT_VIDEO_APPS: ShortVideoApp[] = [
+export const WATCH_TARGETS: WatchTarget[] = [
   {
     label: "YouTube",
     packages: ["com.google.android.youtube"],
@@ -40,6 +39,19 @@ export const SHORT_VIDEO_APPS: ShortVideoApp[] = [
     packages: ["com.reddit.frontpage"],
   },
   {
+    label: "AI chats",
+    packages: [
+      "com.openai.chatgpt",
+      "com.google.android.apps.bard",
+      "com.google.android.apps.gemini",
+      "com.anthropic.claude",
+      "ai.character.app",
+      "ai.perplexity.app.android",
+      "com.microsoft.copilot",
+      "com.microsoft.bing",
+    ],
+  },
+  {
     label: "Browsers",
     packages: [
       "com.android.chrome",
@@ -61,6 +73,9 @@ export const SHORT_VIDEO_APPS: ShortVideoApp[] = [
   },
 ];
 
+/** @deprecated Use WATCH_TARGETS */
+export const SHORT_VIDEO_APPS = WATCH_TARGETS;
+
 export const DEFAULT_ENABLED_LABELS = ["YouTube", "TikTok", "Instagram"] as const;
 
 /** Time in a target feed before interrupt. */
@@ -69,7 +84,10 @@ export const THRESHOLD_MS = 60_000;
 /** Grace after a completed challenge before interrupting again. */
 export const COOLDOWN_MS = 120_000;
 
+/** Soft unlock: release the feed without success (not a ban). */
+export const CHALLENGE_TIMEOUT_MS = 45_000;
+
 export function packagesForLabels(labels: string[]): string[] {
   const set = new Set(labels);
-  return SHORT_VIDEO_APPS.filter((a) => set.has(a.label)).flatMap((a) => a.packages);
+  return WATCH_TARGETS.filter((a) => set.has(a.label)).flatMap((a) => a.packages);
 }

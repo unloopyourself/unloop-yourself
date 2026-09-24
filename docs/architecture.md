@@ -92,7 +92,19 @@ Lightweight internal messaging with no heavy third-party bus.
 2. **Detect:** Platform adapter hits threshold → event via `UsageDetectorPort`.
 3. **Evaluate:** Policy Engine confirms interrupt; Challenge Engine picks a challenge for current `DeviceContext`.
 4. **Interrupt:** FSM → `CHALLENGE`; UI shows the challenge.
-5. **Resolve:** On completion or timeout, emit `CHALLENGE_COMPLETED`, enter `COOLDOWN`, notify subscribers (logger, score, Buddy later).
+5. **Resolve:** On success emit `CHALLENGE_COMPLETED`, or on **soft timeout** emit `CHALLENGE_FAILED`; both enter `COOLDOWN`, clear the shield, and return the feeds. Unloop is an interrupt, not a lock — see soft unlock below.
+
+### Soft unlock (not a ban)
+
+The challenge must **not** hard-block apps until success. That would make Unloop a prohibition tool and fights the manifesto (“restore awareness, do not punish”).
+
+* While `CHALLENGE` is active, the shield may cover the feed — that is the interrupt.
+* After a **generous timeout** (order of tens of seconds, tunable in settings later), dismiss the shield, enter cooldown, and show a short **wake-up** line — not a scold.
+* Tone target (EN source; localize): something in the spirit of *“No worries — the challenge slipped by. Glad you looked up for a moment. The world outside the feed is still there.”* Avoid guilt, lectures, or “you failed.”
+* Optional later: a quiet **Skip** control with the same outcome as timeout (same event, same copy family).
+* FSM already models this: `CHALLENGE` + `CHALLENGE_FAILED` → `COOLDOWN`.
+
+Implementation today still waits for success; soft timeout is the intended product rule for the next challenge/UX pass.
 
 ---
 
@@ -109,4 +121,18 @@ Examples:
 
 Incompatible challenges are excluded before their code runs. New hosts (browser, desktop) only need a DeviceContext; new challenges only declare requirements and logic.
 
+When multiple challenges exist, **Settings → Challenges** lets the user enable/disable each one. Selection is always:
+
+$$\text{enabledByUser} \cap \{ c \mid c.\mathrm{requires} \subseteq \mathrm{availableCapabilities} \}$$
+
+Candidate catalog: [`offline_challenges.md`](offline_challenges.md).
+
 See also [capabilities appendix](capabilities.md) and [modular architecture notes](modular_architecture.md).
+
+---
+
+## 6. Localization
+
+All user-visible copy (app UI, interrupt overlay, challenge prompts, notifications, settings) must be **localizable**. Source of truth: English string catalogs; locale packs (e.g. `it`) for translation. Challenge *content* (math templates, synonym lists, air-write words) is authored per locale when idioms do not translate 1:1. Default locale follows the OS; optional in-app override can come later.
+
+This was implicit for MVP English-only shipping; it is now an explicit product requirement before any multi-challenge or store-facing pass.
