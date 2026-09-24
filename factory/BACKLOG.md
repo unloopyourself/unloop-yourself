@@ -191,3 +191,10 @@ Offline-only product depth. No Buddy relay, no cloud AI, no accounts.
 - **Deps:** —
 - **Items:** coin spin, air write, synonyms (local pack), challenge 👍/👎 weights, challenge stats dashboard, daily usage cap.
 - **Escalate if:** —
+
+### P1.5-07 — SessionEngine + regression basket (agent autonomy)
+- **Status:** done
+- **Deps:** P1.5-01
+- **AC:** `SessionEngine` in Core with injectable clock; Vitest scenarios covering happy path, soft unlock, hydrate-after-kill, cooldown gate; App uses engine; `docs/testing.md` defines L0–L4; REGRESSION-named tests for known bugs.
+- **Tests:** `npm test` includes SessionEngine suite.
+- **Escalate if:** Creating first Android AVD (large system image download).

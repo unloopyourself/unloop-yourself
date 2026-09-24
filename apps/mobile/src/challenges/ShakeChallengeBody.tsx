@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { advanceShakeProgress } from "@unloop/core";
+import { advanceShakeProgress, challengeProgressDisplayPct } from "@unloop/core";
 import type { Translate } from "../i18n";
 import { subscribeAccelerometer } from "../expoSensorPort";
 import { colors, typography } from "../theme";
@@ -41,9 +41,7 @@ export function ShakeChallengeBody({ t, onComplete }: Props) {
     return () => stop();
   }, [onComplete]);
 
-  const pct = done
-    ? 100
-    : Math.min(99, Math.floor((activeMs / REQUIRED_MS) * 100));
+  const pct = challengeProgressDisplayPct(activeMs, REQUIRED_MS, done);
 
   return (
     <View style={styles.wrap} accessibilityLabel="Shake challenge">

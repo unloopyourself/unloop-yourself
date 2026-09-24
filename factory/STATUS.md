@@ -4,24 +4,21 @@ Last updated: 2026-09-24
 
 ## Active item
 
-**None.** Phase 1.5 self-contained pack landed (P1.5-01…05). Deferred: coin spin, air write, synonyms, stats, thumbs (P1.5-06).
+**None.** Phase 1.5 pack + **SessionEngine regression suite** (agent-autonomous L0).
 
 ## Last gate result
 
-- `npm test`: **PASSED** (25)
-- mobile `tsc`: **PASSED**
-- boundaries: run with commit
-- Device: SM-A405FN reloaded (JS bundle); human smoke recommended for soft unlock + new challenges
+- `npm test`: **32** Core tests (incl. REGRESSION SessionEngine scenarios)
+- mobile typecheck / boundaries: run on commit
+- Device batch smoke: deferred to human when convenient
 
 ## Human decisions pending
 
-- Soft-unlock default **45s** (change in Timings if preferred).
-- Next mega-fork: iOS vs Buddy vs Play vs parking items (coin/air/synonyms).
+- **Create Android AVD?** (first-time system image download; enables agent L3 smoke). Say yes/no.
+- Soft-unlock default remains 45s unless you change Timings.
+- Later fork: iOS / Buddy / Play / parking challenges.
 
 ## Notes
 
-- Chip **AI chats**: ChatGPT, Gemini/Bard, Claude, Character.AI, Perplexity, Copilot/Bing.
-- Challenges: shake, breath, phrase, nearest-multiple, face-down flip (toggle in Settings).
-- Soft unlock: Skip or timeout → wake-up copy, not a ban.
-- Locale: OS `it` → Italian catalog; else English.
-- Changing **threshold** while watching: Stop + Start to push to native (cooldown untouched by chip hot-swap only).
+- Autonomy path: L0 SessionEngine scenarios ≫ emulator ≫ physical batch (see `docs/testing.md`).
+- App runtime now driven by `SessionEngine` (same brain as tests).
