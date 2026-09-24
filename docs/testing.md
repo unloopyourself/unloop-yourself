@@ -1,52 +1,77 @@
 # Testing strategy — agent autonomy first
 
-Unloop prioritizes **deterministic, local tests** the coding agent can run without a human and without SaaS. Physical device acceptance stays a **batch** gate, not a per-commit babysitting loop.
+Unloop prioritizes **deterministic, local verification** the coding agent can run without a human and without SaaS. The physical Samsung is an **acceptance/batch gate (L4)**, not the daily lab.
+
+Empirical AVD spike (2026-09-24, AVD `unloop_api34` API 34 playstore): see [`l3_spike_results.md`](l3_spike_results.md) and `factory/l3-reports/`.
 
 ## Layers
 
-| Layer | What | Who runs | When |
-|-------|------|----------|------|
-| **L0 — Unit / scenario** | Vitest in `@unloop/core`: FSM, policy, shake math, **`SessionEngine` interrupt loop** | Agent always | Every change touching Core / interrupt flow |
+| Layer | What | Who | When |
+|-------|------|-----|------|
+| **L0 — Core scenarios** | Vitest `SessionEngine` (+ shake math, policy, FSM). Clock-injected interrupt loop. | Agent always | Every Core / interrupt change |
 | **L1 — Boundaries** | `scripts/check-boundaries.sh` | Agent | Deps / privacy / Core isolation |
 | **L2 — Mobile typecheck** | `apps/mobile` `tsc` | Agent | UI / settings / challenges |
-| **L3 — Emulator smoke** (optional) | Install APK, grant perms via `adb`, launch | Agent if AVD exists | Before asking human for device |
-| **L4 — Physical device** | SM-A405FN (or other) real UsageStats + overlay + sensors | Human | Milestone / batch of features |
+| **L3 — AVD Android scenarios** | Real APKs on emulator: Dummy Feed + Unloop, `adb` permissions, UsageStats→threshold→overlay, Open challenge, sensor inject, debug harness | Agent (emulator must be **already running**) | After Android/native/interrupt changes |
+| **L4 — Physical device** | OEM battery, real YouTube/TikTok, human shake/face-down feel, Play Protect quirks | Human batch | When L0–L3 green and STATUS asks |
 
-## SessionEngine (L0 “almost E2E”)
+## What L3 empirically can do (verified)
 
-`SessionEngine` is the interrupt loop without React Native:
+| Use case | AVD result | How |
+|----------|------------|-----|
+| Install / launch APKs | **PASS** | `adb install` |
+| Grant Usage Access | **PASS** | `appops set … GET_USAGE_STATS allow` |
+| Grant overlay | **PASS** | `appops set … SYSTEM_ALERT_WINDOW allow` |
+| Controlled target app | **PASS** | `apps/dummy-target` (`dev.unloopyourself.dummytarget`) |
+| UsageStats sees dummy FG | **PASS** | `dumpsys usagestats` |
+| Start monitor without UI | **PASS** | `DebugHarnessReceiver` broadcast `DEBUG_START_MONITOR` (**`-p` package required**) |
+| Threshold → native interrupt overlay | **PASS** | logcat `THRESHOLD reached` + `interrupt overlay shown` |
+| Open challenge → Unloop Activity | **PASS** | `uiautomator` tap “Open challenge” |
+| Accel get/set | **PASS** | `adb emu sensor set/get acceleration` |
+| Force-stop / relaunch Activity | **PASS** | `am force-stop` + `am start` |
+| Soft-fail / shake **complete** end-to-end | **PARTIAL** | Skip/soft-fail + shake completion need JS/Metro hydrated in CHALLENGE; covered solidly in **L0**; L3 continues to harden UI automation |
+| FGS survives `force-stop` | **N/A (by OS)** | `force-stop` kills FGS — expected; re-arm via harness |
 
-* start → threshold → challenge → complete **or** soft-fail (timeout/skip) → cooldown → re-arm  
-* hydrate after Activity death (native outstanding / cooldown)  
-* injectable **clock** so timeouts are instant in tests  
+## What stays L4 (irreducibly physical / OEM)
 
-Regression scenarios live in `packages/core/src/sessionEngine.test.ts` and are named `REGRESSION …` when they lock a past bug.
+* Real short-video apps (YouTube PiP, OEM audio focus quirks) as day-to-day targets  
+* Human motor validation of shake / face-down flip “feel” and OEM sensor bias  
+* Battery / background kill policies that differ from the emulator  
+* Play Protect / store install path  
 
-### Commands
+Do **not** assume UsageStats, overlay, or sensors are weak on AVD — the spike showed they work. Limits that remain are mostly **JS bridge readiness (Metro)** and **UI automation of challenge completion**, not the Android APIs themselves.
+
+## SessionEngine (L0)
+
+`packages/core` `SessionEngine`: start → threshold → challenge → complete **or** soft-fail → cooldown → re-arm; hydrate after death; injectable clock. Regression tests named `REGRESSION …`.
 
 ```bash
-npm test                 # Core including SessionEngine scenarios
-./scripts/check-boundaries.sh
-cd apps/mobile && npx tsc --noEmit
+npm test
+```
+
+## L3 harness
+
+```bash
+# Human or agent: start AVD once (agent headless start was flaky on this Mac)
+$ANDROID_HOME/emulator/emulator -avd unloop_api34 -gpu auto
+
+# Then agent:
+./scripts/avd/run-l3-scenarios.sh
+```
+
+Debug intents (package-targeted):
+
+```bash
+adb -s emulator-5554 shell am broadcast -p dev.unloopyourself.app \
+  -a dev.unloopyourself.DEBUG_START_MONITOR \
+  --es packages "dev.unloopyourself.dummytarget" --el thresholdMs 10000
 ```
 
 ## Growing the regression basket
 
-When a bug is found (device or review):
+1. Bug found → preferably a failing **L0** `REGRESSION` test.  
+2. If Android-specific → add/extend `scripts/avd/run-l3-scenarios.sh` step + keep report under `factory/l3-reports/`.  
+3. Never delete REGRESSION coverage when fixing.
 
-1. Reproduce as a **failing** `SessionEngine` (or pure helper) test titled `REGRESSION <short name>`.
-2. Fix until green.
-3. Never delete the test — only refine if the product rule changes (then update STATUS / ADR).
+## Philosophy
 
-UI-only bugs (layout) may need L3/L4; domain/timing/FSM bugs must land in L0.
-
-## Emulator vs device
-
-* **Emulator** helps the agent install/launch and poke permissions; UsageStats, overlay-over-YouTube, and realistic shake/face-down remain weak.  
-* **No AVD yet** in this environment — creating one downloads a large system image (ask human before first create).  
-* Until an AVD exists, agent autonomy = **L0+L1+L2**. Human runs L4 when STATUS asks for a batch smoke.
-
-## Out of scope for autonomy
-
-* Maestro/Detox E2E (not installed) — optional later, still local.  
-* Cloud device farms / paid CI agents.
+Automate everything the machine can realistically verify; keep only irreducibly physical checks for the human. When L0+L1+L2+L3 are green, **stop and ask** for an L4 Samsung batch — do not use the phone as the daily laboratory.

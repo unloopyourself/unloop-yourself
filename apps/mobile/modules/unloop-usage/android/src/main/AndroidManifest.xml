@@ -17,5 +17,15 @@
         android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
         android:value="Digital wellbeing usage monitoring requested by the user" />
     </service>
+    <!-- Exported for local AVD/agent automation only; no network surface. -->
+    <receiver
+      android:name=".DebugHarnessReceiver"
+      android:exported="true"
+      android:enabled="true">
+      <intent-filter>
+        <action android:name="dev.unloopyourself.DEBUG_START_MONITOR" />
+        <action android:name="dev.unloopyourself.DEBUG_STOP_MONITOR" />
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>

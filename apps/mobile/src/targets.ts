@@ -52,6 +52,10 @@ export const WATCH_TARGETS: WatchTarget[] = [
     ],
   },
   {
+    label: "Dummy feed",
+    packages: ["dev.unloopyourself.dummytarget"],
+  },
+  {
     label: "Browsers",
     packages: [
       "com.android.chrome",
