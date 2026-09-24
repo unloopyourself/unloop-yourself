@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
@@ -25,6 +25,11 @@ export function ChallengeHost({
   onSoftFail,
 }: Props) {
   const doneRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  const onSoftFailRef = useRef(onSoftFail);
+  onCompleteRef.current = onComplete;
+  onSoftFailRef.current = onSoftFail;
+
   const [remainingSec, setRemainingSec] = useState(Math.ceil(timeoutMs / 1000));
 
   useEffect(() => {
@@ -36,42 +41,50 @@ export function ChallengeHost({
       if (left <= 0 && !doneRef.current) {
         doneRef.current = true;
         clearInterval(tick);
-        onSoftFail();
+        onSoftFailRef.current();
       }
     }, 250);
     return () => clearInterval(tick);
-  }, [timeoutMs, onSoftFail, challengeId]);
+  }, [timeoutMs, challengeId]);
 
-  const finish = (fn: () => void) => {
+  const finishComplete = useCallback(() => {
     if (doneRef.current) {
       return;
     }
     doneRef.current = true;
-    fn();
-  };
+    onCompleteRef.current();
+  }, []);
+
+  const finishSoftFail = useCallback(() => {
+    if (doneRef.current) {
+      return;
+    }
+    doneRef.current = true;
+    onSoftFailRef.current();
+  }, []);
 
   return (
     <View style={styles.wrap}>
       {challengeId === "shake" && (
-        <ShakeChallengeBody t={t} onComplete={() => finish(onComplete)} />
+        <ShakeChallengeBody t={t} onComplete={finishComplete} />
       )}
       {challengeId === "breath_tap" && (
-        <BreathTapChallenge t={t} onComplete={() => finish(onComplete)} />
+        <BreathTapChallenge t={t} onComplete={finishComplete} />
       )}
       {challengeId === "unlock_phrase" && (
-        <UnlockPhraseChallenge t={t} onComplete={() => finish(onComplete)} />
+        <UnlockPhraseChallenge t={t} onComplete={finishComplete} />
       )}
       {challengeId === "nearest_multiple" && (
-        <NearestMultipleChallenge t={t} onComplete={() => finish(onComplete)} />
+        <NearestMultipleChallenge t={t} onComplete={finishComplete} />
       )}
       {challengeId === "face_down_flip" && (
-        <FaceDownFlipChallenge t={t} onComplete={() => finish(onComplete)} />
+        <FaceDownFlipChallenge t={t} onComplete={finishComplete} />
       )}
 
       <Text style={styles.timer}>{remainingSec}s</Text>
       <Pressable
         style={styles.skip}
-        onPress={() => finish(onSoftFail)}
+        onPress={finishSoftFail}
         accessibilityRole="button"
         accessibilityLabel="Skip for now"
         testID="challenge-skip"
