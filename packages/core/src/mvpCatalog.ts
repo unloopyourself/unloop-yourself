@@ -11,6 +11,10 @@ export const MVP_CHALLENGES: readonly Challenge[] = [
   { id: "unlock_phrase", requires: new Set<Capability>() },
   { id: "nearest_multiple", requires: new Set<Capability>() },
   { id: "face_down_flip", requires: new Set<Capability>(["accelerometer"]) },
+  {
+    id: "coin_spin",
+    requires: new Set<Capability>(["accelerometer", "gyroscope"]),
+  },
 ];
 
 /** Default enabled set mirrors product defaults (excludes face_down until opted in). */
@@ -26,8 +30,8 @@ export const MVP_DEFAULT_ENABLED_IDS: readonly string[] = [
  * Axis is hardware availability, not Android API level.
  *
  * - low_end: no motion sensors (cheap / locked-down / accel unavailable)
- * - no_gyro: accelerometer only (typical phone + current AVD; no gyro challenges yet)
- * - full: richest set Unloop currently consumes (accel); grow when new Caps ship
+ * - no_gyro: accelerometer only (typical AVD; coin_spin ineligible)
+ * - full: accelerometer + gyroscope
  */
 export type CapabilityProfileId = "low_end" | "no_gyro" | "full";
 
@@ -37,7 +41,7 @@ export const CAPABILITY_PROFILES: Record<
 > = {
   low_end: new Set<Capability>(),
   no_gyro: new Set<Capability>(["accelerometer"]),
-  full: new Set<Capability>(["accelerometer"]),
+  full: new Set<Capability>(["accelerometer", "gyroscope"]),
 };
 
 export function deviceContextForProfile(
@@ -60,20 +64,45 @@ export function selectEligibleChallenges(
   );
 }
 
+export type PickEligibleOptions = {
+  /** Prefer not repeating this id when ≥2 eligible (habituation / variety). */
+  readonly excludeId?: string | null;
+  /** Injected RNG in [0, 1) for tests. */
+  readonly random?: () => number;
+};
+
 /**
  * Pick one eligible id. Prefer enabled∩compatible; if empty, any soft
  * (requires∅) challenge still enabled; then any soft in catalog; never an
  * incompatible challenge. Returns null only if catalog has no soft fallback.
+ *
+ * When `excludeId` is set and there are ≥2 eligible, picks among the others.
+ * With a single eligible option, that id may repeat.
  */
 export function pickEligibleChallengeId(
   challenges: readonly Challenge[],
   enabledIds: readonly string[],
   available: ReadonlySet<Capability>,
+  options?: PickEligibleOptions,
 ): string | null {
+  const random = options?.random ?? Math.random;
+  const excludeId = options?.excludeId ?? null;
+
+  const pickFrom = (pool: readonly Challenge[]): string => {
+    let candidates = pool;
+    if (excludeId != null && pool.length >= 2) {
+      const without = pool.filter((c) => c.id !== excludeId);
+      if (without.length > 0) {
+        candidates = without;
+      }
+    }
+    const idx = Math.floor(random() * candidates.length);
+    return candidates[idx]!.id;
+  };
+
   const eligible = selectEligibleChallenges(challenges, enabledIds, available);
   if (eligible.length > 0) {
-    const idx = Math.floor(Math.random() * eligible.length);
-    return eligible[idx]!.id;
+    return pickFrom(eligible);
   }
   const softEnabled = selectEligibleChallenges(
     challenges.filter((c) => c.requires.size === 0),
@@ -81,7 +110,7 @@ export function pickEligibleChallengeId(
     available,
   );
   if (softEnabled.length > 0) {
-    return softEnabled[0]!.id;
+    return pickFrom(softEnabled);
   }
   const anySoft = challenges.find(
     (c) =>

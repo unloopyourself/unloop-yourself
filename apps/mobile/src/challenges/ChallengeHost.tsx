@@ -8,6 +8,7 @@ import { UnlockPhraseChallenge } from "./UnlockPhraseChallenge";
 import { NearestMultipleChallenge } from "./NearestMultipleChallenge";
 import { FaceDownFlipChallenge } from "./FaceDownFlipChallenge";
 import { ShakeChallengeBody } from "./ShakeChallengeBody";
+import { CoinSpinChallenge } from "./CoinSpinChallenge";
 
 type Props = {
   challengeId: ChallengeId;
@@ -79,6 +80,9 @@ export function ChallengeHost({
       )}
       {challengeId === "face_down_flip" && (
         <FaceDownFlipChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "coin_spin" && (
+        <CoinSpinChallenge t={t} onComplete={finishComplete} />
       )}
 
       <Text style={styles.timer}>{remainingSec}s</Text>

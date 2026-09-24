@@ -63,6 +63,8 @@ const en: Dict = {
   "challenge.face.down": "Face down — hold steady…",
   "challenge.face.flip": "Flip now!",
   "challenge.face.wait": "Waiting for face-down…",
+  "challenge.coin.title": "Coin spin",
+  "challenge.coin.body": "Rest the phone on a coin (or similar pivot). Spin it about five full turns with two fingers near the center.",
 };
 
 const it: Dict = {
@@ -126,6 +128,8 @@ const it: Dict = {
   "challenge.face.down": "Faccia in giù — resta fermo…",
   "challenge.face.flip": "Gira ora!",
   "challenge.face.wait": "In attesa della faccia in giù…",
+  "challenge.coin.title": "Giro sulla moneta",
+  "challenge.coin.body": "Appoggia il telefono su una moneta (o un perno simile). Falle fare circa cinque giri completi con due dita vicino al centro.",
 };
 
 const catalogs: Record<LocaleCode, Dict> = { en, it };

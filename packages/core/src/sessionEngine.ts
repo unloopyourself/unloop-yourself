@@ -19,6 +19,7 @@ export type EngineTimings = {
 export type ChallengePicker = (
   enabledIds: readonly string[],
   available: ReadonlySet<Capability>,
+  excludeId?: string | null,
 ) => string;
 
 export type EngineSnapshot = {
@@ -47,6 +48,8 @@ export class SessionEngine {
   private softUnlockAtMs: number | null = null;
   private cooldownUntilMs: number | null = null;
   private activeChallengeId: string | null = null;
+  /** Last interrupt challenge — excluded from next pick when ≥2 eligible. */
+  private lastInterruptChallengeId: string | null = null;
   private lastAppId: string | null = null;
   private lastDeltaU: number | null = null;
   private enabledChallengeIds: string[];
@@ -128,8 +131,10 @@ export class SessionEngine {
     const challengeId = this.pickChallenge(
       this.enabledChallengeIds,
       this.availableCapabilities,
+      this.lastInterruptChallengeId,
     );
     this.activeChallengeId = challengeId;
+    this.lastInterruptChallengeId = challengeId;
     this.softUnlockAtMs = this.clock.now() + this.timings.challengeTimeoutMs;
     this.cooldownUntilMs = null;
     return [
@@ -209,8 +214,10 @@ export class SessionEngine {
       const challengeId = this.pickChallenge(
         this.enabledChallengeIds,
         this.availableCapabilities,
+        this.lastInterruptChallengeId,
       );
       this.activeChallengeId = challengeId;
+      this.lastInterruptChallengeId = challengeId;
       this.softUnlockAtMs = this.clock.now() + this.timings.challengeTimeoutMs;
       this.cooldownUntilMs = null;
       return [

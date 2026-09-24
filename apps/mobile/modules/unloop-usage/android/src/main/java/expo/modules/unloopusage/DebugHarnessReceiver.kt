@@ -12,7 +12,7 @@ import android.util.Log
  *   -a dev.unloopyourself.DEBUG_START_MONITOR \
  *   --es packages "dev.unloopyourself.dummytarget" --el thresholdMs 15000 \
  *   --es forceChallenge "shake" \
- *   --es capabilities "accelerometer"
+ *   --es capabilities "accelerometer,gyroscope"
  *
  * capabilities: comma-separated Core capability ids; empty string forces low_end
  * (no sensors). Omit the extra to leave detection to the JS adapter.
