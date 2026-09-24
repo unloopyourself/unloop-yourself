@@ -20,7 +20,8 @@ export function AboutScreen({ t, onBack }: Props) {
         styles.container,
         { paddingTop: statusBarTopInset(4) },
       ]}
-    >      <Pressable
+    >
+      <Pressable
         onPress={onBack}
         style={styles.back}
         accessibilityRole="button"

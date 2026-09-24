@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, typography } from "../theme";
 import type { Translate } from "../i18n";
 import { statusBarTopInset } from "../layout";
@@ -29,7 +30,11 @@ export function MenuSheet({
         style={[styles.backdrop, { paddingTop: statusBarTopInset(8) }]}
         onPress={onClose}
         accessibilityRole="button"
-      >        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+      >
+        <Pressable
+          style={styles.sheet}
+          onPress={(e) => e.stopPropagation()}
+        >
           <Text style={styles.title}>{t("nav.menu")}</Text>
           <Pressable
             style={styles.row}
@@ -39,6 +44,12 @@ export function MenuSheet({
             }}
             accessibilityRole="button"
           >
+            <Ionicons
+              name="settings-outline"
+              size={22}
+              color={colors.ink}
+              style={styles.rowIcon}
+            />
             <Text style={styles.rowLabel}>{t("nav.settings")}</Text>
           </Pressable>
           <Pressable
@@ -49,9 +60,25 @@ export function MenuSheet({
             }}
             accessibilityRole="button"
           >
+            <Ionicons
+              name="information-circle-outline"
+              size={22}
+              color={colors.ink}
+              style={styles.rowIcon}
+            />
             <Text style={styles.rowLabel}>{t("nav.about")}</Text>
           </Pressable>
-          <Pressable style={styles.close} onPress={onClose} accessibilityRole="button">
+          <Pressable
+            style={styles.close}
+            onPress={onClose}
+            accessibilityRole="button"
+          >
+            <Ionicons
+              name="close-outline"
+              size={20}
+              color={colors.textMuted}
+              style={styles.rowIcon}
+            />
             <Text style={styles.closeLabel}>{t("nav.close")}</Text>
           </Pressable>
         </Pressable>
@@ -74,9 +101,7 @@ export function MenuButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >
-      <View style={styles.bar} />
-      <View style={styles.bar} />
-      <View style={styles.bar} />
+      <Ionicons name="menu" size={26} color={colors.ink} />
     </Pressable>
   );
 }
@@ -112,9 +137,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   row: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderRadius: 12,
+  },
+  rowIcon: {
+    marginRight: 12,
   },
   rowLabel: {
     fontSize: typography.bodySize,
@@ -123,6 +153,8 @@ const styles = StyleSheet.create({
   },
   close: {
     marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -138,12 +170,5 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.72)",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-  },
-  bar: {
-    width: 18,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: colors.ink,
   },
 });
