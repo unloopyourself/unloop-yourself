@@ -54,7 +54,15 @@ export default function App() {
       new SessionEngine(
         { now: () => Date.now() },
         { cooldownMs: 120_000, challengeTimeoutMs: 45_000 },
-        (enabled, available) => pickChallengeId(enabled, available),
+        (enabled, available) => {
+          if (Platform.OS === "android") {
+            const forced = UnloopUsage.getHarnessForceChallengeId();
+            if (forced) {
+              return forced;
+            }
+          }
+          return pickChallengeId(enabled, available);
+        },
       ),
     [],
   );
@@ -103,6 +111,9 @@ export default function App() {
             setActiveChallengeId(effect.challengeId as ChallengeId);
             setLastDelta(effect.deltaU);
             setMessage(t("app.interrupt"));
+            if (Platform.OS === "android") {
+              UnloopUsage.logHarness(`enter_challenge:${effect.challengeId}`);
+            }
             bus.emit("THRESHOLD_REACHED", {
               appId: effect.appId,
               deltaU: effect.deltaU,
@@ -111,6 +122,9 @@ export default function App() {
           case "cooldown_started":
             UnloopUsage.dismissInterruptOverlay();
             UnloopUsage.setCooldownUntilMs(effect.untilMs);
+            if (Platform.OS === "android") {
+              UnloopUsage.logHarness(`cooldown_${effect.reason}`);
+            }
             setMessage(
               effect.reason === "completed"
                 ? t("app.challenge_ok", {

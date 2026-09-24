@@ -28,8 +28,11 @@ Empirical AVD spike (2026-09-24, AVD `unloop_api34` API 34 playstore): see [`l3_
 | Open challenge → Unloop Activity | **PASS** | `uiautomator` tap “Open challenge” |
 | Accel get/set | **PASS** | `adb emu sensor set/get acceleration` |
 | Force-stop / relaunch Activity | **PASS** | `am force-stop` + `am start` |
-| Soft-fail / shake **complete** end-to-end | **PARTIAL** | Skip/soft-fail + shake completion need JS/Metro hydrated in CHALLENGE; covered solidly in **L0**; L3 continues to harden UI automation |
+| Soft-fail Skip E2E | **PASS** | `harness: cooldown_soft_fail` after Skip (`forceChallenge` + embedded JS) |
+| Challenge complete E2E | **PASS** | `breath_tap` 3× tap → `harness: cooldown_completed` |
+| Shake complete via emu sensor | **PARTIAL** | UI + `adb emu sensor` OK; expo-sensors on AVD does not finish — L0 + L4 |
 | FGS survives `force-stop` | **N/A (by OS)** | `force-stop` kills FGS — expected; re-arm via harness |
+| L3 without Metro | **PASS** | Debug APK embeds JS (`debuggableVariants = []`) |
 
 ## What stays L4 (irreducibly physical / OEM)
 
@@ -38,7 +41,7 @@ Empirical AVD spike (2026-09-24, AVD `unloop_api34` API 34 playstore): see [`l3_
 * Battery / background kill policies that differ from the emulator  
 * Play Protect / store install path  
 
-Do **not** assume UsageStats, overlay, or sensors are weak on AVD — the spike showed they work. Limits that remain are mostly **JS bridge readiness (Metro)** and **UI automation of challenge completion**, not the Android APIs themselves.
+Do **not** assume UsageStats, overlay, or sensors are weak on AVD — the spike showed they work. Remaining L3 gap is **shake complete via injected accel** (sensor→expo bridge), not the interrupt path itself.
 
 ## SessionEngine (L0)
 
@@ -63,7 +66,8 @@ Debug intents (package-targeted):
 ```bash
 adb -s emulator-5554 shell am broadcast -p dev.unloopyourself.app \
   -a dev.unloopyourself.DEBUG_START_MONITOR \
-  --es packages "dev.unloopyourself.dummytarget" --el thresholdMs 10000
+  --es packages "dev.unloopyourself.dummytarget" --el thresholdMs 10000 \
+  --es forceChallenge "breath_tap"
 ```
 
 ## Growing the regression basket

@@ -28,7 +28,13 @@ export function BreathTapChallenge({ t, onComplete }: Props) {
       <Text style={styles.meta}>
         {count}/{NEED}
       </Text>
-      <Pressable style={styles.btn} onPress={onTap} accessibilityRole="button">
+      <Pressable
+        style={styles.btn}
+        onPress={onTap}
+        accessibilityRole="button"
+        accessibilityLabel="Breathe tap"
+        testID="breath-tap"
+      >
         <Text style={styles.btnLabel}>{t("challenge.breath.tap")}</Text>
       </Pressable>
     </View>
