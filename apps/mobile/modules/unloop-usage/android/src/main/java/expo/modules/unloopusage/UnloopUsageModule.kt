@@ -85,6 +85,14 @@ class UnloopUsageModule : Module() {
       UsageMonitorService.monitorSnapshot()
     }
 
+    Function("getHarnessForceChallengeId") {
+      HarnessPrefs.getForceChallengeId(context)
+    }
+
+    Function("logHarness") { message: String ->
+      Log.i(TAG, "harness: $message")
+    }
+
     OnCreate {
       UsageMonitorService.thresholdCallback = { packageName, deltaU ->
         sendEvent(

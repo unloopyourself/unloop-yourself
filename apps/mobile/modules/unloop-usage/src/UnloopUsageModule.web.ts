@@ -49,6 +49,12 @@ const UnloopUsageModule = {
       lastDeltaU: 0,
     };
   },
+  getHarnessForceChallengeId(): string {
+    return "";
+  },
+  logHarness(_message: string): void {
+    /* no-op */
+  },
 };
 
 export function addThresholdListener(

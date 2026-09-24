@@ -32,6 +32,10 @@ type UnloopUsageNativeModule = {
   updateMonitoredPackages(packagesCsv: string): void;
   stopNativeMonitoring(): void;
   getMonitorSnapshot(): MonitorSnapshot;
+  /** Debug/AVD: forced challenge id from DebugHarnessReceiver, or "". */
+  getHarnessForceChallengeId(): string;
+  /** Debug/AVD: structured log line for harness asserts. */
+  logHarness(message: string): void;
   addListener(
     eventName: "onThresholdReached" | "onOpenChallenge",
     listener: (event: ThresholdNativeEvent | Record<string, never>) => void,

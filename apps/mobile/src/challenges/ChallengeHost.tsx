@@ -73,6 +73,8 @@ export function ChallengeHost({
         style={styles.skip}
         onPress={() => finish(onSoftFail)}
         accessibilityRole="button"
+        accessibilityLabel="Skip for now"
+        testID="challenge-skip"
       >
         <Text style={styles.skipLabel}>{t("challenge.skip")}</Text>
       </Pressable>
