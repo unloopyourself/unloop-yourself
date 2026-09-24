@@ -33,4 +33,6 @@ Incompatible challenges are excluded before execution.
 
 New challenges declare requirements + logic only. New hosts implement DeviceContext. Core reasons in domain terms: Challenge, Capability, DeviceContext, Policy, Session, Buddy—not Expo or OS brand names. Adapters own framework and OS details.
 
+**Platform API level ≠ capability.** See [compatibility.md](compatibility.md) for the Android heuristic, capability profiles (`low_end` / `no_gyro` / `full`), and the shipping challenge matrix (tested in Core).
+
 Canonical architecture overview: [architecture.md](architecture.md).

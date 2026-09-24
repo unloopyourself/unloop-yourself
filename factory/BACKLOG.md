@@ -205,3 +205,10 @@ Offline-only product depth. No Buddy relay, no cloud AI, no accounts.
 - **AC:** Empirical matrix in `docs/l3_spike_results.md`; `docs/testing.md` L0–L4 updated from evidence (not assumptions); Dummy Feed app; `DebugHarnessReceiver`; `scripts/avd/run-l3-scenarios.sh` persists threshold→overlay→Open challenge (+ sensor inject). Headless emulator start flaky on this host — document human-start AVD then agent attach.
 - **Tests:** `./scripts/avd/run-l3-scenarios.sh` with emulator online; `npm test`.
 - **Escalate if:** —
+
+### P1.5-09 — Capability × platform compatibility model
+- **Status:** done
+- **Deps:** P1.5-08
+- **AC:** Document platform×capability axes ([`docs/compatibility.md`](../docs/compatibility.md), ADR-008); Core `MVP_CHALLENGES` + `CAPABILITY_PROFILES` + matrix tests; picker never selects incompatible challenges; soft fallback on poor devices; App probes accelerometer (harness can override `capabilities`); testing.md updated.
+- **Tests:** `npm test` (incl. `mvpCatalog.test.ts`); `scripts/check-boundaries.sh`.
+- **Escalate if:** —

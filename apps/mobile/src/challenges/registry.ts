@@ -1,4 +1,10 @@
-import type { Capability, Challenge } from "@unloop/core";
+import {
+  MVP_CHALLENGES,
+  MVP_DEFAULT_ENABLED_IDS,
+  pickEligibleChallengeId,
+  type Capability,
+  type Challenge,
+} from "@unloop/core";
 
 export type ChallengeId =
   | "shake"
@@ -13,61 +19,29 @@ export type ChallengeMeta = Challenge & {
   titleKey: string;
 };
 
-export const CHALLENGE_CATALOG: ChallengeMeta[] = [
-  {
-    id: "shake",
-    titleKey: "challenge.shake.title",
-    requires: new Set<Capability>(["accelerometer"]),
-  },
-  {
-    id: "breath_tap",
-    titleKey: "challenge.breath.title",
-    requires: new Set<Capability>(),
-  },
-  {
-    id: "unlock_phrase",
-    titleKey: "challenge.phrase.title",
-    requires: new Set<Capability>(),
-  },
-  {
-    id: "nearest_multiple",
-    titleKey: "challenge.math.title",
-    requires: new Set<Capability>(),
-  },
-  {
-    id: "face_down_flip",
-    titleKey: "challenge.face.title",
-    requires: new Set<Capability>(["accelerometer"]),
-  },
-];
+const TITLE_KEYS: Record<ChallengeId, string> = {
+  shake: "challenge.shake.title",
+  breath_tap: "challenge.breath.title",
+  unlock_phrase: "challenge.phrase.title",
+  nearest_multiple: "challenge.math.title",
+  face_down_flip: "challenge.face.title",
+};
+
+/** UI catalog: Core requires + local title keys (single source for requires). */
+export const CHALLENGE_CATALOG: ChallengeMeta[] = MVP_CHALLENGES.map((c) => ({
+  ...c,
+  id: c.id as ChallengeId,
+  titleKey: TITLE_KEYS[c.id as ChallengeId],
+}));
 
 export const DEFAULT_ENABLED_CHALLENGE_IDS: ChallengeId[] = [
-  "shake",
-  "breath_tap",
-  "unlock_phrase",
-  "nearest_multiple",
-];
+  ...MVP_DEFAULT_ENABLED_IDS,
+] as ChallengeId[];
 
 export function pickChallengeId(
   enabledIds: readonly string[],
   available: ReadonlySet<Capability>,
 ): ChallengeId {
-  const enabled = new Set(enabledIds);
-  const compatible = CHALLENGE_CATALOG.filter(
-    (c) =>
-      enabled.has(c.id) &&
-      [...c.requires].every((cap) => available.has(cap)),
-  );
-  const softOnly = CHALLENGE_CATALOG.filter(
-    (c) => c.requires.size === 0 && enabled.has(c.id),
-  );
-  const pool =
-    compatible.length > 0
-      ? compatible
-      : softOnly.length > 0
-        ? softOnly
-        : CHALLENGE_CATALOG.filter((c) => c.requires.size === 0);
-  const fallback = pool.length > 0 ? pool : CHALLENGE_CATALOG;
-  const idx = Math.floor(Math.random() * fallback.length);
-  return fallback[idx]!.id;
+  const id = pickEligibleChallengeId(MVP_CHALLENGES, enabledIds, available);
+  return (id ?? "breath_tap") as ChallengeId;
 }

@@ -125,7 +125,8 @@ When multiple challenges exist, **Settings → Challenges** lets the user enable
 
 $$\text{enabledByUser} \cap \{ c \mid c.\mathrm{requires} \subseteq \mathrm{availableCapabilities} \}$$
 
-Candidate catalog: [`offline_challenges.md`](offline_challenges.md).
+Candidate catalog: [`offline_challenges.md`](offline_challenges.md).  
+Compatibility heuristic + matrix: [`compatibility.md`](compatibility.md).
 
 See also [capabilities appendix](capabilities.md) and [modular architecture notes](modular_architecture.md).
 

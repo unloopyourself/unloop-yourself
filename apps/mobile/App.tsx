@@ -34,13 +34,12 @@ import {
   type ChallengeId,
 } from "./src/challenges/registry";
 import { ChallengeHost } from "./src/challenges/ChallengeHost";
+import { ExpoSensorPort } from "./src/expoSensorPort";
 
 type DomainEvents = {
   CHALLENGE_COMPLETED: { atMs: number };
   THRESHOLD_REACHED: { appId: string; deltaU: number };
 };
-
-const SENSOR_CAPS: ReadonlySet<Capability> = new Set(["accelerometer"]);
 
 export default function App() {
   const t = useMemo(() => createTranslator(detectLocale()), []);
@@ -48,6 +47,10 @@ export default function App() {
   const audit = useMemo(() => new LocalAuditTrail(storage), [storage]);
   const bus = useMemo(() => new TypedEventEmitter<DomainEvents>(), []);
   const settingsRef = useRef<UnloopSettings | null>(null);
+  const sensorPort = useMemo(() => new ExpoSensorPort(), []);
+  const [deviceCaps, setDeviceCaps] = useState<ReadonlySet<Capability>>(
+    () => new Set(),
+  );
 
   const engine = useMemo(
     () =>
@@ -85,9 +88,48 @@ export default function App() {
         cooldownMs: settings.cooldownMs,
         challengeTimeoutMs: settings.challengeTimeoutMs,
       });
-      engine.setChallengeOptions(settings.enabledChallengeIds, SENSOR_CAPS);
+      engine.setChallengeOptions(settings.enabledChallengeIds, deviceCaps);
     }
-  }, [engine, settings]);
+  }, [engine, settings, deviceCaps]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const next = new Set<Capability>();
+      if (Platform.OS === "android") {
+        const override = UnloopUsage.getHarnessCapabilitiesOverride();
+        if (override !== null && override !== undefined) {
+          for (const part of override.split(",")) {
+            const id = part.trim();
+            if (id === "accelerometer") {
+              next.add("accelerometer");
+            }
+          }
+          if (!cancelled) {
+            setDeviceCaps(next);
+            UnloopUsage.logHarness(
+              `capabilities:${[...next].join(",") || "none"}`,
+            );
+          }
+          return;
+        }
+      }
+      if (await sensorPort.isAvailable("accelerometer")) {
+        next.add("accelerometer");
+      }
+      if (!cancelled) {
+        setDeviceCaps(next);
+        if (Platform.OS === "android") {
+          UnloopUsage.logHarness(
+            `capabilities:${[...next].join(",") || "none"}`,
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sensorPort]);
 
   const persist = useCallback((next: UnloopSettings) => {
     setSettings(next);
@@ -454,13 +496,23 @@ export default function App() {
             <View style={styles.chips}>
               {CHALLENGE_CATALOG.map((c) => {
                 const on = settings.enabledChallengeIds.includes(c.id);
+                const hardwareOk = [...c.requires].every((cap) =>
+                  deviceCaps.has(cap),
+                );
                 return (
                   <Pressable
                     key={c.id}
                     onPress={() => toggleChallenge(c.id)}
-                    style={[styles.chip, on && styles.chipOn]}
+                    style={[
+                      styles.chip,
+                      on && styles.chipOn,
+                      !hardwareOk && styles.chipUnavailable,
+                    ]}
                     accessibilityRole="button"
                     accessibilityState={{ selected: on }}
+                    accessibilityHint={
+                      hardwareOk ? undefined : "Not available on this device"
+                    }
                   >
                     <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>
                       {t(c.titleKey)}
@@ -613,6 +665,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.chipOff,
   },
   chipOn: { backgroundColor: colors.chipOn },
+  chipUnavailable: { opacity: 0.45 },
   chipLabel: { fontWeight: "700", color: colors.ink, fontSize: 14 },
   chipLabelOn: { color: colors.white },
   timingRow: {

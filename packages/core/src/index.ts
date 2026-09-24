@@ -48,6 +48,17 @@ export {
 export type { ShakeProgress, ShakeProgressInput } from "./shakeChallenge.js";
 
 export {
+  MVP_CHALLENGES,
+  MVP_DEFAULT_ENABLED_IDS,
+  CAPABILITY_PROFILES,
+  compatibilityMatrix,
+  deviceContextForProfile,
+  pickEligibleChallengeId,
+  selectEligibleChallenges,
+} from "./mvpCatalog.js";
+export type { CapabilityProfileId } from "./mvpCatalog.js";
+
+export {
   SessionEngine,
   challengeProgressDisplayPct,
 } from "./sessionEngine.js";

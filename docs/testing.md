@@ -8,11 +8,11 @@ Empirical AVD spike (2026-09-24, AVD `unloop_api34` API 34 playstore): see [`l3_
 
 | Layer | What | Who | When |
 |-------|------|-----|------|
-| **L0 — Core scenarios** | Vitest `SessionEngine` (+ shake math, policy, FSM). Clock-injected interrupt loop. | Agent always | Every Core / interrupt change |
+| **L0 — Core scenarios** | Vitest `SessionEngine`, capability profiles × MVP matrix (`mvpCatalog.test.ts`), shake math, policy, FSM | Agent always | Every Core / interrupt / capability change |
 | **L1 — Boundaries** | `scripts/check-boundaries.sh` | Agent | Deps / privacy / Core isolation |
 | **L2 — Mobile typecheck** | `apps/mobile` `tsc` | Agent | UI / settings / challenges |
-| **L3 — AVD Android scenarios** | Real APKs on emulator: Dummy Feed + Unloop, `adb` permissions, UsageStats→threshold→overlay, Open challenge, sensor inject, debug harness | Agent (emulator must be **already running**) | After Android/native/interrupt changes |
-| **L4 — Physical device** | OEM battery, real YouTube/TikTok, human shake/face-down feel, Play Protect quirks | Human batch | When L0–L3 green and STATUS asks |
+| **L3 — AVD Android scenarios** | Real APKs: Dummy + Unloop, permissions, UsageStats→overlay, Open, soft-fail/complete, sensor inject; optional `--es capabilities` profile override | Agent (emulator already running) | After Android/native/interrupt changes |
+| **L4 — Physical device** | OEM battery, real feeds, human shake/face-down feel, Play Protect | Human batch | When L0–L3 green and STATUS asks |
 
 ## What L3 empirically can do (verified)
 
@@ -33,6 +33,9 @@ Empirical AVD spike (2026-09-24, AVD `unloop_api34` API 34 playstore): see [`l3_
 | Shake complete via emu sensor | **PARTIAL** | UI + `adb emu sensor` OK; expo-sensors on AVD does not finish — L0 + L4 |
 | FGS survives `force-stop` | **N/A (by OS)** | `force-stop` kills FGS — expected; re-arm via harness |
 | L3 without Metro | **PASS** | Debug APK embeds JS (`debuggableVariants = []`) |
+| Capability profile override | **PASS** (harness) | `--es capabilities ""` → `low_end`; omit → probe (`no_gyro`/`full` today) |
+
+Capability eligibility (who can run which challenge) is asserted in **L0** via `compatibilityMatrix` / `pickEligibleChallengeId` — see [`compatibility.md`](compatibility.md). AVD proves Android plumbing; it does not replace Core matrix tests.
 
 ## What stays L4 (irreducibly physical / OEM)
 
@@ -67,7 +70,9 @@ Debug intents (package-targeted):
 adb -s emulator-5554 shell am broadcast -p dev.unloopyourself.app \
   -a dev.unloopyourself.DEBUG_START_MONITOR \
   --es packages "dev.unloopyourself.dummytarget" --el thresholdMs 10000 \
-  --es forceChallenge "breath_tap"
+  --es forceChallenge "breath_tap" \
+  --es capabilities "accelerometer"
+# capabilities omitted → probe sensors; empty string → low_end (soft challenges only)
 ```
 
 ## Growing the regression basket
