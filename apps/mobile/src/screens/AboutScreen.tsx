@@ -1,0 +1,99 @@
+import { Linking, Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { colors, typography } from "../theme";
+import type { Translate } from "../i18n";
+
+const APP_VERSION = "0.1.0";
+const CONTACT_EMAIL = "unloopyourself.dev@gmail.com";
+
+type Props = {
+  t: Translate;
+  onBack: () => void;
+};
+
+export function AboutScreen({ t, onBack }: Props) {
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Pressable
+        onPress={onBack}
+        style={styles.back}
+        accessibilityRole="button"
+        accessibilityLabel={t("nav.back")}
+      >
+        <Text style={styles.backLabel}>← {t("nav.back")}</Text>
+      </Pressable>
+
+      <Text style={styles.brand}>Unloop</Text>
+      <Text style={styles.title}>{t("about.title")}</Text>
+      <Text style={styles.lead}>{t("about.lead")}</Text>
+      <Text style={styles.body}>{t("about.privacy")}</Text>
+
+      <Text style={styles.section}>{t("about.contact")}</Text>
+      <Pressable
+        onPress={() => void Linking.openURL(`mailto:${CONTACT_EMAIL}`)}
+        accessibilityRole="link"
+      >
+        <Text style={styles.link}>{t("about.email")}</Text>
+      </Pressable>
+
+      <Text style={styles.version}>
+        {t("about.version", { version: APP_VERSION })}
+      </Text>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: 28,
+    paddingTop: 16,
+    paddingBottom: 48,
+    gap: 14,
+  },
+  back: { alignSelf: "flex-start", paddingVertical: 8 },
+  backLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.teal,
+  },
+  brand: {
+    fontSize: typography.brandSize,
+    fontWeight: "800",
+    color: colors.ink,
+    letterSpacing: -1.2,
+    marginTop: 12,
+  },
+  title: {
+    fontSize: typography.titleSize,
+    fontWeight: "800",
+    color: colors.ink,
+  },
+  lead: {
+    fontSize: typography.bodySize,
+    lineHeight: 24,
+    color: colors.text,
+  },
+  body: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textMuted,
+  },
+  section: {
+    marginTop: 12,
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  link: {
+    fontSize: typography.bodySize,
+    fontWeight: "700",
+    color: colors.ember,
+  },
+  version: {
+    marginTop: 24,
+    fontSize: typography.metaSize,
+    color: colors.textMuted,
+  },
+});
