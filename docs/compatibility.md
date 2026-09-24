@@ -56,6 +56,7 @@ Defined in Core as `CAPABILITY_PROFILES` / `compatibilityMatrix()` — Vitest as
 | nearest_multiple | ∅ | ✓ | ✓ | ✓ |
 | face_down_flip | accelerometer | — | ✓ | ✓ |
 | coin_spin | accelerometer + gyroscope | — | — | ✓ |
+| air_write | accelerometer | — | ✓ | ✓ |
 
 Missing hardware ⇒ challenge **ineligible**, not “Unloop broken.” Soft challenges (`requires = ∅`) keep an interruption path on poor devices.
 

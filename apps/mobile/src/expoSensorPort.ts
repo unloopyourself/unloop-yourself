@@ -54,20 +54,36 @@ export class ExpoSensorPort implements SensorPort {
 
 export type MotionSampleHandler = (magnitude: number, deltaMs: number) => void;
 
+export type AccelSampleHandler = (
+  ax: number,
+  ay: number,
+  az: number,
+  deltaMs: number,
+) => void;
+
 /** Continuous accelerometer stream for ShakeChallenge UI. */
 export function subscribeAccelerometer(
   onSample: MotionSampleHandler,
   intervalMs = 100,
 ): { stop: () => void } {
+  return subscribeAccelerometerRaw((ax, ay, az, deltaMs) => {
+    const magnitude = Math.sqrt(ax * ax + ay * ay + az * az);
+    onSample(Math.abs(magnitude - 1), deltaMs);
+  }, intervalMs);
+}
+
+/** Raw accelerometer stream for air-write plane tracking. */
+export function subscribeAccelerometerRaw(
+  onSample: AccelSampleHandler,
+  intervalMs = 50,
+): { stop: () => void } {
   let lastMs = Date.now();
   Accelerometer.setUpdateInterval(intervalMs);
   const sub = Accelerometer.addListener(({ x, y, z }) => {
     const now = Date.now();
-    const deltaMs = now - lastMs;
+    const deltaMs = Math.max(1, now - lastMs);
     lastMs = now;
-    const magnitude = Math.sqrt(x * x + y * y + z * z);
-    // Gravity ~1g; use deviation from rest as motion signal.
-    onSample(Math.abs(magnitude - 1), deltaMs);
+    onSample(x, y, z, deltaMs);
   });
   return {
     stop: () => {

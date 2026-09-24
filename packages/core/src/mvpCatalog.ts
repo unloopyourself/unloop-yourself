@@ -15,6 +15,7 @@ export const MVP_CHALLENGES: readonly Challenge[] = [
     id: "coin_spin",
     requires: new Set<Capability>(["accelerometer", "gyroscope"]),
   },
+  { id: "air_write", requires: new Set<Capability>(["accelerometer"]) },
 ];
 
 /** Default enabled set mirrors product defaults (excludes face_down until opted in). */
