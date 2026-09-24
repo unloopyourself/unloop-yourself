@@ -48,6 +48,12 @@ export {
 export type { ShakeProgress, ShakeProgressInput } from "./shakeChallenge.js";
 
 export {
+  COIN_SPIN_CHALLENGE_ID,
+  advanceCoinSpinProgress,
+} from "./coinSpinChallenge.js";
+export type { CoinSpinProgress } from "./coinSpinChallenge.js";
+
+export {
   MVP_CHALLENGES,
   MVP_DEFAULT_ENABLED_IDS,
   CAPABILITY_PROFILES,
@@ -56,7 +62,7 @@ export {
   pickEligibleChallengeId,
   selectEligibleChallenges,
 } from "./mvpCatalog.js";
-export type { CapabilityProfileId } from "./mvpCatalog.js";
+export type { CapabilityProfileId, PickEligibleOptions } from "./mvpCatalog.js";
 
 export {
   SessionEngine,

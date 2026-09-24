@@ -1,6 +1,7 @@
 /** Domain capability identifiers (platform-agnostic). */
 export type Capability =
   | "accelerometer"
+  | "gyroscope"
   | "pedometer"
   | "microphone"
   | "notifications"

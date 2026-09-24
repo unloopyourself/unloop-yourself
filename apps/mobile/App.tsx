@@ -56,14 +56,14 @@ export default function App() {
       new SessionEngine(
         { now: () => Date.now() },
         { cooldownMs: 120_000, challengeTimeoutMs: 45_000 },
-        (enabled, available) => {
+        (enabled, available, excludeId) => {
           if (Platform.OS === "android") {
             const forced = UnloopUsage.getHarnessForceChallengeId();
             if (forced) {
               return forced;
             }
           }
-          return pickChallengeId(enabled, available);
+          return pickChallengeId(enabled, available, excludeId);
         },
       ),
     [],
@@ -101,8 +101,8 @@ export default function App() {
         if (override !== null && override !== undefined) {
           for (const part of override.split(",")) {
             const id = part.trim();
-            if (id === "accelerometer") {
-              next.add("accelerometer");
+            if (id === "accelerometer" || id === "gyroscope") {
+              next.add(id);
             }
           }
           if (!cancelled) {
@@ -116,6 +116,9 @@ export default function App() {
       }
       if (await sensorPort.isAvailable("accelerometer")) {
         next.add("accelerometer");
+      }
+      if (await sensorPort.isAvailable("gyroscope")) {
+        next.add("gyroscope");
       }
       if (!cancelled) {
         setDeviceCaps(next);

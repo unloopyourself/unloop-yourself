@@ -189,8 +189,29 @@ Offline-only product depth. No Buddy relay, no cloud AI, no accounts.
 ### P1.5-06 — Deferred (parking, still no SaaS)
 - **Status:** deferred
 - **Deps:** —
-- **Items:** coin spin, air write, synonyms (local pack), challenge 👍/👎 weights, challenge stats dashboard, daily usage cap.
+- **Items:** synonyms (local pack — low priority), challenge 👍/👎 weights, challenge stats dashboard, daily usage cap; **audio / relaxing-signal challenges** only with **explicit user opt-in** (not always appropriate to listen).
+- **Escalate if:** Audio/camera packs that change privacy surface without human OK.
+
+### P1.5-10 — Challenge variety (no immediate repeat)
+- **Status:** done
+- **Deps:** P1.5-03, P1.5-09
+- **AC:** Among enabled∩compatible, pick random **excluding the last interrupt challenge id** when ≥2 eligible; if only one eligible, allow repeat. Wire through SessionEngine; Vitest covers avoid-repeat and single-option fallback.
+- **Tests:** Core Vitest; typecheck.
 - **Escalate if:** —
+
+### P1.5-11 — Coin spin (`coin_spin`)
+- **Status:** done
+- **Deps:** P1.5-09, P1.5-10
+- **AC:** New Capability `gyroscope`; challenge requires accel+gyro; UI + Core progress for ~5 full yaw turns (phone on coin/pivot); Settings enable; ineligible when gyro missing; en+it strings; soft unlock unchanged. See [`docs/offline_challenges.md`](../docs/offline_challenges.md).
+- **Tests:** Core progress unit tests; typecheck; device smoke when gyro present.
+- **Escalate if:** —
+
+### P1.5-12 — Air write (`air_write`)
+- **Status:** ready
+- **Deps:** P1.5-11
+- **AC:** Coarse 2–4 letter air stroke vs template; accel (+ gyro if helpful); target word shown; generous match; Settings enable; en+it; capability-honest exclusion. See offline_challenges.md.
+- **Tests:** Core matching unit tests; typecheck; device smoke.
+- **Escalate if:** Recognition UX feels punitive (product tone).
 
 ### P1.5-07 — SessionEngine + regression basket (agent autonomy)
 - **Status:** done

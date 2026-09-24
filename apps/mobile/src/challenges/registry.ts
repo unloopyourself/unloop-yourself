@@ -11,7 +11,8 @@ export type ChallengeId =
   | "breath_tap"
   | "unlock_phrase"
   | "nearest_multiple"
-  | "face_down_flip";
+  | "face_down_flip"
+  | "coin_spin";
 
 export type ChallengeMeta = Challenge & {
   id: ChallengeId;
@@ -25,6 +26,7 @@ const TITLE_KEYS: Record<ChallengeId, string> = {
   unlock_phrase: "challenge.phrase.title",
   nearest_multiple: "challenge.math.title",
   face_down_flip: "challenge.face.title",
+  coin_spin: "challenge.coin.title",
 };
 
 /** UI catalog: Core requires + local title keys (single source for requires). */
@@ -41,7 +43,10 @@ export const DEFAULT_ENABLED_CHALLENGE_IDS: ChallengeId[] = [
 export function pickChallengeId(
   enabledIds: readonly string[],
   available: ReadonlySet<Capability>,
+  excludeId?: string | null,
 ): ChallengeId {
-  const id = pickEligibleChallengeId(MVP_CHALLENGES, enabledIds, available);
+  const id = pickEligibleChallengeId(MVP_CHALLENGES, enabledIds, available, {
+    excludeId,
+  });
   return (id ?? "breath_tap") as ChallengeId;
 }

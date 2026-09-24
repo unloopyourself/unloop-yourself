@@ -41,8 +41,8 @@ This is a **heuristic**, not a dogma.
 | Profile | Available capabilities | Typical device |
 |---------|------------------------|----------------|
 | `low_end` | ∅ | No usable accelerometer (or harness override empty) |
-| `no_gyro` | `{accelerometer}` | Current AVD + most phones; no gyro-required challenges yet |
-| `full` | `{accelerometer}` today | Grows when new Caps ship (e.g. gyroscope for a future rotate challenge) |
+| `no_gyro` | `{accelerometer}` | Current AVD + phones without usable gyro |
+| `full` | `{accelerometer, gyroscope}` | Phones with accel + gyro (coin_spin eligible) |
 
 Defined in Core as `CAPABILITY_PROFILES` / `compatibilityMatrix()` — Vitest asserts the matrix.
 
@@ -55,6 +55,7 @@ Defined in Core as `CAPABILITY_PROFILES` / `compatibilityMatrix()` — Vitest as
 | unlock_phrase | ∅ | ✓ | ✓ | ✓ |
 | nearest_multiple | ∅ | ✓ | ✓ | ✓ |
 | face_down_flip | accelerometer | — | ✓ | ✓ |
+| coin_spin | accelerometer + gyroscope | — | — | ✓ |
 
 Missing hardware ⇒ challenge **ineligible**, not “Unloop broken.” Soft challenges (`requires = ∅`) keep an interruption path on poor devices.
 

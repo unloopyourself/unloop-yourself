@@ -38,6 +38,11 @@ describe("capability profiles × MVP catalog", () => {
       no_gyro: true,
       full: true,
     });
+    expect(matrix.coin_spin).toEqual({
+      low_end: false,
+      no_gyro: false,
+      full: true,
+    });
   });
 
   it("available capability → challenge is eligible", () => {
@@ -81,6 +86,68 @@ describe("capability profiles × MVP catalog", () => {
     expect(id).toBeTruthy();
     const challenge = MVP_CHALLENGES.find((c) => c.id === id);
     expect(challenge?.requires.size).toBe(0);
+  });
+
+  it("REGRESSION: avoids immediate repeat when ≥2 eligible", () => {
+    const enabled = ["shake", "breath_tap", "unlock_phrase"];
+    const available = CAPABILITY_PROFILES.no_gyro;
+    const first = pickEligibleChallengeId(MVP_CHALLENGES, enabled, available, {
+      random: () => 0, // always first after filter
+    });
+    expect(first).toBe("shake");
+    const second = pickEligibleChallengeId(MVP_CHALLENGES, enabled, available, {
+      excludeId: first,
+      random: () => 0,
+    });
+    expect(second).not.toBe(first);
+    expect(["breath_tap", "unlock_phrase"]).toContain(second);
+  });
+
+  it("allows repeat when only one eligible option", () => {
+    const id = pickEligibleChallengeId(
+      MVP_CHALLENGES,
+      ["breath_tap"],
+      CAPABILITY_PROFILES.low_end,
+      { excludeId: "breath_tap", random: () => 0 },
+    );
+    expect(id).toBe("breath_tap");
+  });
+
+  it("SessionEngine excludes last interrupt challenge on the next threshold", () => {
+    const clock = { nowMs: 1_000, now: () => clock.nowMs };
+    const picks: string[] = [];
+    const engine = new SessionEngine(
+      clock,
+      { cooldownMs: 1_000, challengeTimeoutMs: 45_000 },
+      (enabled, available, excludeId) => {
+        const id =
+          pickEligibleChallengeId(MVP_CHALLENGES, enabled, available, {
+            excludeId,
+            random: () => 0,
+          }) ?? "breath_tap";
+        picks.push(id);
+        return id;
+      },
+    );
+    engine.setChallengeOptions(
+      ["shake", "breath_tap"],
+      CAPABILITY_PROFILES.no_gyro,
+    );
+    engine.startMonitoring();
+    const first = engine.onThresholdReached("feed.app", 10_000);
+    expect(first[0]?.type).toBe("enter_challenge");
+    if (first[0]?.type === "enter_challenge") {
+      expect(first[0].challengeId).toBe("shake");
+    }
+    engine.onChallengeCompleted();
+    clock.nowMs += 2_000;
+    engine.tick();
+    const second = engine.onThresholdReached("feed.app", 10_000);
+    expect(second[0]?.type).toBe("enter_challenge");
+    if (second[0]?.type === "enter_challenge") {
+      expect(second[0].challengeId).toBe("breath_tap");
+    }
+    expect(picks).toEqual(["shake", "breath_tap"]);
   });
 
   it("low_end profile always has a valid interruption path with defaults", () => {

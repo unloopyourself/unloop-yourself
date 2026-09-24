@@ -4,7 +4,7 @@
 
 **Constraints:** ~5–15s; incompatible with continuous thumb-scroll; irony over shame; `requires ⊆ availableCapabilities`; **local-first** (no network unless the user explicitly opted into an online pack); all user-visible strings **localizable** (see below).
 
-**Shipping today:** `ShakeChallenge` → `accelerometer`.
+**Shipping today:** Shake, breath/phrase/math, face-down flip; **coin spin** when gyroscope is available (opt-in in Settings).
 
 **Settings (required when the pack ships):** a **Challenges** section listing each challenge with an on/off control. The Challenge Engine only selects from **enabled ∩ compatible**. At least one enabled challenge must remain (or fall back to Shake if sensors allow). Defaults: Shake on; others opt-in or a small curated default set.
 
@@ -107,18 +107,23 @@ Implementation vehicle (when scheduled): i18n library + string catalogs in `apps
 
 ## Suggested build order (when scheduled)
 
-1. Settings → Challenges enable-list + Engine filter  
-2. `nearest_multiple` + `unlock_phrase` / `breath_tap` (no sensors)  
-3. `face_down_flip`  
-4. i18n pass for all UI + challenge packs  
-5. `coin_spin` → `synonyms` (local pack) → `air_write`
+1. Settings → Challenges enable-list + Engine filter — **done**
+2. `nearest_multiple` + `unlock_phrase` / `breath_tap` (no sensors) — **done**
+3. `face_down_flip` — **done**
+4. i18n pass for all UI + challenge packs — **done**
+5. Selection variety (random among eligible, **no immediate repeat** when ≥2) — backlog **P1.5-10**
+6. `coin_spin` — backlog **P1.5-11**
+7. `air_write` — backlog **P1.5-12**
+8. `synonyms` (local pack) — deferred / low priority
 
 ---
 
 ## Out of scope here
 
-* Buddy / mic / camera / always-on network  
+* Buddy / always-on network  
 * Challenge marketplace  
 * Server-side synonym APIs as default  
+* **Audio / mic / camera challenges** as defaults — only with **explicit user opt-in** (listening is not always socially/contextually OK)  
+
 
 See also: [`ideas_parking_lot.md`](ideas_parking_lot.md), [`capabilities.md`](capabilities.md).
