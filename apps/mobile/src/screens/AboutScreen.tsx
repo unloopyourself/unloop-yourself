@@ -1,6 +1,7 @@
 import { Linking, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { colors, typography } from "../theme";
 import type { Translate } from "../i18n";
+import { statusBarTopInset } from "../layout";
 
 const APP_VERSION = "0.1.0";
 const CONTACT_EMAIL = "unloopyourself.dev@gmail.com";
@@ -14,8 +15,12 @@ type Props = {
 
 export function AboutScreen({ t, onBack }: Props) {
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Pressable
+    <ScrollView
+      contentContainerStyle={[
+        styles.container,
+        { paddingTop: statusBarTopInset(4) },
+      ]}
+    >      <Pressable
         onPress={onBack}
         style={styles.back}
         accessibilityRole="button"
@@ -62,7 +67,6 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingHorizontal: 28,
-    paddingTop: 16,
     paddingBottom: 48,
     gap: 14,
   },

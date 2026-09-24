@@ -1,6 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, typography } from "../theme";
 import type { Translate } from "../i18n";
+import { statusBarTopInset } from "../layout";
 
 type Props = {
   visible: boolean;
@@ -24,8 +25,11 @@ export function MenuSheet({
       transparent
       onRequestClose={onClose}
     >
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button">
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+      <Pressable
+        style={[styles.backdrop, { paddingTop: statusBarTopInset(8) }]}
+        onPress={onClose}
+        accessibilityRole="button"
+      >        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.title}>{t("nav.menu")}</Text>
           <Pressable
             style={styles.row}
@@ -83,7 +87,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(10, 37, 64, 0.45)",
     justifyContent: "flex-start",
     alignItems: "flex-end",
-    paddingTop: 56,
     paddingHorizontal: 16,
   },
   sheet: {
