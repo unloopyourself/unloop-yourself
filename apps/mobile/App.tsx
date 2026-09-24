@@ -5,6 +5,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   ScrollView,
 } from "react-native";
@@ -14,25 +15,27 @@ import {
   SessionFsm,
   TypedEventEmitter,
   evaluatePolicy,
+  type Capability,
   type SessionState,
   type UsageThresholdEvent,
 } from "@unloop/core";
 import { AndroidUsageDetector } from "./src/androidUsageDetector";
 import { MemoryStoragePort } from "./src/memoryStorage";
-import { ShakeChallengeView } from "./src/ShakeChallengeView";
 import { LocalAuditTrail } from "./src/localAuditTrail";
 import UnloopUsage, {
   addOpenChallengeListener,
   type MonitorSnapshot,
 } from "./modules/unloop-usage/src/UnloopUsageModule";
 import { colors, typography } from "./src/theme";
+import { WATCH_TARGETS, packagesForLabels } from "./src/targets";
+import { loadSettings, saveSettings, type UnloopSettings } from "./src/settings";
+import { createTranslator, detectLocale } from "./src/i18n";
 import {
-  COOLDOWN_MS,
-  SHORT_VIDEO_APPS,
-  THRESHOLD_MS,
-  packagesForLabels,
-} from "./src/targets";
-import { loadSettings, saveSettings } from "./src/settings";
+  CHALLENGE_CATALOG,
+  pickChallengeId,
+  type ChallengeId,
+} from "./src/challenges/registry";
+import { ChallengeHost } from "./src/challenges/ChallengeHost";
 
 type DomainEvents = {
   CHALLENGE_COMPLETED: { atMs: number };
@@ -52,22 +55,35 @@ function targetStateFromSnapshot(snap: MonitorSnapshot): SessionState | null {
   return "MONITORING";
 }
 
+const SENSOR_CAPS: ReadonlySet<Capability> = new Set(["accelerometer"]);
+
 export default function App() {
+  const t = useMemo(() => createTranslator(detectLocale()), []);
   const storage = useMemo(() => new MemoryStoragePort(), []);
   const audit = useMemo(() => new LocalAuditTrail(storage), [storage]);
   const bus = useMemo(() => new TypedEventEmitter<DomainEvents>(), []);
   const fsm = useMemo(() => new SessionFsm(), []);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settingsRef = useRef<UnloopSettings | null>(null);
+
   const [sessionState, setSessionState] = useState(fsm.state);
   const [lastDelta, setLastDelta] = useState<number | null>(null);
   const [permission, setPermission] = useState<boolean | null>(null);
   const [overlayPermission, setOverlayPermission] = useState<boolean | null>(
     null,
   );
-  const [enabledLabels, setEnabledLabels] = useState<string[]>([]);
-  const [message, setMessage] = useState(
-    "I’m here because you asked me to interrupt autopilot.",
-  );
+  const [settings, setSettings] = useState<UnloopSettings | null>(null);
+  const [activeChallengeId, setActiveChallengeId] = useState<ChallengeId>("shake");
+  const [message, setMessage] = useState(t("app.intro"));
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  const persist = useCallback((next: UnloopSettings) => {
+    setSettings(next);
+    void saveSettings(next);
+  }, []);
 
   const clearCooldownTimer = useCallback(() => {
     if (cooldownTimerRef.current != null) {
@@ -85,20 +101,54 @@ export default function App() {
         if (fsm.state === "COOLDOWN") {
           UnloopUsage.clearCooldown();
           setSessionState(fsm.dispatch({ type: "COOLDOWN_ELAPSED" }));
-          setMessage("Back on watch. You’ve got this.");
+          setMessage(t("app.back_on_watch"));
         }
       }, wait);
     },
-    [clearCooldownTimer, fsm],
+    [clearCooldownTimer, fsm, t],
   );
+
+  const beginCooldown = useCallback(
+    (kind: "ok" | "soft") => {
+      const s = settingsRef.current;
+      const cooldownMs = s?.cooldownMs ?? 120_000;
+      UnloopUsage.dismissInterruptOverlay();
+      const until = Date.now() + cooldownMs;
+      UnloopUsage.setCooldownUntilMs(until);
+      if (fsm.state === "CHALLENGE") {
+        setSessionState(
+          fsm.dispatch({
+            type: kind === "ok" ? "CHALLENGE_COMPLETED" : "CHALLENGE_FAILED",
+          }),
+        );
+      } else {
+        setSessionState(fsm.hydrate("COOLDOWN"));
+      }
+      setMessage(
+        kind === "ok"
+          ? t("app.challenge_ok", { cooldown: Math.round(cooldownMs / 1000) })
+          : t("app.soft_fail"),
+      );
+      scheduleCooldownEnd(until);
+    },
+    [fsm, scheduleCooldownEnd, t],
+  );
+
+  const assignChallenge = useCallback(() => {
+    const s = settingsRef.current;
+    const id = pickChallengeId(s?.enabledChallengeIds ?? ["shake"], SENSOR_CAPS);
+    setActiveChallengeId(id);
+    return id;
+  }, []);
 
   const enterChallengeFromNative = useCallback(
     (deltaU?: number) => {
       if (deltaU != null && deltaU > 0) {
         setLastDelta(deltaU);
       }
+      assignChallenge();
       if (fsm.state === "CHALLENGE") {
-        setMessage("Pause. Shake to continue — you asked for this.");
+        setMessage(t("app.interrupt"));
         return;
       }
       if (fsm.state === "PAUSED") {
@@ -109,13 +159,16 @@ export default function App() {
       } else {
         setSessionState(fsm.hydrate("CHALLENGE"));
       }
-      setMessage("Pause. Shake to continue — you asked for this.");
+      setMessage(t("app.interrupt"));
     },
-    [fsm],
+    [assignChallenge, fsm, t],
   );
 
   useEffect(() => {
-    void loadSettings().then((s) => setEnabledLabels(s.enabledLabels));
+    void loadSettings().then((s) => {
+      setSettings(s);
+      settingsRef.current = s;
+    });
   }, []);
 
   useEffect(() => {
@@ -123,7 +176,7 @@ export default function App() {
       void audit.append({
         type: "CHALLENGE_COMPLETED",
         atMs: payload.atMs,
-        detail: "shake",
+        detail: "challenge",
       });
     });
   }, [audit, bus]);
@@ -139,6 +192,7 @@ export default function App() {
         return;
       }
       if (fsm.state === "MONITORING") {
+        assignChallenge();
         setSessionState(fsm.dispatch({ type: "THRESHOLD_REACHED" }));
         bus.emit("THRESHOLD_REACHED", {
           appId: event.appId,
@@ -149,10 +203,10 @@ export default function App() {
           atMs: event.observedAtMs,
           detail: event.appId,
         });
-        setMessage("Pause. Shake to continue — you asked for this.");
+        setMessage(t("app.interrupt"));
       }
     },
-    [audit, bus, fsm],
+    [assignChallenge, audit, bus, fsm, t],
   );
 
   const detector = useMemo(
@@ -160,7 +214,6 @@ export default function App() {
     [onThreshold],
   );
 
-  // syncFromNative closes over detector — redefine dependency by calling after detector exists
   useEffect(() => {
     if (Platform.OS !== "android") {
       return;
@@ -172,9 +225,12 @@ export default function App() {
       detector.ensureListening();
       const target = targetStateFromSnapshot(snap);
       if (target != null && fsm.state !== target) {
+        if (target === "CHALLENGE") {
+          assignChallenge();
+        }
         setSessionState(fsm.hydrate(target));
         if (target === "CHALLENGE") {
-          setMessage("Pause. Shake to continue — you asked for this.");
+          setMessage(t("app.interrupt"));
         } else if (target === "COOLDOWN") {
           scheduleCooldownEnd(snap.cooldownUntilMs);
         }
@@ -183,7 +239,7 @@ export default function App() {
         setLastDelta(snap.lastDeltaU);
       }
     }
-  }, [detector, fsm, scheduleCooldownEnd]);
+  }, [assignChallenge, detector, fsm, scheduleCooldownEnd, t]);
 
   useEffect(() => {
     if (Platform.OS !== "android") {
@@ -202,11 +258,14 @@ export default function App() {
       if (target == null) {
         return;
       }
+      if (target === "CHALLENGE") {
+        assignChallenge();
+      }
       if (fsm.state !== target) {
         setSessionState(fsm.hydrate(target));
       }
       if (target === "CHALLENGE") {
-        setMessage("Pause. Shake to continue — you asked for this.");
+        setMessage(t("app.interrupt"));
       } else if (target === "COOLDOWN") {
         scheduleCooldownEnd(snap.cooldownUntilMs);
       }
@@ -216,7 +275,7 @@ export default function App() {
     };
     const sub = AppState.addEventListener("change", onAppState);
     return () => sub.remove();
-  }, [detector, fsm, scheduleCooldownEnd]);
+  }, [assignChallenge, detector, fsm, scheduleCooldownEnd, t]);
 
   useEffect(() => {
     if (Platform.OS !== "android") {
@@ -232,12 +291,15 @@ export default function App() {
   useEffect(() => () => clearCooldownTimer(), [clearCooldownTimer]);
 
   const toggleLabel = (label: string) => {
-    const next = enabledLabels.includes(label)
-      ? enabledLabels.filter((l) => l !== label)
-      : [...enabledLabels, label];
+    if (!settings) {
+      return;
+    }
+    const next = settings.enabledLabels.includes(label)
+      ? settings.enabledLabels.filter((l) => l !== label)
+      : [...settings.enabledLabels, label];
     const safe = next.length === 0 ? [label] : next;
-    setEnabledLabels(safe);
-    void saveSettings({ enabledLabels: safe });
+    const updated = { ...settings, enabledLabels: safe };
+    persist(updated);
     if (
       Platform.OS === "android" &&
       (sessionState === "MONITORING" || sessionState === "COOLDOWN")
@@ -246,36 +308,70 @@ export default function App() {
       if (packages.length > 0) {
         UnloopUsage.updateMonitoredPackages(packages.join(","));
         setMessage(
-          `Watching ${safe.join(", ")}. After ~${THRESHOLD_MS / 1000}s in a feed I’ll interrupt — then ${COOLDOWN_MS / 1000}s of grace.`,
+          t("app.watching", {
+            feeds: safe.join(", "),
+            threshold: Math.round(updated.thresholdMs / 1000),
+            cooldown: Math.round(updated.cooldownMs / 1000),
+          }),
         );
       }
     }
   };
 
+  const toggleChallenge = (id: ChallengeId) => {
+    if (!settings) {
+      return;
+    }
+    const on = settings.enabledChallengeIds.includes(id);
+    let next = on
+      ? settings.enabledChallengeIds.filter((c) => c !== id)
+      : [...settings.enabledChallengeIds, id];
+    if (next.length === 0) {
+      next = [id];
+    }
+    persist({ ...settings, enabledChallengeIds: next });
+  };
+
+  const setTiming = (
+    key: "thresholdMs" | "cooldownMs" | "challengeTimeoutMs",
+    secondsText: string,
+  ) => {
+    if (!settings) {
+      return;
+    }
+    const sec = Number(secondsText);
+    if (!Number.isFinite(sec) || sec <= 0) {
+      return;
+    }
+    const ms = Math.round(sec * 1000);
+    persist({ ...settings, [key]: ms });
+  };
+
   const startMonitoring = async () => {
+    if (!settings) {
+      return;
+    }
     if (Platform.OS !== "android") {
-      setMessage("Usage detection is Android-first (Phase 2 for iOS).");
+      setMessage(t("app.android_only"));
       return;
     }
     if (!detector.hasPermission()) {
       setPermission(false);
-      setMessage("Grant Usage Access, then tap Start again.");
+      setMessage(t("app.grant_usage"));
       detector.openSettings();
       return;
     }
     setPermission(true);
     if (!detector.hasOverlayPermission()) {
       setOverlayPermission(false);
-      setMessage(
-        "Allow “Display over other apps” so I can cover the feed when the threshold hits, then Start again.",
-      );
+      setMessage(t("app.grant_overlay"));
       detector.openOverlaySettings();
       return;
     }
     setOverlayPermission(true);
-    const packages = packagesForLabels(enabledLabels);
+    const packages = packagesForLabels(settings.enabledLabels);
     if (packages.length === 0) {
-      setMessage("Pick at least one feed to watch.");
+      setMessage(t("app.pick_feed"));
       return;
     }
     if (fsm.state === "PAUSED") {
@@ -283,10 +379,14 @@ export default function App() {
     }
     await detector.start({
       appId: packages.join(","),
-      thresholdUnits: THRESHOLD_MS,
+      thresholdUnits: settings.thresholdMs,
     });
     setMessage(
-      `Watching ${enabledLabels.join(", ")}. After ~${THRESHOLD_MS / 1000}s in a feed I’ll interrupt — then ${COOLDOWN_MS / 1000}s of grace.`,
+      t("app.watching", {
+        feeds: settings.enabledLabels.join(", "),
+        threshold: Math.round(settings.thresholdMs / 1000),
+        cooldown: Math.round(settings.cooldownMs / 1000),
+      }),
     );
   };
 
@@ -297,23 +397,23 @@ export default function App() {
     if (fsm.state !== "PAUSED") {
       setSessionState(fsm.dispatch({ type: "STOP" }));
     }
-    setMessage("Monitoring stopped. The feeds are yours again.");
+    setMessage(t("app.stopped"));
   };
 
   const completeChallenge = useCallback(() => {
     if (fsm.state !== "CHALLENGE") {
       return;
     }
-    UnloopUsage.dismissInterruptOverlay();
-    const until = Date.now() + COOLDOWN_MS;
-    UnloopUsage.setCooldownUntilMs(until);
-    setSessionState(fsm.dispatch({ type: "CHALLENGE_COMPLETED" }));
     bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
-    setMessage(
-      `Nice. ${COOLDOWN_MS / 1000}s grace — then I’ll watch again if you ask me to.`,
-    );
-    scheduleCooldownEnd(until);
-  }, [bus, fsm, scheduleCooldownEnd]);
+    beginCooldown("ok");
+  }, [beginCooldown, bus, fsm]);
+
+  const softFailChallenge = useCallback(() => {
+    if (fsm.state !== "CHALLENGE") {
+      return;
+    }
+    beginCooldown("soft");
+  }, [beginCooldown, fsm]);
 
   const inChallenge = sessionState === "CHALLENGE";
   const monitoring = sessionState === "MONITORING" || sessionState === "COOLDOWN";
@@ -335,22 +435,32 @@ export default function App() {
           Unloop
         </Text>
         <Text style={[styles.tagline, inChallenge && styles.textOnInk]}>
-          Exit the tunnel. You’re the one who asked.
+          {t("app.tagline")}
         </Text>
         <Text style={[styles.meta, inChallenge && styles.textOnInkMuted]}>
           {sessionState}
-          {lastDelta != null ? ` · last bout ${Math.round(lastDelta / 1000)}s` : ""}
+          {lastDelta != null
+            ? ` · last bout ${Math.round(lastDelta / 1000)}s`
+            : ""}
         </Text>
 
         {!inChallenge && <Text style={styles.copy}>{message}</Text>}
-        {inChallenge && <ShakeChallengeView onComplete={completeChallenge} />}
+        {inChallenge && settings && (
+          <ChallengeHost
+            challengeId={activeChallengeId}
+            timeoutMs={settings.challengeTimeoutMs}
+            t={t}
+            onComplete={completeChallenge}
+            onSoftFail={softFailChallenge}
+          />
+        )}
 
-        {!inChallenge && (
+        {!inChallenge && settings && (
           <>
-            <Text style={styles.section}>Feeds to interrupt</Text>
+            <Text style={styles.section}>{t("app.feeds_section")}</Text>
             <View style={styles.chips}>
-              {SHORT_VIDEO_APPS.map((app) => {
-                const on = enabledLabels.includes(app.label);
+              {WATCH_TARGETS.map((app) => {
+                const on = settings.enabledLabels.includes(app.label);
                 return (
                   <Pressable
                     key={app.label}
@@ -367,26 +477,69 @@ export default function App() {
               })}
             </View>
 
+            <Text style={styles.section}>{t("app.challenges_section")}</Text>
+            <View style={styles.chips}>
+              {CHALLENGE_CATALOG.map((c) => {
+                const on = settings.enabledChallengeIds.includes(c.id);
+                return (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => toggleChallenge(c.id)}
+                    style={[styles.chip, on && styles.chipOn]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>
+                      {t(c.titleKey)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.section}>{t("app.timings_section")}</Text>
+            <TimingRow
+              label={t("app.threshold")}
+              seconds={Math.round(settings.thresholdMs / 1000)}
+              onCommit={(s) => setTiming("thresholdMs", s)}
+            />
+            <TimingRow
+              label={t("app.cooldown")}
+              seconds={Math.round(settings.cooldownMs / 1000)}
+              onCommit={(s) => setTiming("cooldownMs", s)}
+            />
+            <TimingRow
+              label={t("app.soft_timeout")}
+              seconds={Math.round(settings.challengeTimeoutMs / 1000)}
+              onCommit={(s) => setTiming("challengeTimeoutMs", s)}
+            />
+
             {Platform.OS === "android" && (
               <Text style={styles.meta}>
-                Usage Access:{" "}
-                {permission == null ? "…" : permission ? "ok" : "needed"}
+                {t("app.usage")}:{" "}
+                {permission == null
+                  ? "…"
+                  : permission
+                    ? t("app.ok")
+                    : t("app.needed")}
                 {" · "}
-                Overlay:{" "}
+                {t("app.overlay")}:{" "}
                 {overlayPermission == null
                   ? "…"
                   : overlayPermission
-                    ? "ok"
-                    : "needed"}
+                    ? t("app.ok")
+                    : t("app.needed")}
               </Text>
             )}
 
             <Pressable
               style={[styles.button, styles.primary]}
-              onPress={() => void (monitoring ? stopMonitoring() : startMonitoring())}
+              onPress={() =>
+                void (monitoring ? stopMonitoring() : startMonitoring())
+              }
             >
               <Text style={styles.buttonLabel}>
-                {monitoring ? "Stop watching" : "Start watching"}
+                {monitoring ? t("app.stop") : t("app.start")}
               </Text>
             </Pressable>
           </>
@@ -397,10 +550,35 @@ export default function App() {
   );
 }
 
+function TimingRow({
+  label,
+  seconds,
+  onCommit,
+}: {
+  label: string;
+  seconds: number;
+  onCommit: (text: string) => void;
+}) {
+  const [text, setText] = useState(String(seconds));
+  useEffect(() => {
+    setText(String(seconds));
+  }, [seconds]);
+  return (
+    <View style={styles.timingRow}>
+      <Text style={styles.timingLabel}>{label}</Text>
+      <TextInput
+        style={styles.timingInput}
+        value={text}
+        onChangeText={setText}
+        onEndEditing={() => onCommit(text)}
+        keyboardType="number-pad"
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
+  gradient: { flex: 1 },
   container: {
     flexGrow: 1,
     alignItems: "center",
@@ -415,9 +593,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
     letterSpacing: -1,
   },
-  brandOnInk: {
-    color: colors.emberSoft,
-  },
+  brandOnInk: { color: colors.emberSoft },
   tagline: {
     fontSize: 15,
     fontWeight: "600",
@@ -431,12 +607,8 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: "center",
   },
-  textOnInk: {
-    color: colors.textOnInk,
-  },
-  textOnInkMuted: {
-    color: colors.emberSoft,
-  },
+  textOnInk: { color: colors.textOnInk },
+  textOnInkMuted: { color: colors.emberSoft },
   copy: {
     fontSize: typography.bodySize,
     fontWeight: "400",
@@ -467,16 +639,28 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: colors.chipOff,
   },
-  chipOn: {
-    backgroundColor: colors.chipOn,
+  chipOn: { backgroundColor: colors.chipOn },
+  chipLabel: { fontWeight: "700", color: colors.ink, fontSize: 14 },
+  chipLabelOn: { color: colors.white },
+  timingRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
   },
-  chipLabel: {
-    fontWeight: "700",
+  timingLabel: { flex: 1, color: colors.textMuted, fontSize: 13 },
+  timingInput: {
+    width: 72,
+    borderWidth: 1,
+    borderColor: colors.chipOff,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    textAlign: "center",
     color: colors.ink,
-    fontSize: 14,
-  },
-  chipLabelOn: {
-    color: colors.white,
+    backgroundColor: colors.white,
+    fontWeight: "700",
   },
   button: {
     marginTop: 8,
@@ -486,12 +670,6 @@ const styles = StyleSheet.create({
     minWidth: 240,
     alignItems: "center",
   },
-  primary: {
-    backgroundColor: colors.ember,
-  },
-  buttonLabel: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  primary: { backgroundColor: colors.ember },
+  buttonLabel: { color: colors.white, fontSize: 16, fontWeight: "700" },
 });

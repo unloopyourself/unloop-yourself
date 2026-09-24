@@ -1,20 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { advanceShakeProgress } from "@unloop/core";
-import { subscribeAccelerometer } from "./expoSensorPort";
-import { colors, typography } from "./theme";
+import type { Translate } from "../i18n";
+import { subscribeAccelerometer } from "../expoSensorPort";
+import { colors, typography } from "../theme";
 
 type Props = {
+  t: Translate;
   onComplete: () => void;
 };
 
 const REQUIRED_MS = 5_000;
 
-export function ShakeChallengeView({ onComplete }: Props) {
+export function ShakeChallengeBody({ t, onComplete }: Props) {
   const [activeMs, setActiveMs] = useState(0);
   const [done, setDone] = useState(false);
-  const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     let current = 0;
@@ -35,29 +35,20 @@ export function ShakeChallengeView({ onComplete }: Props) {
         finished = true;
         stop();
         setDone(true);
-        // Defer so the 100% paint lands before parent unmounts this view.
-        queueMicrotask(() => {
-          onCompleteRef.current();
-        });
+        queueMicrotask(onComplete);
       }
     });
-    return () => {
-      stop();
-    };
-  }, []);
+    return () => stop();
+  }, [onComplete]);
 
-  // Never show 100% until the challenge actually completed (Math.round lied).
   const pct = done
     ? 100
     : Math.min(99, Math.floor((activeMs / REQUIRED_MS) * 100));
 
   return (
     <View style={styles.wrap} accessibilityLabel="Shake challenge">
-      <Text style={styles.title}>Shake to come back</Text>
-      <Text style={styles.subtitle}>
-        You asked me to interrupt. Move your body for a few seconds — scrolling
-        can’t do that for you.
-      </Text>
+      <Text style={styles.title}>{t("challenge.shake.title")}</Text>
+      <Text style={styles.subtitle}>{t("challenge.shake.body")}</Text>
       <View style={styles.barTrack}>
         <View style={[styles.barFill, { width: `${pct}%` }]} />
       </View>
@@ -71,7 +62,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     gap: 14,
-    paddingVertical: 16,
+    paddingVertical: 8,
   },
   title: {
     fontSize: typography.titleSize,
@@ -80,7 +71,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodySize,
-    fontWeight: "400",
     lineHeight: 24,
     textAlign: "center",
     color: colors.textOnInk,

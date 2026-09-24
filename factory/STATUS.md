@@ -4,21 +4,24 @@ Last updated: 2026-09-24
 
 ## Active item
 
-**None.** Phase 1 MVP accepted on SM-A405FN (incl. cooldown sync, hot-swap feeds, expanded targets). Awaiting human choice for next phase.
+**None.** Phase 1.5 self-contained pack landed (P1.5-01…05). Deferred: coin spin, air write, synonyms, stats, thumbs (P1.5-06).
 
 ## Last gate result
 
-- Phase 1 backlog (P1-01…P1-09): **done**
-- Device smoke (SM-A405FN): interrupt → shake → cooldown silences shield; feed chips hot-swap; multi-app watch list OK
-- `npm test` / boundaries: last run **PASSED** (re-run before Phase 2 start if stale)
+- `npm test`: **PASSED** (25)
+- mobile `tsc`: **PASSED**
+- boundaries: run with commit
+- Device: SM-A405FN reloaded (JS bundle); human smoke recommended for soft unlock + new challenges
 
 ## Human decisions pending
 
-- Next phase: iOS (Apple Developer) vs Buddy relay vs further Android UX / Play distribution.
+- Soft-unlock default **45s** (change in Timings if preferred).
+- Next mega-fork: iOS vs Buddy vs Play vs parking items (coin/air/synonyms).
 
 ## Notes
 
-- Threshold **60s**, cooldown **120s**.
-- Feeds: YouTube, TikTok, Instagram (default on); Snapchat, Facebook, X, Reddit, Browsers (optional).
-- Theme: navy + ember “exit the tunnel”; Fraunces + Outfit; adaptive icon.
-- Native cooldown must stay armed with JS COOLDOWN (fixed 2026-09-24).
+- Chip **AI chats**: ChatGPT, Gemini/Bard, Claude, Character.AI, Perplexity, Copilot/Bing.
+- Challenges: shake, breath, phrase, nearest-multiple, face-down flip (toggle in Settings).
+- Soft unlock: Skip or timeout → wake-up copy, not a ban.
+- Locale: OS `it` → Italian catalog; else English.
+- Changing **threshold** while watching: Stop + Start to push to native (cooldown untouched by chip hot-swap only).

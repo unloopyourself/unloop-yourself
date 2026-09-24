@@ -59,3 +59,20 @@ The idea is preserved, not lost—frozen for later.
 ### Public challenge marketplace in v1
 * **Interesting:** Community growth.
 * **Not MVP:** Security, curation, and scope explosion before core interrupt is validated.
+
+### Challenge feedback (heart or thumbs)
+* **Interesting:** After a challenge, a single **♥** or **👍/👎** (local only) can down-weight hated interrupts and gently prefer ones that feel fair—without a ratings feed.
+* **Not MVP:** Needs the multi-challenge pack + on-device weight store first; easy to misuse as gamification if we show counts or streaks.
+
+### Challenge traces and local stats
+* **Interesting:** On-device counts (shown / completed / timed out per challenge), optional short history — helps the user tune Settings → Challenges and proves the interrupt worked.
+* **Not MVP:** Easy to become a second dashboard habit. If shipped later: local-only, no social, no streaks-as-score, bury under Settings, never a home-screen vanity chart. Prefer “enough to decide” over engagement metrics.
+
+---
+
+## 4. Offline challenge pack (beyond Shake)
+
+Design shortlist lives in [`offline_challenges.md`](offline_challenges.md): face-down flip, coin spin, air write, synonyms (local vocab), nearest-multiple math — plus Settings → Challenges enable-list and full UI localization.
+
+* **Interesting:** Rotation + user control prevents shake-only habituation; several stay offline.
+* **Not MVP:** Phase 1 validated with Shake alone; pack is Android polish / Phase 1.5.

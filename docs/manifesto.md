@@ -55,3 +55,5 @@ Breaking a compulsive habit requires empathy, not austerity.
 Unloop uses irony, creativity, physical interaction, and complicity (friends or challenge partners) to turn the interruption from frustration into a brief moment of awareness.
 
 We do not say *“Time’s up.”* We communicate: *“I’m interrupting you because you asked me to.”*
+
+If a challenge times out without success, we do not punish or keep the feed locked. We release the interrupt and leave a brief, non-moralizing wake-up line — awareness, not a ban.
