@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { advanceShakeProgress, challengeProgressDisplayPct } from "@unloop/core";
 import type { Translate } from "../i18n";
@@ -15,6 +15,8 @@ const REQUIRED_MS = 5_000;
 export function ShakeChallengeBody({ t, onComplete }: Props) {
   const [activeMs, setActiveMs] = useState(0);
   const [done, setDone] = useState(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     let current = 0;
@@ -35,11 +37,11 @@ export function ShakeChallengeBody({ t, onComplete }: Props) {
         finished = true;
         stop();
         setDone(true);
-        queueMicrotask(onComplete);
+        queueMicrotask(() => onCompleteRef.current());
       }
     });
     return () => stop();
-  }, [onComplete]);
+  }, []);
 
   const pct = challengeProgressDisplayPct(activeMs, REQUIRED_MS, done);
 

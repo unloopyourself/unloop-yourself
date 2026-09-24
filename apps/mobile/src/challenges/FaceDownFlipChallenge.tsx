@@ -30,6 +30,10 @@ export function FaceDownFlipChallenge({ t, onComplete }: Props) {
   const holdStart = useRef<number | null>(null);
   const windowStart = useRef<number | null>(null);
   const finished = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  const tRef = useRef(t);
+  onCompleteRef.current = onComplete;
+  tRef.current = t;
 
   useEffect(() => {
     Accelerometer.setUpdateInterval(50);
@@ -39,12 +43,13 @@ export function FaceDownFlipChallenge({ t, onComplete }: Props) {
       }
       const now = Date.now();
       const phase = phaseRef.current;
+      const tr = tRef.current;
 
       if (phase === "wait_down") {
         if (isFaceDown(z)) {
           holdStart.current = now;
           phaseRef.current = "hold";
-          setLabel(t("challenge.face.down"));
+          setLabel(tr("challenge.face.down"));
           setHoldPct(0);
         }
         return;
@@ -54,7 +59,7 @@ export function FaceDownFlipChallenge({ t, onComplete }: Props) {
         if (!isFaceDown(z)) {
           holdStart.current = null;
           phaseRef.current = "wait_down";
-          setLabel(t("challenge.face.wait"));
+          setLabel(tr("challenge.face.wait"));
           setHoldPct(0);
           return;
         }
@@ -64,7 +69,7 @@ export function FaceDownFlipChallenge({ t, onComplete }: Props) {
         if (elapsed >= HOLD_MS) {
           windowStart.current = now;
           phaseRef.current = "flip_window";
-          setLabel(t("challenge.face.flip"));
+          setLabel(tr("challenge.face.flip"));
         }
         return;
       }
@@ -75,7 +80,7 @@ export function FaceDownFlipChallenge({ t, onComplete }: Props) {
           holdStart.current = null;
           windowStart.current = null;
           phaseRef.current = "wait_down";
-          setLabel(t("challenge.face.wait"));
+          setLabel(tr("challenge.face.wait"));
           setHoldPct(0);
           return;
         }
@@ -83,12 +88,12 @@ export function FaceDownFlipChallenge({ t, onComplete }: Props) {
           finished.current = true;
           phaseRef.current = "done";
           setHoldPct(100);
-          queueMicrotask(onComplete);
+          queueMicrotask(() => onCompleteRef.current());
         }
       }
     });
     return () => sub.remove();
-  }, [onComplete, t]);
+  }, []);
 
   return (
     <View style={styles.wrap}>

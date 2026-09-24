@@ -1,8 +1,18 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { colors, typography } from "../theme";
 import type { Translate } from "../i18n";
 import { MenuButton } from "./MenuSheet";
 import { statusBarTopInset } from "../layout";
+
+/** Tight crop for in-app hero (launcher icon keeps adaptive padding). */
+const brandMark = require("../../assets/brand/unloop-mark-home.png");
 
 type Props = {
   t: Translate;
@@ -49,6 +59,13 @@ export function HomeScreen({
       </View>
 
       <View style={styles.hero}>
+        <View style={styles.markFrame}>
+          <Image
+            source={brandMark}
+            style={styles.mark}
+            accessibilityLabel="Unloop"
+          />
+        </View>
         <Text style={styles.brand}>Unloop</Text>
         <Text style={styles.tagline}>{t("app.tagline")}</Text>
         <View style={styles.statusPill}>
@@ -104,8 +121,20 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: "center",
     gap: 10,
-    marginTop: 24,
+    marginTop: 12,
     marginBottom: 8,
+  },
+  markFrame: {
+    width: 120,
+    height: 120,
+    borderRadius: 30,
+    overflow: "hidden",
+    marginBottom: 4,
+    backgroundColor: colors.ink,
+  },
+  mark: {
+    width: 120,
+    height: 120,
   },
   brand: {
     fontSize: typography.brandSize,
