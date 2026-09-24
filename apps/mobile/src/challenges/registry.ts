@@ -12,7 +12,8 @@ export type ChallengeId =
   | "unlock_phrase"
   | "nearest_multiple"
   | "face_down_flip"
-  | "coin_spin";
+  | "coin_spin"
+  | "air_write";
 
 export type ChallengeMeta = Challenge & {
   id: ChallengeId;
@@ -27,6 +28,7 @@ const TITLE_KEYS: Record<ChallengeId, string> = {
   nearest_multiple: "challenge.math.title",
   face_down_flip: "challenge.face.title",
   coin_spin: "challenge.coin.title",
+  air_write: "challenge.air.title",
 };
 
 /** UI catalog: Core requires + local title keys (single source for requires). */

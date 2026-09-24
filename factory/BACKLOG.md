@@ -207,7 +207,7 @@ Offline-only product depth. No Buddy relay, no cloud AI, no accounts.
 - **Escalate if:** —
 
 ### P1.5-12 — Air write (`air_write`)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P1.5-11
 - **AC:** Coarse 2–4 letter air stroke vs template; accel (+ gyro if helpful); target word shown; generous match; Settings enable; en+it; capability-honest exclusion. See offline_challenges.md.
 - **Tests:** Core matching unit tests; typecheck; device smoke.

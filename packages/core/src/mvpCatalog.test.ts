@@ -43,6 +43,11 @@ describe("capability profiles × MVP catalog", () => {
       no_gyro: false,
       full: true,
     });
+    expect(matrix.air_write).toEqual({
+      low_end: false,
+      no_gyro: true,
+      full: true,
+    });
   });
 
   it("available capability → challenge is eligible", () => {

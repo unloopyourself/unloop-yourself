@@ -4,18 +4,18 @@ Last updated: 2026-09-24
 
 ## Active item
 
-**None.** Next ready: **P1.5-12** `air_write`.
+**None.** Offline challenge pack (variety + coin_spin + air_write) landed. Next: deferred parking or Phase 2 (needs human OK).
 
 ## Last gate result
 
-- P1.5-10 variety + P1.5-11 coin_spin: `npm test` 44 passed; mobile typecheck; `check-boundaries.sh` OK
+- P1.5-12 air_write: `npm test` 52 passed; mobile typecheck; `check-boundaries.sh` OK
 
 ## Human decisions pending
 
 - None blocking.
-- Product note: air_write next; synonyms deferred; audio only with explicit opt-in.
+- Optional: device smoke for coin_spin / air_write feel; Phase 2 iOS if desired.
 
 ## Notes
 
-- `coin_spin` is opt-in in Settings (not default-enabled); requires gyroscope.
-- Compatibility matrix: `full` = accel+gyro; `no_gyro` excludes coin_spin.
+- `coin_spin` and `air_write` are **opt-in** in Settings (not default-enabled).
+- Air write: coarse stroke-direction templates + edit-distance match; en/it short word packs.

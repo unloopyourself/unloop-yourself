@@ -65,6 +65,12 @@ const en: Dict = {
   "challenge.face.wait": "Waiting for face-down…",
   "challenge.coin.title": "Coin spin",
   "challenge.coin.body": "Rest the phone on a coin (or similar pivot). Spin it about five full turns with two fingers near the center.",
+  "challenge.air.title": "Air write",
+  "challenge.air.body": "Write this short word in the air with the phone — big strokes, not thumb-scroll.",
+  "challenge.air.hint": "Start drawing… pause briefly between strokes.",
+  "challenge.air.drawing": "Keep going — pause between letters if you like.",
+  "challenge.air.done": "Got it!",
+  "challenge.air.strokes": "Strokes: {n}",
 };
 
 const it: Dict = {
@@ -130,6 +136,12 @@ const it: Dict = {
   "challenge.face.wait": "In attesa della faccia in giù…",
   "challenge.coin.title": "Giro sulla moneta",
   "challenge.coin.body": "Appoggia il telefono su una moneta (o un perno simile). Falle fare circa cinque giri completi con due dita vicino al centro.",
+  "challenge.air.title": "Scrivi in aria",
+  "challenge.air.body": "Scrivi questa parola corta in aria col telefono — tratti ampi, non lo scroll.",
+  "challenge.air.hint": "Inizia a disegnare… pausa breve tra un tratto e l’altro.",
+  "challenge.air.drawing": "Continua — puoi fare una pausa tra le lettere.",
+  "challenge.air.done": "Preso!",
+  "challenge.air.strokes": "Tratti: {n}",
 };
 
 const catalogs: Record<LocaleCode, Dict> = { en, it };

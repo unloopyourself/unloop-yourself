@@ -54,6 +54,20 @@ export {
 export type { CoinSpinProgress } from "./coinSpinChallenge.js";
 
 export {
+  AIR_WRITE_CHALLENGE_ID,
+  AIR_WRITE_WORDS,
+  advanceAirWriteTracker,
+  createAirWriteTracker,
+  matchAirWriteStrokes,
+  pickAirWriteWord,
+} from "./airWriteChallenge.js";
+export type {
+  AirDir,
+  AirWriteLocale,
+  AirWriteTrackerState,
+} from "./airWriteChallenge.js";
+
+export {
   MVP_CHALLENGES,
   MVP_DEFAULT_ENABLED_IDS,
   CAPABILITY_PROFILES,
