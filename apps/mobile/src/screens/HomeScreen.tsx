@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors, typography } from "../theme";
 import type { Translate } from "../i18n";
 import { MenuButton } from "./MenuSheet";
+import { statusBarTopInset } from "../layout";
 
 type Props = {
   t: Translate;
@@ -36,7 +37,10 @@ export function HomeScreen({
 }: Props) {
   return (
     <ScrollView
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[
+        styles.container,
+        { paddingTop: statusBarTopInset(4) },
+      ]}
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.topBar}>
@@ -88,7 +92,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 28,
     paddingBottom: 48,
-    paddingTop: 12,
     gap: 16,
   },
   topBar: {

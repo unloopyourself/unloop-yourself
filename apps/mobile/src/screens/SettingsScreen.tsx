@@ -14,6 +14,7 @@ import type { Translate } from "../i18n";
 import { WATCH_TARGETS } from "../targets";
 import { CHALLENGE_CATALOG, type ChallengeId } from "../challenges/registry";
 import type { UnloopSettings } from "../settings";
+import { statusBarTopInset } from "../layout";
 
 type Props = {
   t: Translate;
@@ -43,7 +44,10 @@ export function SettingsScreen({
 }: Props) {
   return (
     <ScrollView
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[
+        styles.container,
+        { paddingTop: statusBarTopInset(4) },
+      ]}
       keyboardShouldPersistTaps="handled"
     >
       <Pressable
@@ -176,7 +180,6 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingHorizontal: 28,
-    paddingTop: 16,
     paddingBottom: 48,
     gap: 14,
   },
