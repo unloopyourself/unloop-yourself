@@ -34,6 +34,10 @@ type UnloopUsageNativeModule = {
   getMonitorSnapshot(): MonitorSnapshot;
   /** Debug/AVD: forced challenge id from DebugHarnessReceiver, or "". */
   getHarnessForceChallengeId(): string;
+  /**
+   * Debug/AVD: null = probe sensors; "" = no capabilities; "accelerometer" = csv.
+   */
+  getHarnessCapabilitiesOverride(): string | null;
   /** Debug/AVD: structured log line for harness asserts. */
   logHarness(message: string): void;
   addListener(

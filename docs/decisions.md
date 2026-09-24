@@ -159,3 +159,28 @@ No project skills swarm, hooks, automations, or multi-agent orchestration unless
 ### Consequences
 * **Pros:** Understandable by a human takeover; cost-aware; Cursor-native where it matters (rules).
 * **Trade-off:** Discipline depends on agents reading AGENTS/STATUS; mitigated by alwaysApply rule pointing at privacy/cost constraints.
+
+---
+
+## ADR-008: Capability eligibility over Android version laundry lists
+
+* **Date:** 2026-09-24
+* **Status:** Accepted
+
+### Context
+Unloop must run on old and cheap phones. Modeling support as “every Android major” is expensive and misaligned with product reality: a phone can be new-API-poor-sensors or old-API-rich-sensors. Challenges already declare `requires`; selection is `requires ⊆ availableCapabilities` (ADR-003).
+
+### Decision
+1. Treat **platform behavioral boundaries** (API floor, permission/lifecycle/UsageStats/overlay/sensor changes) as a sparse, evidence-grown heuristic — not a full version cartesian product. Documented in [`compatibility.md`](compatibility.md).
+2. Treat **device capabilities** as a separate axis exposed via `DeviceContext` from adapters (probe + optional debug override). Missing hardware makes a challenge **ineligible**, never “app unsupported.”
+3. Keep **capability profiles** (`low_end`, `no_gyro`, `full`) as Core test/docs fixtures (`CAPABILITY_PROFILES`, `compatibilityMatrix`), not mandatory runtime types.
+4. Single source for shipping challenge `requires`: Core `MVP_CHALLENGES`; mobile UI catalog maps titles onto that list.
+
+### Alternatives
+1. **Version-only matrix (11×12×13×…)** — duplicates effort; ignores hardware poverty on new APIs.
+2. **Hard-require accelerometer for all interrupts** — excludes the cheap-device audience.
+3. **Heavy device lab abstraction** — overkill before OEM evidence accumulates.
+
+### Consequences
+* **Pros:** Poor devices keep soft challenges; Core stays OS-free; L0 Vitest owns eligibility; L3 AVD can force `capabilities=""` for `low_end`; L4 absorbs OEM-specific feel.
+* **Trade-off:** Adapters must probe honestly; debug overrides are for harness only.

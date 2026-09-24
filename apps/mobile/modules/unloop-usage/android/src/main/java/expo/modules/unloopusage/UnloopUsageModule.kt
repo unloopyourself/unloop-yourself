@@ -89,6 +89,11 @@ class UnloopUsageModule : Module() {
       HarnessPrefs.getForceChallengeId(context)
     }
 
+    Function("getHarnessCapabilitiesOverride") {
+      // null → JS gets null (no override). Empty string → low_end profile.
+      HarnessPrefs.getCapabilitiesOverrideOrNull(context)
+    }
+
     Function("logHarness") { message: String ->
       Log.i(TAG, "harness: $message")
     }

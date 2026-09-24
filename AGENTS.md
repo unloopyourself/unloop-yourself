@@ -45,7 +45,7 @@ There is no multi-agent orchestration layer and no project skills swarm. Scaffol
 
 - **Core domain** (`packages/core`, when it exists) is pure TypeScript: Session FSM, Policy Engine, Challenge Engine, local persistence/ΔU, typed event emitter. No React Native, Expo, or OS APIs in Core.
 - **Ports & adapters:** platform APIs live only in adapters (Android first for MVP).
-- **Challenges:** minimal `Challenge` contract with declared capabilities; selection rule `requires ⊆ availableCapabilities`. No plugin marketplace in MVP.
+- **Challenges:** minimal `Challenge` contract with declared capabilities; selection rule `requires ⊆ availableCapabilities`. Missing hardware ⇒ challenge ineligible, not app failure. Profiles/matrix: [`docs/compatibility.md`](docs/compatibility.md). No plugin marketplace in MVP.
 - **Local-first:** usage data and audit logs stay on device. No analytics SDKs, no behavioral telemetry backends. Buddy relay (later) is a stateless encrypted postman only—see ADRs.
 - Prefer the simplest ADR-consistent option for routine details; record lasting choices as ADRs in [`docs/decisions.md`](docs/decisions.md).
 
