@@ -197,4 +197,11 @@ Offline-only product depth. No Buddy relay, no cloud AI, no accounts.
 - **Deps:** P1.5-01
 - **AC:** `SessionEngine` in Core with injectable clock; Vitest scenarios covering happy path, soft unlock, hydrate-after-kill, cooldown gate; App uses engine; `docs/testing.md` defines L0–L4; REGRESSION-named tests for known bugs.
 - **Tests:** `npm test` includes SessionEngine suite.
-- **Escalate if:** Creating first Android AVD (large system image download).
+- **Escalate if:** —
+
+### P1.5-08 — L3 AVD spike + scenario harness
+- **Status:** done
+- **Deps:** P1.5-07
+- **AC:** Empirical matrix in `docs/l3_spike_results.md`; `docs/testing.md` L0–L4 updated from evidence (not assumptions); Dummy Feed app; `DebugHarnessReceiver`; `scripts/avd/run-l3-scenarios.sh` persists threshold→overlay→Open challenge (+ sensor inject). Headless emulator start flaky on this host — document human-start AVD then agent attach.
+- **Tests:** `./scripts/avd/run-l3-scenarios.sh` with emulator online; `npm test`.
+- **Escalate if:** —

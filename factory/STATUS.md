@@ -4,21 +4,19 @@ Last updated: 2026-09-24
 
 ## Active item
 
-**None.** Phase 1.5 pack + **SessionEngine regression suite** (agent-autonomous L0).
+**None.** L3 AVD spike complete; harness green for threshold→overlay→Open challenge.
 
 ## Last gate result
 
-- `npm test`: **32** Core tests (incl. REGRESSION SessionEngine scenarios)
-- mobile typecheck / boundaries: run on commit
-- Device batch smoke: deferred to human when convenient
+- L0 `npm test`: SessionEngine REGRESSION suite
+- L3 `./scripts/avd/run-l3-scenarios.sh`: PASS (install, perms, UsageStats threshold→overlay, Open challenge, sensor inject)
+- L4 Samsung: **ask human only when batching** after L0–L3 green
 
 ## Human decisions pending
 
-- **Create Android AVD?** (first-time system image download; enables agent L3 smoke). Say yes/no.
-- Soft-unlock default remains 45s unless you change Timings.
-- Later fork: iOS / Buddy / Play / parking challenges.
+- None blocking. Keep starting AVD yourself if agent headless start flakes; agent attaches via `adb`.
 
 ## Notes
 
-- Autonomy path: L0 SessionEngine scenarios ≫ emulator ≫ physical batch (see `docs/testing.md`).
-- App runtime now driven by `SessionEngine` (same brain as tests).
+- AVD: `unloop_api34`. Dummy: `dev.unloopyourself.dummytarget`.
+- Docs: `docs/testing.md`, `docs/l3_spike_results.md`.
