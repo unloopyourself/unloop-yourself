@@ -58,8 +58,10 @@ export default function App() {
         { cooldownMs: 120_000, challengeTimeoutMs: 45_000 },
         (enabled, available, excludeId) => {
           if (Platform.OS === "android") {
-            const forced = UnloopUsage.getHarnessForceChallengeId();
+            const forced = UnloopUsage.getHarnessForceChallengeId()?.trim();
+            // Only honor an explicit non-empty harness override (AVD/debug).
             if (forced) {
+              UnloopUsage.logHarness(`forceChallenge:${forced}`);
               return forced;
             }
           }
@@ -77,10 +79,11 @@ export default function App() {
   );
   const [settings, setSettings] = useState<UnloopSettings | null>(null);
   const [activeChallengeId, setActiveChallengeId] =
-    useState<ChallengeId>("shake");
+    useState<ChallengeId>("breath_tap");
   const [message, setMessage] = useState(t("app.intro"));
   const [screen, setScreen] = useState<AppScreen>("home");
   const [menuOpen, setMenuOpen] = useState(false);
+  const pendingOpenRef = useRef(false);
   useEffect(() => {
     settingsRef.current = settings;
     if (settings) {
@@ -227,6 +230,15 @@ export default function App() {
 
   const onThreshold = useCallback(
     (event: UsageThresholdEvent) => {
+      if (!settingsRef.current) {
+        // Settings not hydrated yet — avoid picking engine defaults (was forcing shake).
+        pendingOpenRef.current = true;
+        return;
+      }
+      engine.setChallengeOptions(
+        settingsRef.current.enabledChallengeIds,
+        deviceCaps,
+      );
       const effects = engine.onThresholdReached(event.appId, event.deltaU);
       if (effects.length === 0) {
         return;
@@ -238,7 +250,7 @@ export default function App() {
       });
       applyEffects(effects);
     },
-    [applyEffects, audit, engine],
+    [applyEffects, audit, deviceCaps, engine],
   );
 
   const detector = useMemo(
@@ -288,34 +300,55 @@ export default function App() {
     return () => sub.remove();
   }, [syncFromNative]);
 
+  const openChallengeFromOverlay = useCallback(() => {
+    if (!settingsRef.current) {
+      pendingOpenRef.current = true;
+      return;
+    }
+    engine.setChallengeOptions(
+      settingsRef.current.enabledChallengeIds,
+      deviceCaps,
+    );
+    syncFromNative();
+    if (engine.state === "MONITORING") {
+      const snap = UnloopUsage.getMonitorSnapshot();
+      applyEffects(
+        engine.onThresholdReached(
+          snap.lastAppId || "unknown",
+          snap.lastDeltaU || 0,
+        ),
+      );
+    } else if (engine.state !== "CHALLENGE") {
+      applyEffects(
+        engine.hydrate({
+          monitoring: true,
+          challengeOutstanding: true,
+          inCooldown: false,
+        }),
+      );
+    } else {
+      setMessage(t("app.interrupt"));
+    }
+  }, [applyEffects, deviceCaps, engine, syncFromNative, t]);
+
   useEffect(() => {
     if (Platform.OS !== "android") {
       return;
     }
     const sub = addOpenChallengeListener(() => {
-      syncFromNative();
-      if (engine.state === "MONITORING") {
-        const snap = UnloopUsage.getMonitorSnapshot();
-        applyEffects(
-          engine.onThresholdReached(
-            snap.lastAppId || "unknown",
-            snap.lastDeltaU || 0,
-          ),
-        );
-      } else if (engine.state !== "CHALLENGE") {
-        applyEffects(
-          engine.hydrate({
-            monitoring: true,
-            challengeOutstanding: true,
-            inCooldown: false,
-          }),
-        );
-      } else {
-        setMessage(t("app.interrupt"));
-      }
+      openChallengeFromOverlay();
     });
     return () => sub.remove();
-  }, [applyEffects, engine, syncFromNative, t]);
+  }, [openChallengeFromOverlay]);
+
+  // Flush overlay/threshold that arrived before AsyncStorage settings loaded.
+  useEffect(() => {
+    if (!settings || !pendingOpenRef.current) {
+      return;
+    }
+    pendingOpenRef.current = false;
+    openChallengeFromOverlay();
+  }, [settings, openChallengeFromOverlay]);
 
   const toggleLabel = (label: string) => {
     if (!settings) {
@@ -381,6 +414,9 @@ export default function App() {
       setMessage(t("app.android_only"));
       return;
     }
+    // Drop stale AVD harness overrides so normal use honors Settings.
+    UnloopUsage.clearHarnessDebugState();
+    engine.setChallengeOptions(settings.enabledChallengeIds, deviceCaps);
     if (!detector.hasPermission()) {
       setPermission(false);
       setMessage(t("app.grant_usage"));

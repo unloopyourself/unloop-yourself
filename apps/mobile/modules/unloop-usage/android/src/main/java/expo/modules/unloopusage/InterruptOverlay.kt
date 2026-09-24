@@ -114,7 +114,7 @@ object InterruptOverlay {
         }
 
         val copy = TextView(appContext).apply {
-          text = "I’m interrupting you because you asked me to.\nFinish the shake challenge to continue."
+          text = "I’m interrupting you because you asked me to.\nOpen Unloop to continue with a short challenge."
           setTextColor(Color.parseColor("#F2F5F8"))
           setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
           gravity = Gravity.CENTER

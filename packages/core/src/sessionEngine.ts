@@ -6,6 +6,7 @@
 import type { Capability } from "./challenge.js";
 import { evaluatePolicy } from "./policy.js";
 import { SessionFsm, type SessionState } from "./session.js";
+import { MVP_DEFAULT_ENABLED_IDS } from "./mvpCatalog.js";
 
 export type EngineClock = {
   now(): number;
@@ -41,7 +42,7 @@ export type EngineEffect =
   | { type: "paused" };
 
 const DEFAULT_PICKER: ChallengePicker = (enabled) =>
-  enabled[0] ?? "shake";
+  enabled[0] ?? MVP_DEFAULT_ENABLED_IDS[0] ?? "breath_tap";
 
 export class SessionEngine {
   readonly fsm: SessionFsm;
@@ -62,7 +63,7 @@ export class SessionEngine {
     initialState: SessionState = "PAUSED",
   ) {
     this.fsm = new SessionFsm(initialState);
-    this.enabledChallengeIds = ["shake"];
+    this.enabledChallengeIds = [...MVP_DEFAULT_ENABLED_IDS];
     this.availableCapabilities = new Set<Capability>(["accelerometer"]);
   }
 

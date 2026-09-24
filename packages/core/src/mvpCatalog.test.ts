@@ -155,6 +155,30 @@ describe("capability profiles × MVP catalog", () => {
     expect(picks).toEqual(["shake", "breath_tap"]);
   });
 
+  it("REGRESSION: honors a single non-shake enabled challenge", () => {
+    const clock = { nowMs: 1_000, now: () => clock.nowMs };
+    const engine = new SessionEngine(
+      clock,
+      { cooldownMs: 1_000, challengeTimeoutMs: 45_000 },
+      (enabled, available, excludeId) =>
+        pickEligibleChallengeId(MVP_CHALLENGES, enabled, available, {
+          excludeId,
+          random: () => 0,
+        }) ?? "breath_tap",
+    );
+    engine.setChallengeOptions(
+      ["breath_tap"],
+      CAPABILITY_PROFILES.no_gyro,
+    );
+    engine.startMonitoring();
+    const effects = engine.onThresholdReached("feed.app", 10_000);
+    expect(effects[0]?.type).toBe("enter_challenge");
+    if (effects[0]?.type === "enter_challenge") {
+      expect(effects[0].challengeId).toBe("breath_tap");
+      expect(effects[0].challengeId).not.toBe("shake");
+    }
+  });
+
   it("low_end profile always has a valid interruption path with defaults", () => {
     const eligible = selectEligibleChallenges(
       MVP_CHALLENGES,
