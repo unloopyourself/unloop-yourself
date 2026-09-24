@@ -52,6 +52,9 @@ const UnloopUsageModule = {
   getHarnessForceChallengeId(): string {
     return "";
   },
+  clearHarnessDebugState(): void {
+    /* no-op */
+  },
   getHarnessCapabilitiesOverride(): string | null {
     return null;
   },

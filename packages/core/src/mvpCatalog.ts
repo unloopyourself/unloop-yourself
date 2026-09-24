@@ -113,6 +113,8 @@ export function pickEligibleChallengeId(
   if (softEnabled.length > 0) {
     return pickFrom(softEnabled);
   }
+  // Last resort: soft catalog challenges only if nothing enabled is compatible
+  // (never invent a disabled sensor challenge like shake).
   const anySoft = challenges.find(
     (c) =>
       c.requires.size === 0 &&

@@ -34,6 +34,8 @@ type UnloopUsageNativeModule = {
   getMonitorSnapshot(): MonitorSnapshot;
   /** Debug/AVD: forced challenge id from DebugHarnessReceiver, or "". */
   getHarnessForceChallengeId(): string;
+  /** Debug/AVD: clear forceChallenge + capabilities override. */
+  clearHarnessDebugState(): void;
   /**
    * Debug/AVD: null = probe sensors; "" = no capabilities; "accelerometer" = csv.
    */

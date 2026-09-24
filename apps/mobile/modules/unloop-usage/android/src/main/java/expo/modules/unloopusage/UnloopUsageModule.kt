@@ -89,6 +89,10 @@ class UnloopUsageModule : Module() {
       HarnessPrefs.getForceChallengeId(context)
     }
 
+    Function("clearHarnessDebugState") {
+      HarnessPrefs.clear(context)
+    }
+
     Function("getHarnessCapabilitiesOverride") {
       // null → JS gets null (no override). Empty string → low_end profile.
       HarnessPrefs.getCapabilitiesOverrideOrNull(context)
