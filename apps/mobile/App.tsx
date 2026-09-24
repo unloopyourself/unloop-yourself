@@ -12,11 +12,10 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-  SessionFsm,
+  SessionEngine,
   TypedEventEmitter,
-  evaluatePolicy,
   type Capability,
-  type SessionState,
+  type EngineEffect,
   type UsageThresholdEvent,
 } from "@unloop/core";
 import { AndroidUsageDetector } from "./src/androidUsageDetector";
@@ -24,7 +23,6 @@ import { MemoryStoragePort } from "./src/memoryStorage";
 import { LocalAuditTrail } from "./src/localAuditTrail";
 import UnloopUsage, {
   addOpenChallengeListener,
-  type MonitorSnapshot,
 } from "./modules/unloop-usage/src/UnloopUsageModule";
 import { colors, typography } from "./src/theme";
 import { WATCH_TARGETS, packagesForLabels } from "./src/targets";
@@ -42,19 +40,6 @@ type DomainEvents = {
   THRESHOLD_REACHED: { appId: string; deltaU: number };
 };
 
-function targetStateFromSnapshot(snap: MonitorSnapshot): SessionState | null {
-  if (!snap.monitoring) {
-    return null;
-  }
-  if (snap.challengeOutstanding && !snap.inCooldown) {
-    return "CHALLENGE";
-  }
-  if (snap.inCooldown) {
-    return "COOLDOWN";
-  }
-  return "MONITORING";
-}
-
 const SENSOR_CAPS: ReadonlySet<Capability> = new Set(["accelerometer"]);
 
 export default function App() {
@@ -62,106 +47,95 @@ export default function App() {
   const storage = useMemo(() => new MemoryStoragePort(), []);
   const audit = useMemo(() => new LocalAuditTrail(storage), [storage]);
   const bus = useMemo(() => new TypedEventEmitter<DomainEvents>(), []);
-  const fsm = useMemo(() => new SessionFsm(), []);
-  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settingsRef = useRef<UnloopSettings | null>(null);
 
-  const [sessionState, setSessionState] = useState(fsm.state);
+  const engine = useMemo(
+    () =>
+      new SessionEngine(
+        { now: () => Date.now() },
+        { cooldownMs: 120_000, challengeTimeoutMs: 45_000 },
+        (enabled, available) => pickChallengeId(enabled, available),
+      ),
+    [],
+  );
+
+  const [sessionState, setSessionState] = useState(engine.state);
   const [lastDelta, setLastDelta] = useState<number | null>(null);
   const [permission, setPermission] = useState<boolean | null>(null);
   const [overlayPermission, setOverlayPermission] = useState<boolean | null>(
     null,
   );
   const [settings, setSettings] = useState<UnloopSettings | null>(null);
-  const [activeChallengeId, setActiveChallengeId] = useState<ChallengeId>("shake");
+  const [activeChallengeId, setActiveChallengeId] =
+    useState<ChallengeId>("shake");
   const [message, setMessage] = useState(t("app.intro"));
 
   useEffect(() => {
     settingsRef.current = settings;
-  }, [settings]);
+    if (settings) {
+      engine.setTimings({
+        cooldownMs: settings.cooldownMs,
+        challengeTimeoutMs: settings.challengeTimeoutMs,
+      });
+      engine.setChallengeOptions(settings.enabledChallengeIds, SENSOR_CAPS);
+    }
+  }, [engine, settings]);
 
   const persist = useCallback((next: UnloopSettings) => {
     setSettings(next);
     void saveSettings(next);
   }, []);
 
-  const clearCooldownTimer = useCallback(() => {
-    if (cooldownTimerRef.current != null) {
-      clearTimeout(cooldownTimerRef.current);
-      cooldownTimerRef.current = null;
-    }
-  }, []);
+  const applyEffects = useCallback(
+    (effects: EngineEffect[]) => {
+      setSessionState(engine.state);
+      const snap = engine.snapshot();
+      if (snap.activeChallengeId) {
+        setActiveChallengeId(snap.activeChallengeId as ChallengeId);
+      }
+      if (snap.lastDeltaU != null) {
+        setLastDelta(snap.lastDeltaU);
+      }
 
-  const scheduleCooldownEnd = useCallback(
-    (untilMs: number) => {
-      clearCooldownTimer();
-      const wait = Math.max(0, untilMs - Date.now());
-      cooldownTimerRef.current = setTimeout(() => {
-        cooldownTimerRef.current = null;
-        if (fsm.state === "COOLDOWN") {
-          UnloopUsage.clearCooldown();
-          setSessionState(fsm.dispatch({ type: "COOLDOWN_ELAPSED" }));
-          setMessage(t("app.back_on_watch"));
+      for (const effect of effects) {
+        switch (effect.type) {
+          case "enter_challenge":
+            setActiveChallengeId(effect.challengeId as ChallengeId);
+            setLastDelta(effect.deltaU);
+            setMessage(t("app.interrupt"));
+            bus.emit("THRESHOLD_REACHED", {
+              appId: effect.appId,
+              deltaU: effect.deltaU,
+            });
+            break;
+          case "cooldown_started":
+            UnloopUsage.dismissInterruptOverlay();
+            UnloopUsage.setCooldownUntilMs(effect.untilMs);
+            setMessage(
+              effect.reason === "completed"
+                ? t("app.challenge_ok", {
+                    cooldown: Math.round(
+                      (settingsRef.current?.cooldownMs ?? 120_000) / 1000,
+                    ),
+                  })
+                : t("app.soft_fail"),
+            );
+            break;
+          case "cooldown_elapsed":
+            UnloopUsage.clearCooldown();
+            setMessage(t("app.back_on_watch"));
+            break;
+          case "monitoring_started":
+            break;
+          case "paused":
+            UnloopUsage.clearCooldown();
+            break;
+          default:
+            break;
         }
-      }, wait);
+      }
     },
-    [clearCooldownTimer, fsm, t],
-  );
-
-  const beginCooldown = useCallback(
-    (kind: "ok" | "soft") => {
-      const s = settingsRef.current;
-      const cooldownMs = s?.cooldownMs ?? 120_000;
-      UnloopUsage.dismissInterruptOverlay();
-      const until = Date.now() + cooldownMs;
-      UnloopUsage.setCooldownUntilMs(until);
-      if (fsm.state === "CHALLENGE") {
-        setSessionState(
-          fsm.dispatch({
-            type: kind === "ok" ? "CHALLENGE_COMPLETED" : "CHALLENGE_FAILED",
-          }),
-        );
-      } else {
-        setSessionState(fsm.hydrate("COOLDOWN"));
-      }
-      setMessage(
-        kind === "ok"
-          ? t("app.challenge_ok", { cooldown: Math.round(cooldownMs / 1000) })
-          : t("app.soft_fail"),
-      );
-      scheduleCooldownEnd(until);
-    },
-    [fsm, scheduleCooldownEnd, t],
-  );
-
-  const assignChallenge = useCallback(() => {
-    const s = settingsRef.current;
-    const id = pickChallengeId(s?.enabledChallengeIds ?? ["shake"], SENSOR_CAPS);
-    setActiveChallengeId(id);
-    return id;
-  }, []);
-
-  const enterChallengeFromNative = useCallback(
-    (deltaU?: number) => {
-      if (deltaU != null && deltaU > 0) {
-        setLastDelta(deltaU);
-      }
-      assignChallenge();
-      if (fsm.state === "CHALLENGE") {
-        setMessage(t("app.interrupt"));
-        return;
-      }
-      if (fsm.state === "PAUSED") {
-        fsm.hydrate("MONITORING");
-      }
-      if (fsm.state === "MONITORING") {
-        setSessionState(fsm.dispatch({ type: "THRESHOLD_REACHED" }));
-      } else {
-        setSessionState(fsm.hydrate("CHALLENGE"));
-      }
-      setMessage(t("app.interrupt"));
-    },
-    [assignChallenge, fsm, t],
+    [bus, engine, t],
   );
 
   useEffect(() => {
@@ -181,32 +155,31 @@ export default function App() {
     });
   }, [audit, bus]);
 
+  // Drive soft-unlock / cooldown timers from the same engine tests use.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const effects = engine.tick();
+      if (effects.length > 0) {
+        applyEffects(effects);
+      }
+    }, 500);
+    return () => clearInterval(id);
+  }, [applyEffects, engine]);
+
   const onThreshold = useCallback(
     (event: UsageThresholdEvent) => {
-      setLastDelta(event.deltaU);
-      const decision = evaluatePolicy({
-        inCooldown: fsm.state === "COOLDOWN",
-        thresholdReached: true,
-      });
-      if (decision.action !== "interrupt") {
+      const effects = engine.onThresholdReached(event.appId, event.deltaU);
+      if (effects.length === 0) {
         return;
       }
-      if (fsm.state === "MONITORING") {
-        assignChallenge();
-        setSessionState(fsm.dispatch({ type: "THRESHOLD_REACHED" }));
-        bus.emit("THRESHOLD_REACHED", {
-          appId: event.appId,
-          deltaU: event.deltaU,
-        });
-        void audit.append({
-          type: "THRESHOLD_REACHED",
-          atMs: event.observedAtMs,
-          detail: event.appId,
-        });
-        setMessage(t("app.interrupt"));
-      }
+      void audit.append({
+        type: "THRESHOLD_REACHED",
+        atMs: event.observedAtMs,
+        detail: event.appId,
+      });
+      applyEffects(effects);
     },
-    [assignChallenge, audit, bus, fsm, t],
+    [applyEffects, audit, engine],
   );
 
   const detector = useMemo(
@@ -214,81 +187,76 @@ export default function App() {
     [onThreshold],
   );
 
+  const syncFromNative = useCallback(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+    const snap = UnloopUsage.getMonitorSnapshot();
+    if (!snap.monitoring && engine.state === "PAUSED") {
+      return;
+    }
+    detector.ensureListening();
+    const effects = engine.hydrate({
+      monitoring: snap.monitoring,
+      challengeOutstanding: snap.challengeOutstanding,
+      inCooldown: snap.inCooldown,
+      cooldownUntilMs: snap.cooldownUntilMs,
+    });
+    if (snap.lastDeltaU > 0) {
+      setLastDelta(snap.lastDeltaU);
+    }
+    applyEffects(effects);
+  }, [applyEffects, detector, engine]);
+
   useEffect(() => {
     if (Platform.OS !== "android") {
       return;
     }
     setPermission(detector.hasPermission());
     setOverlayPermission(detector.hasOverlayPermission());
-    const snap = UnloopUsage.getMonitorSnapshot();
-    if (snap.monitoring) {
-      detector.ensureListening();
-      const target = targetStateFromSnapshot(snap);
-      if (target != null && fsm.state !== target) {
-        if (target === "CHALLENGE") {
-          assignChallenge();
-        }
-        setSessionState(fsm.hydrate(target));
-        if (target === "CHALLENGE") {
-          setMessage(t("app.interrupt"));
-        } else if (target === "COOLDOWN") {
-          scheduleCooldownEnd(snap.cooldownUntilMs);
-        }
-      }
-      if (snap.lastDeltaU > 0) {
-        setLastDelta(snap.lastDeltaU);
-      }
-    }
-  }, [assignChallenge, detector, fsm, scheduleCooldownEnd, t]);
+    syncFromNative();
+  }, [detector, syncFromNative]);
 
   useEffect(() => {
     if (Platform.OS !== "android") {
       return;
     }
-    const onAppState = (next: string) => {
-      if (next !== "active") {
-        return;
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") {
+        syncFromNative();
       }
-      const snap = UnloopUsage.getMonitorSnapshot();
-      if (!snap.monitoring) {
-        return;
-      }
-      detector.ensureListening();
-      const target = targetStateFromSnapshot(snap);
-      if (target == null) {
-        return;
-      }
-      if (target === "CHALLENGE") {
-        assignChallenge();
-      }
-      if (fsm.state !== target) {
-        setSessionState(fsm.hydrate(target));
-      }
-      if (target === "CHALLENGE") {
-        setMessage(t("app.interrupt"));
-      } else if (target === "COOLDOWN") {
-        scheduleCooldownEnd(snap.cooldownUntilMs);
-      }
-      if (snap.lastDeltaU > 0) {
-        setLastDelta(snap.lastDeltaU);
-      }
-    };
-    const sub = AppState.addEventListener("change", onAppState);
+    });
     return () => sub.remove();
-  }, [assignChallenge, detector, fsm, scheduleCooldownEnd, t]);
+  }, [syncFromNative]);
 
   useEffect(() => {
     if (Platform.OS !== "android") {
       return;
     }
     const sub = addOpenChallengeListener(() => {
-      const snap = UnloopUsage.getMonitorSnapshot();
-      enterChallengeFromNative(snap.lastDeltaU);
+      syncFromNative();
+      if (engine.state === "MONITORING") {
+        const snap = UnloopUsage.getMonitorSnapshot();
+        applyEffects(
+          engine.onThresholdReached(
+            snap.lastAppId || "unknown",
+            snap.lastDeltaU || 0,
+          ),
+        );
+      } else if (engine.state !== "CHALLENGE") {
+        applyEffects(
+          engine.hydrate({
+            monitoring: true,
+            challengeOutstanding: true,
+            inCooldown: false,
+          }),
+        );
+      } else {
+        setMessage(t("app.interrupt"));
+      }
     });
     return () => sub.remove();
-  }, [enterChallengeFromNative]);
-
-  useEffect(() => () => clearCooldownTimer(), [clearCooldownTimer]);
+  }, [applyEffects, engine, syncFromNative, t]);
 
   const toggleLabel = (label: string) => {
     if (!settings) {
@@ -343,8 +311,7 @@ export default function App() {
     if (!Number.isFinite(sec) || sec <= 0) {
       return;
     }
-    const ms = Math.round(sec * 1000);
-    persist({ ...settings, [key]: ms });
+    persist({ ...settings, [key]: Math.round(sec * 1000) });
   };
 
   const startMonitoring = async () => {
@@ -374,9 +341,7 @@ export default function App() {
       setMessage(t("app.pick_feed"));
       return;
     }
-    if (fsm.state === "PAUSED") {
-      setSessionState(fsm.dispatch({ type: "START_MONITORING" }));
-    }
+    applyEffects(engine.startMonitoring());
     await detector.start({
       appId: packages.join(","),
       thresholdUnits: settings.thresholdMs,
@@ -391,32 +356,26 @@ export default function App() {
   };
 
   const stopMonitoring = async () => {
-    clearCooldownTimer();
     await detector.stop();
-    UnloopUsage.clearCooldown();
-    if (fsm.state !== "PAUSED") {
-      setSessionState(fsm.dispatch({ type: "STOP" }));
-    }
+    applyEffects(engine.stop());
     setMessage(t("app.stopped"));
   };
 
   const completeChallenge = useCallback(() => {
-    if (fsm.state !== "CHALLENGE") {
-      return;
+    const effects = engine.onChallengeCompleted();
+    if (effects.length > 0) {
+      bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
+      applyEffects(effects);
     }
-    bus.emit("CHALLENGE_COMPLETED", { atMs: Date.now() });
-    beginCooldown("ok");
-  }, [beginCooldown, bus, fsm]);
+  }, [applyEffects, bus, engine]);
 
   const softFailChallenge = useCallback(() => {
-    if (fsm.state !== "CHALLENGE") {
-      return;
-    }
-    beginCooldown("soft");
-  }, [beginCooldown, fsm]);
+    applyEffects(engine.onChallengeSoftFail());
+  }, [applyEffects, engine]);
 
   const inChallenge = sessionState === "CHALLENGE";
-  const monitoring = sessionState === "MONITORING" || sessionState === "COOLDOWN";
+  const monitoring =
+    sessionState === "MONITORING" || sessionState === "COOLDOWN";
 
   return (
     <LinearGradient

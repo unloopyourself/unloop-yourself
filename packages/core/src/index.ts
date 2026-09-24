@@ -47,6 +47,18 @@ export {
 } from "./shakeChallenge.js";
 export type { ShakeProgress, ShakeProgressInput } from "./shakeChallenge.js";
 
+export {
+  SessionEngine,
+  challengeProgressDisplayPct,
+} from "./sessionEngine.js";
+export type {
+  ChallengePicker,
+  EngineClock,
+  EngineEffect,
+  EngineSnapshot,
+  EngineTimings,
+} from "./sessionEngine.js";
+
 /** Unloop core package entry — domain logic only (no React Native / Expo). */
 
 export const CORE_PACKAGE_NAME = "@unloop/core" as const;
