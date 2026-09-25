@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Unloop — Privacy Policy</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.55;
+      color: #0a2540;
+      background: #f6f3ee;
+    }
+    main {
+      max-width: 42rem;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+    h1 { font-size: 1.75rem; margin: 0 0 0.5rem; }
+    h2 { font-size: 1.15rem; margin: 2rem 0 0.6rem; }
+    p, li { font-size: 1rem; }
+    .meta { color: #5a6b7d; font-size: 0.95rem; margin-bottom: 1.5rem; }
+    a { color: #c45c26; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.95rem; }
+    th, td { border: 1px solid #d7d0c6; padding: 0.55rem 0.65rem; text-align: left; vertical-align: top; }
+    th { background: #ebe4da; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Unloop — Privacy Policy</h1>
+    <p class="meta">
+      Last updated: 2026-09-25<br />
+      Contact: <a href="mailto:unloopyourself.dev@gmail.com">unloopyourself.dev@gmail.com</a><br />
+      Package: <code>io.github.unloopyourself.unloop</code>
+    </p>
+
+    <p>Unloop is a privacy-first, open-source Android app that briefly interrupts doomscrolling with a short on-device challenge. This page explains what the app does with data.</p>
+
+    <h2>Summary</h2>
+    <ul>
+      <li>No account required.</li>
+      <li>No analytics, advertising, or crash SDKs that send behavioral data off-device.</li>
+      <li>Usage monitoring and challenge progress stay on your device.</li>
+      <li>You can revoke permissions or uninstall at any time.</li>
+    </ul>
+
+    <h2>On-device processing</h2>
+    <table>
+      <thead>
+        <tr><th>Processing</th><th>Why</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Usage Access (UsageStats)</td><td>Detect watched apps in the foreground and accumulate time toward your threshold</td></tr>
+        <tr><td>Display over other apps</td><td>Show the interrupt / challenge UI over the feed</td></tr>
+        <tr><td>Foreground service + notification</td><td>Keep monitoring reliable while you use other apps</td></tr>
+        <tr><td>Sensors (accelerometer / gyroscope)</td><td>Optional physical challenges you enable</td></tr>
+        <tr><td>Local settings &amp; audit log</td><td>Remember feeds, timings, enabled challenges on device</td></tr>
+      </tbody>
+    </table>
+    <p>Unloop’s product intent is not to build a cloud profile of what you watch.</p>
+
+    <h2>What we do not collect</h2>
+    <p>By default Unloop does not create accounts, upload usage history or challenge results, sell data to advertisers, or embed third-party behavioral telemetry SDKs.</p>
+
+    <h2>Permissions</h2>
+    <p>Permissions exist so the interrupt loop can work as you configured it. Deny or revoke them in Android Settings; monitoring will not run until required permissions are granted again.</p>
+
+    <h2>Children</h2>
+    <p>Unloop is not directed at children under 13. Do not use it under the applicable age for digital wellbeing tools in your region without a parent or guardian.</p>
+
+    <h2>Changes</h2>
+    <p>We may update this policy as the app evolves. The date above will change. Material changes will appear in the open-source repository and on this page.</p>
+
+    <h2>Contact</h2>
+    <p>
+      <a href="mailto:unloopyourself.dev@gmail.com">unloopyourself.dev@gmail.com</a><br />
+      Source: <a href="https://github.com/unloopyourself/unloop-yourself">github.com/unloopyourself/unloop-yourself</a>
+    </p>
+  </main>
+</body>
+</html>
