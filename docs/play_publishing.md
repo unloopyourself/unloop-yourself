@@ -24,8 +24,9 @@ Checklist for the first **internal / closed testing** upload of Unloop.
    - `apps/mobile/android/keystore.properties` (after prebuild), from `apps/mobile/keystore.properties.example`, or
    - export `UNLOOP_UPLOAD_STORE_FILE`, `UNLOOP_UPLOAD_STORE_PASSWORD`, `UNLOOP_UPLOAD_KEY_ALIAS`, `UNLOOP_UPLOAD_KEY_PASSWORD`
 
-3. **Privacy Policy URL** — publish `docs/site/privacy.html` (e.g. GitHub Pages) and paste the HTTPS URL into Play Console.  
-   Markdown source: [`docs/privacy_policy.md`](privacy_policy.md).
+3. **Privacy Policy URL** (live):  
+   `https://unloopyourself.github.io/unloop-yourself/site/privacy.html`  
+   Source: [`docs/site/privacy.html`](site/privacy.html) / [`docs/privacy_policy.md`](privacy_policy.md). Paste this HTTPS URL into Play Console → App content → Privacy policy.
 
 4. Confirm **debug harness** is not in release: `DebugHarnessReceiver` lives only under `modules/unloop-usage/android/src/debug/`.
 
