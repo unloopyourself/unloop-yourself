@@ -25,7 +25,12 @@ import { colors, typography } from "./src/theme";
 import { packagesForLabels } from "./src/targets";
 import { loadSettings, saveSettings, type UnloopSettings } from "./src/settings";
 import { createTranslator, detectLocale } from "./src/i18n";
-import { pickChallengeId, type ChallengeId } from "./src/challenges/registry";
+import {
+  pickChallengeId,
+  HIDDEN_CHALLENGE_IDS,
+  AUDIO_CHALLENGE_IDS,
+  type ChallengeId,
+} from "./src/challenges/registry";
 import { ChallengeHost } from "./src/challenges/ChallengeHost";
 import { ExpoSensorPort } from "./src/expoSensorPort";
 import { HomeScreen } from "./src/screens/HomeScreen";
@@ -55,7 +60,7 @@ export default function App() {
     () =>
       new SessionEngine(
         { now: () => Date.now() },
-        { cooldownMs: 120_000, challengeTimeoutMs: 45_000 },
+        { cooldownMs: 120_000, challengeTimeoutMs: 120_000 },
         (enabled, available, excludeId) => {
           if (Platform.OS === "android") {
             const forced = UnloopUsage.getHarnessForceChallengeId()?.trim();
@@ -80,6 +85,8 @@ export default function App() {
   const [settings, setSettings] = useState<UnloopSettings | null>(null);
   const [activeChallengeId, setActiveChallengeId] =
     useState<ChallengeId>("breath_tap");
+  /** Session-only: user accepted audio for this interrupt (not persisted). */
+  const [audioAllowed, setAudioAllowed] = useState(false);
   const [message, setMessage] = useState(t("app.intro"));
   const [screen, setScreen] = useState<AppScreen>("home");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -156,6 +163,7 @@ export default function App() {
       for (const effect of effects) {
         switch (effect.type) {
           case "enter_challenge":
+            setAudioAllowed(false);
             setActiveChallengeId(effect.challengeId as ChallengeId);
             setLastDelta(effect.deltaU);
             setMessage(t("app.interrupt"));
@@ -180,7 +188,16 @@ export default function App() {
                       (settingsRef.current?.cooldownMs ?? 120_000) / 1000,
                     ),
                   })
-                : t("app.soft_fail"),
+                : effect.reason === "soft_fail"
+                  ? t("app.soft_fail")
+                  : t("app.cooldown_restored", {
+                      cooldown: Math.max(
+                        1,
+                        Math.round(
+                          (effect.untilMs - Date.now()) / 1000,
+                        ),
+                      ),
+                    }),
             );
             break;
           case "cooldown_elapsed":
@@ -305,6 +322,11 @@ export default function App() {
       pendingOpenRef.current = true;
       return;
     }
+    // Already on the challenge screen — ignore duplicate Open / AppState sync.
+    if (engine.state === "CHALLENGE") {
+      setMessage(t("app.interrupt"));
+      return;
+    }
     engine.setChallengeOptions(
       settingsRef.current.enabledChallengeIds,
       deviceCaps,
@@ -318,17 +340,16 @@ export default function App() {
           snap.lastDeltaU || 0,
         ),
       );
-    } else if (engine.state !== "CHALLENGE") {
-      applyEffects(
-        engine.hydrate({
-          monitoring: true,
-          challengeOutstanding: true,
-          inCooldown: false,
-        }),
-      );
-    } else {
-      setMessage(t("app.interrupt"));
+      return;
     }
+    // PAUSED / COOLDOWN with outstanding interrupt — hydrate into CHALLENGE.
+    applyEffects(
+      engine.hydrate({
+        monitoring: true,
+        challengeOutstanding: true,
+        inCooldown: false,
+      }),
+    );
   }, [applyEffects, deviceCaps, engine, syncFromNative, t]);
 
   useEffect(() => {
@@ -380,6 +401,9 @@ export default function App() {
 
   const toggleChallenge = (id: ChallengeId) => {
     if (!settings) {
+      return;
+    }
+    if (HIDDEN_CHALLENGE_IDS.has(id)) {
       return;
     }
     const on = settings.enabledChallengeIds.includes(id);
@@ -468,6 +492,39 @@ export default function App() {
     applyEffects(engine.onChallengeSoftFail());
   }, [applyEffects, engine]);
 
+  const allowAudio = useCallback(() => {
+    setAudioAllowed(true);
+    if (Platform.OS === "android") {
+      UnloopUsage.logHarness("audio_consent:ok");
+    }
+  }, []);
+
+  const denyAudioSwapChallenge = useCallback(() => {
+    if (Platform.OS === "android") {
+      UnloopUsage.logHarness("audio_consent:no");
+    }
+    const enabled = settingsRef.current?.enabledChallengeIds ?? [];
+    const nonAudio = enabled.filter(
+      (id) =>
+        !AUDIO_CHALLENGE_IDS.has(id as ChallengeId) &&
+        id !== activeChallengeId,
+    );
+    const pool =
+      nonAudio.length > 0
+        ? nonAudio
+        : enabled.filter((id) => id !== activeChallengeId);
+    if (pool.length === 0) {
+      softFailChallenge();
+      return;
+    }
+    const next = pickChallengeId(pool, deviceCaps, activeChallengeId);
+    setAudioAllowed(false);
+    setActiveChallengeId(next);
+    if (Platform.OS === "android") {
+      UnloopUsage.logHarness(`swap_challenge:${next}`);
+    }
+  }, [activeChallengeId, deviceCaps, softFailChallenge]);
+
   const inChallenge = sessionState === "CHALLENGE";
   const monitoring =
     sessionState === "MONITORING" || sessionState === "COOLDOWN";
@@ -502,6 +559,8 @@ export default function App() {
         <ScrollView
           contentContainerStyle={styles.challengeContainer}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           <Text style={styles.brandOnInk}>Unloop</Text>
           <Text style={styles.taglineOnInk}>{t("app.tagline")}</Text>
@@ -509,6 +568,9 @@ export default function App() {
             challengeId={activeChallengeId}
             timeoutMs={settings.challengeTimeoutMs}
             t={t}
+            audioAllowed={audioAllowed}
+            onAllowAudio={allowAudio}
+            onDenyAudio={denyAudioSwapChallenge}
             onComplete={completeChallenge}
             onSoftFail={softFailChallenge}
           />

@@ -22,9 +22,10 @@ Short-video feeds (Reels, TikTok, Shorts) use the same psychological principle a
 ## 2. Competitor comparison
 
 ### 2.1 One Sec
-* **Approach:** Force a deep breath before opening a target app.
-* **Strength:** Evidence that friction cuts impulsive opens.
+* **Approach:** Force a deep breath before opening a target app; also intention / short tasks / dismiss.
+* **Strength:** Evidence that friction cuts impulsive opens ([PNAS 2023](https://www.pnas.org/doi/10.1073/pnas.2213114120) — ~57% fewer target-app opens over 6 weeks; dismiss option was a key lever).
 * **Limit:** Acts at **app open**, not once the user is already inside a scroll trance.
+* **IP note:** Commercial product — reuse *patterns* (breath, friction, intention), do not copy branded interruptions/UI. See [`experiment_challenge_pack_10.md`](experiment_challenge_pack_10.md).
 
 ### 2.2 Opal
 * **Approach:** Aggressive hard locks / timers.
