@@ -4,9 +4,11 @@ Branch: `experiment/challenge-pack-10`
 
 **Design rule:** every challenge must pull attention *out of the scroll loop* (body, breath, intention, look-away, deliberate friction). Mini-games that reward staying on-screen (Simon, rhythm, odd-one-out, Stroop, beep-counting) are **out of scope** for this pack.
 
-Opt-in in Settings. Defaults unchanged. Audio challenges ask consent **when enabled in Settings** (not mid-interrupt); enabling = permission to play short on-device sounds.
+Opt-in in Settings. Defaults unchanged.
 
-Reviewer notes: [Reviewer A](8a0e04bf-6fe7-4ca5-bbfd-374221c8ea88) preferred soft mini-games + Settings audio opt-in; [Reviewer B](7964cbf6-113c-4c64-ad4a-0ed668c7c309) kept several gamey interrupts. Product rule (exit-the-loop) overruled gamey picks; A’s Settings-time audio consent was adopted.
+`audio_silence_tap` is currently **visual-only** (fill bar → quiet → tap). Native `expo-av` crashed on device (JSI `UnsatisfiedLinkError`); real audio returns later with a pinned Expo module.
+
+Reviewer notes: product rule (exit-the-loop) overruled gamey picks from engagement review.
 
 ## Shipping set (this branch)
 
@@ -21,7 +23,7 @@ Reviewer notes: [Reviewer A](8a0e04bf-6fe7-4ca5-bbfd-374221c8ea88) preferred sof
 | `stand_up` | body (honor) | Stand, then confirm |
 | `sip_water` | body (honor) | Sip, then confirm |
 | `feeling_check` | deliberation | Name the feeling, then leave |
-| `audio_silence_tap` | audio + presence | Wait for silence (consent); not a score game |
+| `audio_silence_tap` | presence (visual) | Wait for the quiet bar — native audio deferred (`expo-av` ABI crash) |
 
 Removed from earlier draft as too “in-the-loop”: `odd_color`, `rhythm_tap`, `memory_seq`, `stroop_tap`, `word_unscramble`, `audio_beep_count`.
 

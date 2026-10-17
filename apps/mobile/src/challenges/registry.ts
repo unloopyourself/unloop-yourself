@@ -51,10 +51,11 @@ const TITLE_KEYS: Record<ChallengeId, string> = {
   audio_silence_tap: "challenge.silence_tap.title",
 };
 
-/** Challenges that play sound — need in-app audio consent before start. */
-export const AUDIO_CHALLENGE_IDS: ReadonlySet<ChallengeId> = new Set([
-  "audio_silence_tap",
-]);
+/**
+ * Challenges that would play device audio (none while expo-av is unpinned —
+ * silence_tap is visual-only to avoid native ABI crashes).
+ */
+export const AUDIO_CHALLENGE_IDS: ReadonlySet<ChallengeId> = new Set([]);
 
 /** UI catalog: Core requires + local title keys (single source for requires). */
 export const CHALLENGE_CATALOG: ChallengeMeta[] = MVP_CHALLENGES.map((c) => ({

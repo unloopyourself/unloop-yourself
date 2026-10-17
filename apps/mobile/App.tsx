@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   AppState,
   Platform,
   StyleSheet,
@@ -29,8 +28,6 @@ import { createTranslator, detectLocale } from "./src/i18n";
 import {
   pickChallengeId,
   HIDDEN_CHALLENGE_IDS,
-  AUDIO_CHALLENGE_IDS,
-  isAudioChallenge,
   type ChallengeId,
 } from "./src/challenges/registry";
 import { ChallengeHost } from "./src/challenges/ChallengeHost";
@@ -398,24 +395,6 @@ export default function App() {
     }
   };
 
-  const applyChallengeToggle = useCallback(
-    (id: ChallengeId, enable: boolean) => {
-      if (!settings) {
-        return;
-      }
-      let next = enable
-        ? settings.enabledChallengeIds.includes(id)
-          ? settings.enabledChallengeIds
-          : [...settings.enabledChallengeIds, id]
-        : settings.enabledChallengeIds.filter((c) => c !== id);
-      if (next.length === 0) {
-        next = [id];
-      }
-      persist({ ...settings, enabledChallengeIds: next });
-    },
-    [persist, settings],
-  );
-
   const toggleChallenge = (id: ChallengeId) => {
     if (!settings) {
       return;
@@ -424,26 +403,13 @@ export default function App() {
       return;
     }
     const on = settings.enabledChallengeIds.includes(id);
-    if (on) {
-      applyChallengeToggle(id, false);
-      return;
+    let next = on
+      ? settings.enabledChallengeIds.filter((c) => c !== id)
+      : [...settings.enabledChallengeIds, id];
+    if (next.length === 0) {
+      next = [id];
     }
-    // Audio: consent at Settings enable-time (not mid-interrupt).
-    if (isAudioChallenge(id) || AUDIO_CHALLENGE_IDS.has(id)) {
-      Alert.alert(
-        t("challenge.audio_consent.title"),
-        t("challenge.audio_consent.body"),
-        [
-          { text: t("challenge.audio_consent.no"), style: "cancel" },
-          {
-            text: t("challenge.audio_consent.ok"),
-            onPress: () => applyChallengeToggle(id, true),
-          },
-        ],
-      );
-      return;
-    }
-    applyChallengeToggle(id, true);
+    persist({ ...settings, enabledChallengeIds: next });
   };
 
   const setTiming = (

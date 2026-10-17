@@ -110,14 +110,10 @@ const en: Dict = {
   "challenge.feeling.anxious": "Anxious",
   "challenge.feeling.tired": "Tired",
   "challenge.feeling.curious": "Curious",
-  "challenge.silence_tap.title": "Wait for silence",
-  "challenge.silence_tap.listen": "Tone playing — stay with it…",
-  "challenge.silence_tap.body": "Tap when the tone stops — presence, not a score.",
+  "challenge.silence_tap.title": "Wait for the quiet",
+  "challenge.silence_tap.listen": "Watch the bar fill — stay with it…",
+  "challenge.silence_tap.body": "Tap when it goes quiet — presence, not a score.",
   "challenge.silence_tap.tap": "Tap now",
-  "challenge.audio_consent.title": "May I use audio?",
-  "challenge.audio_consent.body": "This challenge plays a short sound on your device. Nothing is recorded or sent anywhere.",
-  "challenge.audio_consent.ok": "Enable",
-  "challenge.audio_consent.no": "Not now",
 };
 
 const it: Dict = {
@@ -229,13 +225,9 @@ const it: Dict = {
   "challenge.feeling.tired": "Stanchezza",
   "challenge.feeling.curious": "Curiosità",
   "challenge.silence_tap.title": "Aspetta il silenzio",
-  "challenge.silence_tap.listen": "Tono in riproduzione — restaci…",
-  "challenge.silence_tap.body": "Tocca quando il tono si ferma — presenza, non un punteggio.",
+  "challenge.silence_tap.listen": "Guarda la barra riempirsi — restaci…",
+  "challenge.silence_tap.body": "Tocca quando si spegne — presenza, non un punteggio.",
   "challenge.silence_tap.tap": "Tocca ora",
-  "challenge.audio_consent.title": "Posso usare l’audio?",
-  "challenge.audio_consent.body": "Questa challenge riproduce un suono breve sul dispositivo. Niente viene registrato o inviato altrove.",
-  "challenge.audio_consent.ok": "Abilita",
-  "challenge.audio_consent.no": "Non ora",
 };
 
 const catalogs: Record<LocaleCode, Dict> = { en, it };
