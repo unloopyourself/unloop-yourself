@@ -3,8 +3,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
 import type { ChallengeId } from "./registry";
-import { isAudioChallenge } from "./registry";
-import { AudioConsentGate } from "./AudioConsentGate";
 import { BreathTapChallenge } from "./BreathTapChallenge";
 import { UnlockPhraseChallenge } from "./UnlockPhraseChallenge";
 import { NearestMultipleChallenge } from "./NearestMultipleChallenge";
@@ -29,9 +27,6 @@ type Props = {
   challengeId: ChallengeId;
   timeoutMs: number;
   t: Translate;
-  audioAllowed: boolean;
-  onAllowAudio: () => void;
-  onDenyAudio: () => void;
   onComplete: () => void;
   onSoftFail: () => void;
 };
@@ -40,9 +35,6 @@ export function ChallengeHost({
   challengeId,
   timeoutMs,
   t,
-  audioAllowed,
-  onAllowAudio,
-  onDenyAudio,
   onComplete,
   onSoftFail,
 }: Props) {
@@ -53,7 +45,6 @@ export function ChallengeHost({
   onSoftFailRef.current = onSoftFail;
 
   const [remainingSec, setRemainingSec] = useState(Math.ceil(timeoutMs / 1000));
-  const needsAudioGate = isAudioChallenge(challengeId) && !audioAllowed;
 
   useEffect(() => {
     doneRef.current = false;
@@ -88,62 +79,56 @@ export function ChallengeHost({
 
   return (
     <View style={hostStyles.wrap}>
-      {needsAudioGate ? (
-        <AudioConsentGate t={t} onAllow={onAllowAudio} onDeny={onDenyAudio} />
-      ) : (
-        <>
-          {challengeId === "shake" && (
-            <ShakeChallengeBody t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "breath_tap" && (
-            <BreathTapChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "unlock_phrase" && (
-            <UnlockPhraseChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "nearest_multiple" && (
-            <NearestMultipleChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "face_down_flip" && (
-            <FaceDownFlipChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "coin_spin" && (
-            <CoinSpinChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "air_write" && (
-            <AirWriteChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "hold_still" && (
-            <HoldStillChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "countdown_type" && (
-            <CountdownTypeChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "long_press" && (
-            <LongPressChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "intention_type" && (
-            <IntentionTypeChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "look_away" && (
-            <LookAwayChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "rotate_phone" && (
-            <RotatePhoneChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "stand_up" && (
-            <StandUpChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "sip_water" && (
-            <SipWaterChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "feeling_check" && (
-            <FeelingCheckChallenge t={t} onComplete={finishComplete} />
-          )}
-          {challengeId === "audio_silence_tap" && (
-            <AudioSilenceTapChallenge t={t} onComplete={finishComplete} />
-          )}
-        </>
+      {challengeId === "shake" && (
+        <ShakeChallengeBody t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "breath_tap" && (
+        <BreathTapChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "unlock_phrase" && (
+        <UnlockPhraseChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "nearest_multiple" && (
+        <NearestMultipleChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "face_down_flip" && (
+        <FaceDownFlipChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "coin_spin" && (
+        <CoinSpinChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "air_write" && (
+        <AirWriteChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "hold_still" && (
+        <HoldStillChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "countdown_type" && (
+        <CountdownTypeChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "long_press" && (
+        <LongPressChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "intention_type" && (
+        <IntentionTypeChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "look_away" && (
+        <LookAwayChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "rotate_phone" && (
+        <RotatePhoneChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "stand_up" && (
+        <StandUpChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "sip_water" && (
+        <SipWaterChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "feeling_check" && (
+        <FeelingCheckChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "audio_silence_tap" && (
+        <AudioSilenceTapChallenge t={t} onComplete={finishComplete} />
       )}
 
       <Text style={hostStyles.timer}>{remainingSec}s</Text>

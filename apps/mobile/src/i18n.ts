@@ -116,8 +116,8 @@ const en: Dict = {
   "challenge.silence_tap.tap": "Tap now",
   "challenge.audio_consent.title": "May I use audio?",
   "challenge.audio_consent.body": "This challenge plays a short sound on your device. Nothing is recorded or sent anywhere.",
-  "challenge.audio_consent.ok": "OK",
-  "challenge.audio_consent.no": "No — open another",
+  "challenge.audio_consent.ok": "Enable",
+  "challenge.audio_consent.no": "Not now",
 };
 
 const it: Dict = {
@@ -234,8 +234,8 @@ const it: Dict = {
   "challenge.silence_tap.tap": "Tocca ora",
   "challenge.audio_consent.title": "Posso usare l’audio?",
   "challenge.audio_consent.body": "Questa challenge riproduce un suono breve sul dispositivo. Niente viene registrato o inviato altrove.",
-  "challenge.audio_consent.ok": "OK",
-  "challenge.audio_consent.no": "No — aprine un’altra",
+  "challenge.audio_consent.ok": "Abilita",
+  "challenge.audio_consent.no": "Non ora",
 };
 
 const catalogs: Record<LocaleCode, Dict> = { en, it };

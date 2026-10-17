@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   AppState,
   Platform,
   StyleSheet,
@@ -29,6 +30,7 @@ import {
   pickChallengeId,
   HIDDEN_CHALLENGE_IDS,
   AUDIO_CHALLENGE_IDS,
+  isAudioChallenge,
   type ChallengeId,
 } from "./src/challenges/registry";
 import { ChallengeHost } from "./src/challenges/ChallengeHost";
@@ -85,8 +87,6 @@ export default function App() {
   const [settings, setSettings] = useState<UnloopSettings | null>(null);
   const [activeChallengeId, setActiveChallengeId] =
     useState<ChallengeId>("breath_tap");
-  /** Session-only: user accepted audio for this interrupt (not persisted). */
-  const [audioAllowed, setAudioAllowed] = useState(false);
   const [message, setMessage] = useState(t("app.intro"));
   const [screen, setScreen] = useState<AppScreen>("home");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -163,7 +163,6 @@ export default function App() {
       for (const effect of effects) {
         switch (effect.type) {
           case "enter_challenge":
-            setAudioAllowed(false);
             setActiveChallengeId(effect.challengeId as ChallengeId);
             setLastDelta(effect.deltaU);
             setMessage(t("app.interrupt"));
@@ -399,6 +398,24 @@ export default function App() {
     }
   };
 
+  const applyChallengeToggle = useCallback(
+    (id: ChallengeId, enable: boolean) => {
+      if (!settings) {
+        return;
+      }
+      let next = enable
+        ? settings.enabledChallengeIds.includes(id)
+          ? settings.enabledChallengeIds
+          : [...settings.enabledChallengeIds, id]
+        : settings.enabledChallengeIds.filter((c) => c !== id);
+      if (next.length === 0) {
+        next = [id];
+      }
+      persist({ ...settings, enabledChallengeIds: next });
+    },
+    [persist, settings],
+  );
+
   const toggleChallenge = (id: ChallengeId) => {
     if (!settings) {
       return;
@@ -407,13 +424,26 @@ export default function App() {
       return;
     }
     const on = settings.enabledChallengeIds.includes(id);
-    let next = on
-      ? settings.enabledChallengeIds.filter((c) => c !== id)
-      : [...settings.enabledChallengeIds, id];
-    if (next.length === 0) {
-      next = [id];
+    if (on) {
+      applyChallengeToggle(id, false);
+      return;
     }
-    persist({ ...settings, enabledChallengeIds: next });
+    // Audio: consent at Settings enable-time (not mid-interrupt).
+    if (isAudioChallenge(id) || AUDIO_CHALLENGE_IDS.has(id)) {
+      Alert.alert(
+        t("challenge.audio_consent.title"),
+        t("challenge.audio_consent.body"),
+        [
+          { text: t("challenge.audio_consent.no"), style: "cancel" },
+          {
+            text: t("challenge.audio_consent.ok"),
+            onPress: () => applyChallengeToggle(id, true),
+          },
+        ],
+      );
+      return;
+    }
+    applyChallengeToggle(id, true);
   };
 
   const setTiming = (
@@ -492,39 +522,6 @@ export default function App() {
     applyEffects(engine.onChallengeSoftFail());
   }, [applyEffects, engine]);
 
-  const allowAudio = useCallback(() => {
-    setAudioAllowed(true);
-    if (Platform.OS === "android") {
-      UnloopUsage.logHarness("audio_consent:ok");
-    }
-  }, []);
-
-  const denyAudioSwapChallenge = useCallback(() => {
-    if (Platform.OS === "android") {
-      UnloopUsage.logHarness("audio_consent:no");
-    }
-    const enabled = settingsRef.current?.enabledChallengeIds ?? [];
-    const nonAudio = enabled.filter(
-      (id) =>
-        !AUDIO_CHALLENGE_IDS.has(id as ChallengeId) &&
-        id !== activeChallengeId,
-    );
-    const pool =
-      nonAudio.length > 0
-        ? nonAudio
-        : enabled.filter((id) => id !== activeChallengeId);
-    if (pool.length === 0) {
-      softFailChallenge();
-      return;
-    }
-    const next = pickChallengeId(pool, deviceCaps, activeChallengeId);
-    setAudioAllowed(false);
-    setActiveChallengeId(next);
-    if (Platform.OS === "android") {
-      UnloopUsage.logHarness(`swap_challenge:${next}`);
-    }
-  }, [activeChallengeId, deviceCaps, softFailChallenge]);
-
   const inChallenge = sessionState === "CHALLENGE";
   const monitoring =
     sessionState === "MONITORING" || sessionState === "COOLDOWN";
@@ -568,9 +565,6 @@ export default function App() {
             challengeId={activeChallengeId}
             timeoutMs={settings.challengeTimeoutMs}
             t={t}
-            audioAllowed={audioAllowed}
-            onAllowAudio={allowAudio}
-            onDenyAudio={denyAudioSwapChallenge}
             onComplete={completeChallenge}
             onSoftFail={softFailChallenge}
           />

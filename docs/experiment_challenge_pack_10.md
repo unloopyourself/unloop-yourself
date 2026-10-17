@@ -4,7 +4,9 @@ Branch: `experiment/challenge-pack-10`
 
 **Design rule:** every challenge must pull attention *out of the scroll loop* (body, breath, intention, look-away, deliberate friction). Mini-games that reward staying on-screen (Simon, rhythm, odd-one-out, Stroop, beep-counting) are **out of scope** for this pack.
 
-Opt-in in Settings. Defaults unchanged. Audio challenges show in-app consent after Open challenge: **OK** / **No — open another**.
+Opt-in in Settings. Defaults unchanged. Audio challenges ask consent **when enabled in Settings** (not mid-interrupt); enabling = permission to play short on-device sounds.
+
+Reviewer notes: [Reviewer A](8a0e04bf-6fe7-4ca5-bbfd-374221c8ea88) preferred soft mini-games + Settings audio opt-in; [Reviewer B](7964cbf6-113c-4c64-ad4a-0ed668c7c309) kept several gamey interrupts. Product rule (exit-the-loop) overruled gamey picks; A’s Settings-time audio consent was adopted.
 
 ## Shipping set (this branch)
 
