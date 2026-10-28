@@ -10,6 +10,16 @@ import { FaceDownFlipChallenge } from "./FaceDownFlipChallenge";
 import { ShakeChallengeBody } from "./ShakeChallengeBody";
 import { CoinSpinChallenge } from "./CoinSpinChallenge";
 import { AirWriteChallenge } from "./AirWriteChallenge";
+import { HoldStillChallenge } from "./HoldStillChallenge";
+import { CountdownTypeChallenge } from "./CountdownTypeChallenge";
+import { LongPressChallenge } from "./LongPressChallenge";
+import { IntentionTypeChallenge } from "./IntentionTypeChallenge";
+import { LookAwayChallenge } from "./LookAwayChallenge";
+import { RotatePhoneChallenge } from "./RotatePhoneChallenge";
+import { StandUpChallenge } from "./StandUpChallenge";
+import { SipWaterChallenge } from "./SipWaterChallenge";
+import { FeelingCheckChallenge } from "./FeelingCheckChallenge";
+import { AudioSilenceTapChallenge } from "./AudioSilenceTapChallenge";
 
 type Props = {
   challengeId: ChallengeId;
@@ -66,7 +76,7 @@ export function ChallengeHost({
   }, []);
 
   return (
-    <View style={styles.wrap}>
+    <View style={hostStyles.wrap}>
       {challengeId === "shake" && (
         <ShakeChallengeBody t={t} onComplete={finishComplete} />
       )}
@@ -88,22 +98,52 @@ export function ChallengeHost({
       {challengeId === "air_write" && (
         <AirWriteChallenge t={t} onComplete={finishComplete} />
       )}
+      {challengeId === "hold_still" && (
+        <HoldStillChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "countdown_type" && (
+        <CountdownTypeChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "long_press" && (
+        <LongPressChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "intention_type" && (
+        <IntentionTypeChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "look_away" && (
+        <LookAwayChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "rotate_phone" && (
+        <RotatePhoneChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "stand_up" && (
+        <StandUpChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "sip_water" && (
+        <SipWaterChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "feeling_check" && (
+        <FeelingCheckChallenge t={t} onComplete={finishComplete} />
+      )}
+      {challengeId === "audio_silence_tap" && (
+        <AudioSilenceTapChallenge t={t} onComplete={finishComplete} />
+      )}
 
-      <Text style={styles.timer}>{remainingSec}s</Text>
+      <Text style={hostStyles.timer}>{remainingSec}s</Text>
       <Pressable
-        style={styles.skip}
+        style={hostStyles.skip}
         onPress={finishSoftFail}
         accessibilityRole="button"
         accessibilityLabel="Skip for now"
         testID="challenge-skip"
       >
-        <Text style={styles.skipLabel}>{t("challenge.skip")}</Text>
+        <Text style={hostStyles.skipLabel}>{t("challenge.skip")}</Text>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const hostStyles = StyleSheet.create({
   wrap: {
     width: "100%",
     alignItems: "center",

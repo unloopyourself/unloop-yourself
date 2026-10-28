@@ -34,9 +34,11 @@ export type EngineSnapshot = {
   readonly lastDeltaU: number | null;
 };
 
+export type CooldownReason = "completed" | "soft_fail" | "restored";
+
 export type EngineEffect =
   | { type: "enter_challenge"; challengeId: string; appId: string; deltaU: number }
-  | { type: "cooldown_started"; reason: "completed" | "soft_fail"; untilMs: number }
+  | { type: "cooldown_started"; reason: CooldownReason; untilMs: number }
   | { type: "cooldown_elapsed" }
   | { type: "monitoring_started" }
   | { type: "paused" };
@@ -48,6 +50,8 @@ export class SessionEngine {
   readonly fsm: SessionFsm;
   private softUnlockAtMs: number | null = null;
   private cooldownUntilMs: number | null = null;
+  /** Last known cooldown cause — used when hydrating so UI does not invent soft_fail. */
+  private lastCooldownReason: CooldownReason | null = null;
   private activeChallengeId: string | null = null;
   /** Last interrupt challenge — excluded from next pick when ≥2 eligible. */
   private lastInterruptChallengeId: string | null = null;
@@ -166,6 +170,17 @@ export class SessionEngine {
   }
 
   /**
+   * Restart the soft-unlock window when the user finally opens the challenge
+   * (overlay may have been up for a while after THRESHOLD).
+   */
+  refreshChallengeDeadline(): void {
+    if (this.fsm.state !== "CHALLENGE") {
+      return;
+    }
+    this.softUnlockAtMs = this.clock.now() + this.timings.challengeTimeoutMs;
+  }
+
+  /**
    * Advance timers. Call from UI interval or tests after `clock` advances.
    */
   tick(): EngineEffect[] {
@@ -211,6 +226,11 @@ export class SessionEngine {
       return [{ type: "paused" }];
     }
     if (input.challengeOutstanding && !input.inCooldown) {
+      // Already mid-challenge (e.g. Open tapped twice / AppState sync) — do not
+      // re-pick or re-emit enter_challenge (that remounts UI and resets progress).
+      if (this.fsm.state === "CHALLENGE" && this.activeChallengeId != null) {
+        return [];
+      }
       this.fsm.hydrate("CHALLENGE");
       const challengeId = this.pickChallenge(
         this.enabledChallengeIds,
@@ -231,14 +251,20 @@ export class SessionEngine {
       ];
     }
     if (input.inCooldown) {
-      this.fsm.hydrate("COOLDOWN");
       this.clearChallengeTimers();
       this.cooldownUntilMs =
         input.cooldownUntilMs ?? this.clock.now() + this.timings.cooldownMs;
+      // Already cooling (e.g. AppState resume after success) — keep timers,
+      // do not re-emit cooldown_started (that was wrongly hard-coded soft_fail).
+      if (this.fsm.state === "COOLDOWN") {
+        return [];
+      }
+      this.fsm.hydrate("COOLDOWN");
+      const reason: CooldownReason = this.lastCooldownReason ?? "restored";
       return [
         {
           type: "cooldown_started",
-          reason: "soft_fail",
+          reason,
           untilMs: this.cooldownUntilMs,
         },
       ];
@@ -253,6 +279,7 @@ export class SessionEngine {
   private beginCooldown(reason: "completed" | "soft_fail"): EngineEffect[] {
     this.clearChallengeTimers();
     this.activeChallengeId = null;
+    this.lastCooldownReason = reason;
     const untilMs = this.clock.now() + this.timings.cooldownMs;
     this.cooldownUntilMs = untilMs;
     return [{ type: "cooldown_started", reason, untilMs }];

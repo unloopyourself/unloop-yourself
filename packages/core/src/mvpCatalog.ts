@@ -16,6 +16,20 @@ export const MVP_CHALLENGES: readonly Challenge[] = [
     requires: new Set<Capability>(["accelerometer", "gyroscope"]),
   },
   { id: "air_write", requires: new Set<Capability>(["accelerometer"]) },
+  // Experiment pack — exit-the-loop only (no on-screen mini-games).
+  { id: "hold_still", requires: new Set<Capability>(["accelerometer"]) },
+  { id: "countdown_type", requires: new Set<Capability>() },
+  {
+    id: "long_press",
+    requires: new Set<Capability>(["accelerometer", "gyroscope"]),
+  },
+  { id: "intention_type", requires: new Set<Capability>() },
+  { id: "look_away", requires: new Set<Capability>(["gyroscope"]) },
+  { id: "rotate_phone", requires: new Set<Capability>(["accelerometer"]) },
+  { id: "stand_up", requires: new Set<Capability>(["accelerometer"]) },
+  { id: "sip_water", requires: new Set<Capability>() },
+  { id: "feeling_check", requires: new Set<Capability>() },
+  { id: "audio_silence_tap", requires: new Set<Capability>() },
 ];
 
 /** Default enabled set mirrors product defaults (excludes face_down until opted in). */

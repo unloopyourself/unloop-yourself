@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-  namespace = "dev.unloopyourself.dummytarget"
+  namespace = "io.github.unloopyourself.dummytarget"
   compileSdk = 34
 
   defaultConfig {
-    applicationId = "dev.unloopyourself.dummytarget"
+    applicationId = "io.github.unloopyourself.dummytarget"
     minSdk = 26
     targetSdk = 34
     versionCode = 1

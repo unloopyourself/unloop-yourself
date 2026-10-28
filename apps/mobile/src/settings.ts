@@ -3,9 +3,10 @@ import {
   CHALLENGE_TIMEOUT_MS,
   COOLDOWN_MS,
   DEFAULT_ENABLED_LABELS,
+  LEGACY_CHALLENGE_TIMEOUT_MS,
   THRESHOLD_MS,
 } from "./targets";
-import { DEFAULT_ENABLED_CHALLENGE_IDS } from "./challenges/registry";
+import { DEFAULT_ENABLED_CHALLENGE_IDS, sanitizeEnabledChallengeIds } from "./challenges/registry";
 
 const KEY = "unloop.settings.v2";
 
@@ -33,6 +34,15 @@ function clampMs(value: unknown, fallback: number, min: number, max: number): nu
   return Math.min(max, Math.max(min, Math.round(n)));
 }
 
+function resolveChallengeTimeoutMs(raw: unknown): number {
+  const clamped = clampMs(raw, DEFAULTS.challengeTimeoutMs, 15_000, 300_000);
+  // Upgrade devices still on the old 45s factory default (too short for air write).
+  if (clamped === LEGACY_CHALLENGE_TIMEOUT_MS) {
+    return DEFAULTS.challengeTimeoutMs;
+  }
+  return clamped;
+}
+
 export async function loadSettings(): Promise<UnloopSettings> {
   try {
     const raw = await AsyncStorage.getItem(KEY);
@@ -49,28 +59,28 @@ export async function loadSettings(): Promise<UnloopSettings> {
               : DEFAULTS.enabledLabels,
         };
       }
-      return { ...DEFAULTS, enabledLabels: [...DEFAULTS.enabledLabels], enabledChallengeIds: [...DEFAULTS.enabledChallengeIds] };
+      return {
+        ...DEFAULTS,
+        enabledLabels: [...DEFAULTS.enabledLabels],
+        enabledChallengeIds: [...DEFAULTS.enabledChallengeIds],
+      };
     }
     const parsed = JSON.parse(raw) as Partial<UnloopSettings>;
     const labels =
       Array.isArray(parsed.enabledLabels) && parsed.enabledLabels.length > 0
         ? parsed.enabledLabels
         : DEFAULTS.enabledLabels;
-    const challenges =
+    const challenges = sanitizeEnabledChallengeIds(
       Array.isArray(parsed.enabledChallengeIds) && parsed.enabledChallengeIds.length > 0
         ? parsed.enabledChallengeIds
-        : DEFAULTS.enabledChallengeIds;
+        : DEFAULTS.enabledChallengeIds,
+    );
     return {
       enabledLabels: labels,
       enabledChallengeIds: challenges,
       thresholdMs: clampMs(parsed.thresholdMs, DEFAULTS.thresholdMs, 15_000, 600_000),
       cooldownMs: clampMs(parsed.cooldownMs, DEFAULTS.cooldownMs, 30_000, 600_000),
-      challengeTimeoutMs: clampMs(
-        parsed.challengeTimeoutMs,
-        DEFAULTS.challengeTimeoutMs,
-        15_000,
-        180_000,
-      ),
+      challengeTimeoutMs: resolveChallengeTimeoutMs(parsed.challengeTimeoutMs),
     };
   } catch {
     return {

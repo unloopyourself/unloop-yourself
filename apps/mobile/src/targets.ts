@@ -53,7 +53,7 @@ export const WATCH_TARGETS: WatchTarget[] = [
   },
   {
     label: "Dummy feed",
-    packages: ["dev.unloopyourself.dummytarget"],
+    packages: ["io.github.unloopyourself.dummytarget"],
   },
   {
     label: "Browsers",
@@ -89,7 +89,9 @@ export const THRESHOLD_MS = 60_000;
 export const COOLDOWN_MS = 120_000;
 
 /** Soft unlock: release the feed without success (not a ban). */
-export const CHALLENGE_TIMEOUT_MS = 45_000;
+export const CHALLENGE_TIMEOUT_MS = 120_000;
+/** Previous factory default — upgraded on load so devices keep a usable window. */
+export const LEGACY_CHALLENGE_TIMEOUT_MS = 45_000;
 
 export function packagesForLabels(labels: string[]): string[] {
   const set = new Set(labels);

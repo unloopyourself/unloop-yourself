@@ -43,11 +43,13 @@
 
 ### 3. Air write (`air_write`)
 * **English name:** **Air write** (working title; alt: *Sky scribble*).
-* **Beat:** “Write” a **short** challenge word in the air by moving the phone (e.g. `HI` / locale-equivalent greeting). Recognize a coarse stroke sequence, not calligraphy.
+* **Beat:** Hold the phone upright and **tilt** it: small tilt-**circle** to start → tilt along a letter stroke → small circle to close. Complex letters (e.g. `A` crossbar) use an intermediate circoletto per stroke. Matching is geometric: normalize the path and require ~80% of samples inside a letter “road” corridor (thickened polyline templates) — no ML. UI shows a live bitmap of road + ink.
+* **Sensor model:** Gravity **tilt cursor** relative to pose at arm/start — **not** double-integration of linear accel (that drifts into fake horizontal ramps).
 * **Why it breaks scroll:** Large motor pattern ≠ thumb fling.
-* **Requires:** `accelerometer` (+ optional `gyroscope`)
-* **Build cost:** High (gesture ML or simplified stroke templates). Start with **2–4 letter** templates only.
-* **Risk:** Recognition frustration — generous matching; show the target word clearly.
+* **Requires:** `accelerometer` (+ optional `gyroscope` later)
+* **Build cost:** Medium (corridor templates + circle delimiters + preview). Start with **2–4 letter** words only.
+* **Risk:** Recognition frustration — show target word, per-stroke progress, coverage % on retry, and corridor preview.
+* **Ship status:** **Hidden from Settings** for the first Play testing release; Core + UI code retained for a later polish pass.
 
 ### 4. Synonyms (`synonyms`)
 * **Beat:** Given a prompt word, type **3 synonyms** (or near-synonyms).

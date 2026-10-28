@@ -13,7 +13,8 @@ export interface CoinSpinProgress {
 
 /**
  * Integrate |yawRate| over time. Tiny rates are ignored (table noise).
- * `yawRateRadPerSec` is typically gyroscope Z when the device is face-up.
+ * `yawRateRadPerSec` should be the gyroscope angular-rate magnitude
+ * (√(x²+y²+z²)) so OEM axis mapping does not stall progress.
  */
 export function advanceCoinSpinProgress(
   previousAccumulatedRad: number,

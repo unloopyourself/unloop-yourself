@@ -327,9 +327,9 @@ class UsageMonitorService : Service() {
 
   companion object {
     private const val TAG = "UnloopUsageMonitor"
-    const val ACTION_START = "dev.unloopyourself.usage.START"
-    const val ACTION_STOP = "dev.unloopyourself.usage.STOP"
-    const val ACTION_UPDATE_PACKAGES = "dev.unloopyourself.usage.UPDATE_PACKAGES"
+    const val ACTION_START = "io.github.unloopyourself.usage.START"
+    const val ACTION_STOP = "io.github.unloopyourself.usage.STOP"
+    const val ACTION_UPDATE_PACKAGES = "io.github.unloopyourself.usage.UPDATE_PACKAGES"
     const val EXTRA_PACKAGE = "package"
     const val EXTRA_PACKAGES = "packages"
     const val EXTRA_THRESHOLD_MS = "thresholdMs"

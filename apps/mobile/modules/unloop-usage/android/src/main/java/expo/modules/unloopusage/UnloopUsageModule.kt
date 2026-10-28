@@ -102,6 +102,15 @@ class UnloopUsageModule : Module() {
       Log.i(TAG, "harness: $message")
     }
 
+    /** Thin adapter: play a system tone (no expo-av). Returns false on failure. */
+    Function("playChallengeTone") { durationMs: Double ->
+      ChallengeTonePlayer.play(context, durationMs.toLong())
+    }
+
+    Function("stopChallengeTone") {
+      ChallengeTonePlayer.stop(context)
+    }
+
     OnCreate {
       UsageMonitorService.thresholdCallback = { packageName, deltaU ->
         sendEvent(
@@ -121,6 +130,7 @@ class UnloopUsageModule : Module() {
     }
 
     OnDestroy {
+      ChallengeTonePlayer.stop(context)
       UsageMonitorService.thresholdCallback = null
       InterruptOverlay.openChallengeCallback = null
     }

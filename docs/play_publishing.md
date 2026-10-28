@@ -41,7 +41,14 @@ Output: `apps/mobile/android/app/build/outputs/bundle/release/app-release.aab`
 ## Play Console steps (human)
 
 1. Create app → name **Unloop**, language, free, declarations as applicable.
-2. **Store listing** (can stay draft for internal testing, but fill early): short description, full description, icon 512, feature graphic 1024×500, screenshots, email.
+2. **Store listing** (can stay draft for internal testing, but fill early): short description, full description, icon 512, feature graphic 1024×500, screenshots, email.  
+   Play hi-res icon (512×512, full square, no baked corners/shadow): [`apps/mobile/assets/play/google-play-icon-512.png`](../apps/mobile/assets/play/google-play-icon-512.png) — per [Google Play icon specs](https://developer.android.com/distribute/google-play/resources/icon-design-specifications).  
+   Feature graphic (1024×500): [`apps/mobile/assets/play/google-play-feature-graphic-1024x500.png`](../apps/mobile/assets/play/google-play-feature-graphic-1024x500.png).  
+   Screenshots (English UI only; RGB PNG, no alpha):
+   - Phone (1080×1920): [`apps/mobile/assets/play/screenshots/phone-play/`](../apps/mobile/assets/play/screenshots/phone-play/)
+   - 7-inch tablet (1200×1920): [`apps/mobile/assets/play/screenshots/tablet-7/`](../apps/mobile/assets/play/screenshots/tablet-7/)
+   - 10-inch tablet (1600×2560): [`apps/mobile/assets/play/screenshots/tablet-10/`](../apps/mobile/assets/play/screenshots/tablet-10/)
+   Re-capture helper (needs a running emulator): `scripts/avd/capture-play-screenshots.sh`.
 3. **App content → Privacy policy** → URL to the published privacy page.
 4. **Data safety**: no off-device collection/sharing for the MVP; declare on-device Usage Access / sensors as needed by the form wording.
 5. **App access / Sensitive permissions**: explain Usage Access, overlay, and foreground service (digital wellbeing interrupt requested by the user).

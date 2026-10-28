@@ -15,7 +15,9 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "dev.unloopyourself.app",
+      "package": "io.github.unloopyourself.unloop",
+      "versionCode": 2,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#0A2540",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -28,7 +30,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "./plugins/withUnloopAndroidRelease.js"
     ]
   }
 }

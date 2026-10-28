@@ -1,21 +1,26 @@
 # Factory status
 
-Last updated: 2026-09-24
+Last updated: 2026-10-28
 
 ## Active item
 
-**None.** Offline challenge pack (variety + coin_spin + air_write) landed. Next: deferred parking or Phase 2 (needs human OK).
+**Challenge pack ×10** merged to `main` (opt-in in Settings). Next: upload AAB `versionCode` 2 to Play Internal testing.
 
 ## Last gate result
 
-- P1.5-12 air_write: `npm test` 52 passed; mobile typecheck; `check-boundaries.sh` OK
+- Application ID: `io.github.unloopyourself.unloop` (ADR-009)
+- Debug harness in `src/debug` only; ToneGenerator adapter for `audio_silence_tap`
+- Exit-oriented pack on main (opt-in): hold_still, countdown_type, long_press, intention_type, look_away, rotate_phone, stand_up, sip_water, feeling_check, audio_silence_tap
+- Privacy policy + Play checklist + AAB scripts landed
 
 ## Human decisions pending
 
-- None blocking.
-- Optional: device smoke for coin_spin / air_write feel; Phase 2 iOS if desired.
+- Play Console: listing / Data safety / upload AAB Internal testing
+  - AAB: `apps/mobile/android/app/build/outputs/bundle/release/app-release.aab`
+  - Privacy URL: `https://unloopyourself.github.io/unloop-yourself/site/privacy.html`
 
 ## Notes
 
-- `coin_spin` and `air_write` are **opt-in** in Settings (not default-enabled).
-- Air write: coarse stroke-direction templates + edit-distance match; en/it short word packs.
+- Defaults unchanged; pack is Settings opt-in. `air_write` stays hidden.
+- Experiment notes: [`docs/experiment_challenge_pack_10.md`](../docs/experiment_challenge_pack_10.md).
+- Play prep: [`docs/play_publishing.md`](../docs/play_publishing.md).

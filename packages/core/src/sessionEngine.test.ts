@@ -85,6 +85,21 @@ describe("SessionEngine scenarios (E2E-like)", () => {
     expect(engine.state).toBe("COOLDOWN");
   });
 
+  it("REGRESSION Open challenge refreshes soft-unlock deadline", () => {
+    const clock = new FakeClock(0);
+    const engine = new SessionEngine(clock, timings);
+    engine.startMonitoring();
+    engine.onThresholdReached("yt", 60_000);
+    clock.advance(40_000);
+    engine.refreshChallengeDeadline();
+    clock.advance(44_999);
+    expect(engine.tick()).toEqual([]);
+    expect(engine.state).toBe("CHALLENGE");
+    clock.advance(1);
+    const soft = engine.tick();
+    expect(effectsOfType(soft, "cooldown_started")[0]?.reason).toBe("soft_fail");
+  });
+
   it("REGRESSION hydrate outstanding after Activity death → CHALLENGE again", () => {
     const clock = new FakeClock(5_000);
     const engine = new SessionEngine(clock, timings, () => "nearest_multiple");
@@ -101,6 +116,22 @@ describe("SessionEngine scenarios (E2E-like)", () => {
     );
   });
 
+  it("REGRESSION hydrate while already in CHALLENGE does not re-enter", () => {
+    const clock = new FakeClock(5_000);
+    const engine = new SessionEngine(clock, timings, () => "breath_tap");
+    engine.setChallengeOptions(["breath_tap"], new Set());
+    engine.startMonitoring();
+    engine.onThresholdReached("yt", 10_000);
+    expect(engine.state).toBe("CHALLENGE");
+    const again = engine.hydrate({
+      monitoring: true,
+      challengeOutstanding: true,
+      inCooldown: false,
+    });
+    expect(again).toEqual([]);
+    expect(engine.state).toBe("CHALLENGE");
+  });
+
   it("REGRESSION hydrate cooldown keeps soft unlock out of CHALLENGE", () => {
     const clock = new FakeClock(10_000);
     const engine = new SessionEngine(clock, timings);
@@ -112,6 +143,45 @@ describe("SessionEngine scenarios (E2E-like)", () => {
     });
     expect(engine.state).toBe("COOLDOWN");
     expect(engine.onThresholdReached("yt", 1)).toEqual([]);
+  });
+
+  it("REGRESSION hydrate during cooldown after success does not re-emit soft_fail", () => {
+    const clock = new FakeClock(0);
+    const engine = new SessionEngine(clock, timings, () => "breath_tap");
+    engine.setChallengeOptions(["breath_tap"], new Set());
+    engine.startMonitoring();
+    engine.onThresholdReached("yt", 1);
+    const done = engine.onChallengeCompleted();
+    expect(done[0]).toMatchObject({
+      type: "cooldown_started",
+      reason: "completed",
+    });
+    const again = engine.hydrate({
+      monitoring: true,
+      challengeOutstanding: false,
+      inCooldown: true,
+      cooldownUntilMs: engine.snapshot().cooldownUntilMs ?? 120_000,
+    });
+    expect(again).toEqual([]);
+    expect(engine.state).toBe("COOLDOWN");
+  });
+
+  it("REGRESSION cold hydrate into cooldown uses restored, not soft_fail", () => {
+    const clock = new FakeClock(10_000);
+    const engine = new SessionEngine(clock, timings);
+    const effects = engine.hydrate({
+      monitoring: true,
+      challengeOutstanding: false,
+      inCooldown: true,
+      cooldownUntilMs: 50_000,
+    });
+    expect(effects).toEqual([
+      {
+        type: "cooldown_started",
+        reason: "restored",
+        untilMs: 50_000,
+      },
+    ]);
   });
 
   it("stop clears challenge and returns to PAUSED", () => {
@@ -126,7 +196,7 @@ describe("SessionEngine scenarios (E2E-like)", () => {
 });
 
 describe("challengeProgressDisplayPct (false 100% regression)", () => {
-  it("stays at most 99 until complete", () => {
+  it("REGRESSION: stays at most 99 until shake duration is actually done", () => {
     expect(challengeProgressDisplayPct(4_975, 5_000, false)).toBe(99);
     expect(challengeProgressDisplayPct(4_999, 5_000, false)).toBe(99);
     expect(challengeProgressDisplayPct(5_000, 5_000, false)).toBe(100);

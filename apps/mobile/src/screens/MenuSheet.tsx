@@ -43,6 +43,7 @@ export function MenuSheet({
               onOpenSettings();
             }}
             accessibilityRole="button"
+            accessibilityLabel={t("nav.settings")}
           >
             <Ionicons
               name="settings-outline"
@@ -59,6 +60,7 @@ export function MenuSheet({
               onOpenAbout();
             }}
             accessibilityRole="button"
+            accessibilityLabel={t("nav.about")}
           >
             <Ionicons
               name="information-circle-outline"

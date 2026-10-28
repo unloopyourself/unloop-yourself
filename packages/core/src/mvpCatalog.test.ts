@@ -48,6 +48,41 @@ describe("capability profiles × MVP catalog", () => {
       no_gyro: true,
       full: true,
     });
+    expect(matrix.hold_still).toEqual({
+      low_end: false,
+      no_gyro: true,
+      full: true,
+    });
+    expect(matrix.countdown_type).toEqual({
+      low_end: true,
+      no_gyro: true,
+      full: true,
+    });
+    expect(matrix.long_press).toEqual({
+      low_end: false,
+      no_gyro: false,
+      full: true,
+    });
+    expect(matrix.look_away).toEqual({
+      low_end: false,
+      no_gyro: false,
+      full: true,
+    });
+    expect(matrix.stand_up).toEqual({
+      low_end: false,
+      no_gyro: true,
+      full: true,
+    });
+    expect(matrix.rotate_phone).toEqual({
+      low_end: false,
+      no_gyro: true,
+      full: true,
+    });
+    expect(matrix.audio_silence_tap).toEqual({
+      low_end: true,
+      no_gyro: true,
+      full: true,
+    });
   });
 
   it("available capability → challenge is eligible", () => {
@@ -118,7 +153,7 @@ describe("capability profiles × MVP catalog", () => {
     expect(id).toBe("breath_tap");
   });
 
-  it("SessionEngine excludes last interrupt challenge on the next threshold", () => {
+  it("REGRESSION: SessionEngine excludes last interrupt challenge on the next threshold", () => {
     const clock = { nowMs: 1_000, now: () => clock.nowMs };
     const picks: string[] = [];
     const engine = new SessionEngine(

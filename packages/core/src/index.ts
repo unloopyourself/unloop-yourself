@@ -54,16 +54,78 @@ export {
 export type { CoinSpinProgress } from "./coinSpinChallenge.js";
 
 export {
+  HOLD_STILL_CHALLENGE_ID,
+  advanceHoldStillProgress,
+} from "./holdStillChallenge.js";
+export type { HoldStillProgress } from "./holdStillChallenge.js";
+
+export {
+  COUNTDOWN_MIN_ENTRY_FRAC,
+  COUNTDOWN_PICK_CHALLENGE_ID,
+  COUNTDOWN_WINDOW_MS,
+  correctChoiceIndex,
+  createCountdownPrompt,
+  formatCountdownValue,
+  highValueInUnit,
+  initialCountdownPrompt,
+  makeCountdownChoices,
+  promptAfterCorrect,
+  promptAfterMiss,
+} from "./countdownPickChallenge.js";
+export type {
+  CountdownPrompt,
+  CountdownPromptOptions,
+} from "./countdownPickChallenge.js";
+
+export {
+  LOOK_AWAY_CHALLENGE_ID,
+  LOOK_AWAY_MIN_RAD,
+  advanceLookAwayRotateProgress,
+} from "./lookAwayRotateChallenge.js";
+export type { LookAwayRotateProgress } from "./lookAwayRotateChallenge.js";
+
+export {
+  STAND_SIT_CHALLENGE_ID,
+  advanceStandSitProgress,
+  createStandSitState,
+} from "./standSitChallenge.js";
+export type { StandSitProgress, StandSitState } from "./standSitChallenge.js";
+
+export {
+  AIR_CIRCLE,
+  AIR_COVERAGE_THRESHOLD,
+  AIR_LETTER_CORRIDORS,
+  AIR_SETTLE_MS,
+  AIR_TILT_GAIN,
+  AIR_TILT_SMOOTH,
   AIR_WRITE_CHALLENGE_ID,
   AIR_WRITE_WORDS,
   advanceAirWriteTracker,
+  circleProgress,
   createAirWriteTracker,
-  matchAirWriteStrokes,
+  currentCorridor,
+  detectSmallCircle,
+  findTrailingCircleStart,
+  letterTemplate,
+  makeCirclePath,
+  normalizeGravity,
+  normalizePath,
+  pathExtentSide,
+  pathWinding,
   pickAirWriteWord,
+  pointInCorridor,
+  sampleCorridorCenterline,
+  scriptCompleteAirWriteWord,
+  smoothGravity,
+  strokeCoverage,
+  tiltDeltaToPlane,
 } from "./airWriteChallenge.js";
 export type {
-  AirDir,
+  AirCorridor,
+  AirLetterTemplate,
+  AirPoint,
   AirWriteLocale,
+  AirWritePhase,
   AirWriteTrackerState,
 } from "./airWriteChallenge.js";
 
@@ -84,6 +146,7 @@ export {
 } from "./sessionEngine.js";
 export type {
   ChallengePicker,
+  CooldownReason,
   EngineClock,
   EngineEffect,
   EngineSnapshot,

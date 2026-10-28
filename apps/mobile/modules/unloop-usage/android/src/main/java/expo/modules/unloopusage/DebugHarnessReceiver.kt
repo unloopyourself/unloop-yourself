@@ -8,9 +8,9 @@ import android.util.Log
 /**
  * Debug-only harness for AVD / agent automation.
  *
- * adb shell am broadcast -p dev.unloopyourself.app \
- *   -a dev.unloopyourself.DEBUG_START_MONITOR \
- *   --es packages "dev.unloopyourself.dummytarget" --el thresholdMs 15000 \
+ * adb shell am broadcast -p io.github.unloopyourself.unloop \
+ *   -a io.github.unloopyourself.DEBUG_START_MONITOR \
+ *   --es packages "io.github.unloopyourself.dummytarget" --el thresholdMs 15000 \
  *   --es forceChallenge "shake" \
  *   --es capabilities "accelerometer,gyroscope"
  *
@@ -19,14 +19,19 @@ import android.util.Log
  */
 class DebugHarnessReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent?) {
-    if (intent?.action != ACTION_START_MONITOR && intent?.action != ACTION_STOP_MONITOR) {
+    val action = intent?.action ?: return
+    if (
+      action != ACTION_START_MONITOR &&
+      action != ACTION_STOP_MONITOR &&
+      action != ACTION_CLEAR_HARNESS
+    ) {
       return
     }
-    Log.i(TAG, "debug harness action=${intent.action}")
-    when (intent.action) {
+    Log.i(TAG, "debug harness action=$action")
+    when (action) {
       ACTION_START_MONITOR -> {
         val packages =
-          intent.getStringExtra(EXTRA_PACKAGES) ?: "dev.unloopyourself.dummytarget"
+          intent.getStringExtra(EXTRA_PACKAGES) ?: "io.github.unloopyourself.dummytarget"
         val thresholdMs = intent.getLongExtra(EXTRA_THRESHOLD_MS, 15_000L)
         val forceChallenge = intent.getStringExtra(EXTRA_FORCE_CHALLENGE).orEmpty()
         HarnessPrefs.setForceChallengeId(context, forceChallenge)
@@ -53,13 +58,19 @@ class DebugHarnessReceiver : BroadcastReceiver() {
         UsageMonitorService.stop(context)
         InterruptOverlay.resolve(context)
       }
+      ACTION_CLEAR_HARNESS -> {
+        // Mirrors UnloopUsage.clearHarnessDebugState() / Start watching — drop sticky forceChallenge.
+        HarnessPrefs.clear(context)
+        Log.i(TAG, "harness: cleared prefs")
+      }
     }
   }
 
   companion object {
     private const val TAG = "UnloopUsageMonitor"
-    const val ACTION_START_MONITOR = "dev.unloopyourself.DEBUG_START_MONITOR"
-    const val ACTION_STOP_MONITOR = "dev.unloopyourself.DEBUG_STOP_MONITOR"
+    const val ACTION_START_MONITOR = "io.github.unloopyourself.DEBUG_START_MONITOR"
+    const val ACTION_STOP_MONITOR = "io.github.unloopyourself.DEBUG_STOP_MONITOR"
+    const val ACTION_CLEAR_HARNESS = "io.github.unloopyourself.DEBUG_CLEAR_HARNESS"
     const val EXTRA_PACKAGES = "packages"
     const val EXTRA_THRESHOLD_MS = "thresholdMs"
     const val EXTRA_FORCE_CHALLENGE = "forceChallenge"
@@ -78,7 +89,7 @@ object HarnessPrefs {
     context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
       .edit()
       .putString(KEY_FORCE, id)
-      .apply()
+      .commit()
   }
 
   fun getForceChallengeId(context: Context): String =
@@ -91,7 +102,7 @@ object HarnessPrefs {
       .edit()
       .putBoolean(KEY_CAPS_SET, true)
       .putString(KEY_CAPS, csv)
-      .apply()
+      .commit()
   }
 
   fun clearCapabilitiesOverride(context: Context) {
@@ -99,7 +110,7 @@ object HarnessPrefs {
       .edit()
       .putBoolean(KEY_CAPS_SET, false)
       .remove(KEY_CAPS)
-      .apply()
+      .commit()
   }
 
   /** null = no override (adapter should probe). Otherwise CSV (possibly empty). */
@@ -112,6 +123,6 @@ object HarnessPrefs {
   }
 
   fun clear(context: Context) {
-    context.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().clear().apply()
+    context.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().clear().commit()
   }
 }

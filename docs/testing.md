@@ -4,6 +4,8 @@ Unloop prioritizes **deterministic, local verification** the coding agent can ru
 
 Empirical AVD spike (2026-09-24, AVD `unloop_api34` API 34 playstore): see [`l3_spike_results.md`](l3_spike_results.md) and `factory/l3-reports/`.
 
+Named bug → test mapping: [`regression_usecases.md`](regression_usecases.md).
+
 ## Layers
 
 | Layer | What | Who | When |
@@ -21,16 +23,21 @@ Empirical AVD spike (2026-09-24, AVD `unloop_api34` API 34 playstore): see [`l3_
 | Install / launch APKs | **PASS** | `adb install` |
 | Grant Usage Access | **PASS** | `appops set … GET_USAGE_STATS allow` |
 | Grant overlay | **PASS** | `appops set … SYSTEM_ALERT_WINDOW allow` |
-| Controlled target app | **PASS** | `apps/dummy-target` (`dev.unloopyourself.dummytarget`) |
+| Controlled target app | **PASS** | `apps/dummy-target` (`io.github.unloopyourself.dummytarget`) |
 | UsageStats sees dummy FG | **PASS** | `dumpsys usagestats` |
-| Start monitor without UI | **PASS** | `DebugHarnessReceiver` broadcast `DEBUG_START_MONITOR` (**`-p` package required**) |
+| Start monitor without UI | **PASS** | `DebugHarnessReceiver` broadcast `DEBUG_START_MONITOR` (**`-p` package required**; **debug builds only**) |
 | Threshold → native interrupt overlay | **PASS** | logcat `THRESHOLD reached` + `interrupt overlay shown` |
 | Open challenge → Unloop Activity | **PASS** | `uiautomator` tap “Open challenge” |
 | Accel get/set | **PASS** | `adb emu sensor set/get acceleration` |
 | Force-stop / relaunch Activity | **PASS** | `am force-stop` + `am start` |
 | Soft-fail Skip E2E | **PASS** | `harness: cooldown_soft_fail` after Skip (`forceChallenge` + embedded JS) |
-| Challenge complete E2E | **PASS** | `breath_tap` 3× tap → `harness: cooldown_completed` |
+| Challenge complete E2E | **PASS** | `breath_tap` / `unlock_phrase` / `nearest_multiple` → `harness: cooldown_completed` |
+| Sticky forceChallenge clear | **PASS** | `DEBUG_CLEAR_HARNESS` / STOP then force `breath_tap` → enter breath |
+| Menu → About (no Text crash) | **PASS** | uiautomator Menu → About content |
 | Shake complete via emu sensor | **PARTIAL** | UI + `adb emu sensor` OK; expo-sensors on AVD does not finish — L0 + L4 |
+| Sensor challenge enter | **PASS** | `forceChallenge` for shake / coin_spin / air_write / face_down_flip |
+| Air-write letter matching | **L0** | Tilt-cursor model + `scriptCompleteAirWriteWord`; AVD cannot draw letters via accel inject |
+| Face-down flip complete | **PARTIAL** | L3 attempts `0:0:-9.8` hold then `0:0:9.8`; may still need L4 on some images |
 | FGS survives `force-stop` | **N/A (by OS)** | `force-stop` kills FGS — expected; re-arm via harness |
 | L3 without Metro | **PASS** | Debug APK embeds JS (`debuggableVariants = []`) |
 | Capability profile override | **PASS** (harness) | `--es capabilities ""` → `low_end`; omit → probe (`no_gyro`/`full` today) |
@@ -62,24 +69,31 @@ $ANDROID_HOME/emulator/emulator -avd unloop_api34 -gpu auto
 
 # Then agent:
 ./scripts/avd/run-l3-scenarios.sh
+# Soft challenges + regressions only (faster, more stable):
+SOFT_ONLY=1 ./scripts/avd/run-l3-scenarios.sh
 ```
 
 Debug intents (package-targeted):
 
 ```bash
-adb -s emulator-5554 shell am broadcast -p dev.unloopyourself.app \
-  -a dev.unloopyourself.DEBUG_START_MONITOR \
-  --es packages "dev.unloopyourself.dummytarget" --el thresholdMs 10000 \
+adb -s emulator-5554 shell am broadcast -p io.github.unloopyourself.unloop \
+  -a io.github.unloopyourself.DEBUG_START_MONITOR \
+  --es packages "io.github.unloopyourself.dummytarget" --el thresholdMs 10000 \
   --es forceChallenge "breath_tap" \
   --es capabilities "accelerometer"
 # capabilities omitted → probe sensors; empty string → low_end (soft challenges only)
+
+adb -s emulator-5554 shell am broadcast -p io.github.unloopyourself.unloop \
+  -a io.github.unloopyourself.DEBUG_CLEAR_HARNESS
+# drops sticky forceChallenge / capabilities override (same as Start watching)
 ```
 
 ## Growing the regression basket
 
 1. Bug found → preferably a failing **L0** `REGRESSION` test.  
 2. If Android-specific → add/extend `scripts/avd/run-l3-scenarios.sh` step + keep report under `factory/l3-reports/`.  
-3. Never delete REGRESSION coverage when fixing.
+3. Record the use case in [`regression_usecases.md`](regression_usecases.md).  
+4. Never delete REGRESSION coverage when fixing.
 
 ## Philosophy
 

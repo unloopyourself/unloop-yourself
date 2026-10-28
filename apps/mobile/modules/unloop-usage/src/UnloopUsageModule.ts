@@ -42,6 +42,9 @@ type UnloopUsageNativeModule = {
   getHarnessCapabilitiesOverride(): string | null;
   /** Debug/AVD: structured log line for harness asserts. */
   logHarness(message: string): void;
+  /** Thin Android tone (ToneGenerator). false if playback could not start. */
+  playChallengeTone(durationMs: number): boolean;
+  stopChallengeTone(): void;
   addListener(
     eventName: "onThresholdReached" | "onOpenChallenge",
     listener: (event: ThresholdNativeEvent | Record<string, never>) => void,

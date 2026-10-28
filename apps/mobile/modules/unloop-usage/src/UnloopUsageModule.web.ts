@@ -61,6 +61,12 @@ const UnloopUsageModule = {
   logHarness(_message: string): void {
     /* no-op */
   },
+  playChallengeTone(_durationMs: number): boolean {
+    return false;
+  },
+  stopChallengeTone(): void {
+    /* no-op */
+  },
 };
 
 export function addThresholdListener(

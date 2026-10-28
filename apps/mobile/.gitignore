@@ -43,3 +43,7 @@ yarn-error.*
 # Local Expo module build outputs
 modules/**/android/build/
 modules/**/ios/build/
+
+# Play upload credentials (never commit)
+credentials/
+keystore.properties
