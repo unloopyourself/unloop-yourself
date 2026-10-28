@@ -60,6 +60,38 @@ export {
 export type { HoldStillProgress } from "./holdStillChallenge.js";
 
 export {
+  COUNTDOWN_MIN_ENTRY_FRAC,
+  COUNTDOWN_PICK_CHALLENGE_ID,
+  COUNTDOWN_WINDOW_MS,
+  correctChoiceIndex,
+  createCountdownPrompt,
+  formatCountdownValue,
+  highValueInUnit,
+  initialCountdownPrompt,
+  makeCountdownChoices,
+  promptAfterCorrect,
+  promptAfterMiss,
+} from "./countdownPickChallenge.js";
+export type {
+  CountdownPrompt,
+  CountdownPromptOptions,
+} from "./countdownPickChallenge.js";
+
+export {
+  LOOK_AWAY_CHALLENGE_ID,
+  LOOK_AWAY_MIN_RAD,
+  advanceLookAwayRotateProgress,
+} from "./lookAwayRotateChallenge.js";
+export type { LookAwayRotateProgress } from "./lookAwayRotateChallenge.js";
+
+export {
+  STAND_SIT_CHALLENGE_ID,
+  advanceStandSitProgress,
+  createStandSitState,
+} from "./standSitChallenge.js";
+export type { StandSitProgress, StandSitState } from "./standSitChallenge.js";
+
+export {
   AIR_CIRCLE,
   AIR_COVERAGE_THRESHOLD,
   AIR_LETTER_CORRIDORS,

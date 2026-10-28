@@ -23,7 +23,7 @@ export function advanceHoldStillProgress(
     maxJerk?: number;
   },
 ): HoldStillProgress {
-  const requiredMs = tick.requiredMs ?? 2500;
+  const requiredMs = tick.requiredMs ?? 5_000;
   const maxDeviation = tick.maxDeviation ?? 0.12;
   const maxJerk = tick.maxJerk ?? 0.08;
   const still =

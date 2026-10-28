@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Text, View } from "react-native";
+import {
+  LOOK_AWAY_MIN_RAD,
+  advanceLookAwayRotateProgress,
+  challengeProgressDisplayPct,
+} from "@unloop/core";
 import type { Translate } from "../i18n";
+import { subscribeGyroscopeYaw } from "../expoSensorPort";
 import { challengeStyles as styles } from "./challengeUi";
 
 type Props = {
@@ -8,41 +14,49 @@ type Props = {
   onComplete: () => void;
 };
 
-const LOCKOUT_MS = 4000;
-
-/** Eyes-off glass: button locked while you look away, then confirm return. */
+/** Look behind you and point the phone that way — ≥120° yaw via gyroscope. */
 export function LookAwayChallenge({ t, onComplete }: Props) {
-  const [lockedUntil] = useState(() => Date.now() + LOCKOUT_MS);
-  const [now, setNow] = useState(() => Date.now());
+  const [rad, setRad] = useState(0);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 200);
-    return () => clearInterval(id);
+    let accumulated = 0;
+    let finished = false;
+    const { stop } = subscribeGyroscopeYaw((yawRate, deltaMs) => {
+      if (finished) {
+        return;
+      }
+      const progress = advanceLookAwayRotateProgress(accumulated, {
+        yawRateRadPerSec: yawRate,
+        deltaMs,
+        requiredRad: LOOK_AWAY_MIN_RAD,
+      });
+      accumulated = progress.accumulatedRad;
+      setRad(accumulated);
+      if (progress.complete) {
+        finished = true;
+        stop();
+        queueMicrotask(() => onCompleteRef.current());
+      }
+    });
+    return () => stop();
   }, []);
 
-  const remainingMs = Math.max(0, lockedUntil - now);
-  const locked = remainingMs > 0;
-  const remainingSec = Math.ceil(remainingMs / 1000);
+  const deg = Math.round((rad * 180) / Math.PI);
+  const need = Math.round((LOOK_AWAY_MIN_RAD * 180) / Math.PI);
+  const pct = challengeProgressDisplayPct(rad, LOOK_AWAY_MIN_RAD, rad >= LOOK_AWAY_MIN_RAD);
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>{t("challenge.look_away.title")}</Text>
       <Text style={styles.subtitle}>{t("challenge.look_away.body")}</Text>
-      <Pressable
-        style={[styles.btn, locked && { opacity: 0.45 }]}
-        disabled={locked}
-        onPress={onComplete}
-        accessibilityRole="button"
-        accessibilityLabel="Look away done"
-        accessibilityState={{ disabled: locked }}
-        testID="look-away-done"
-      >
-        <Text style={styles.btnLabel}>
-          {locked
-            ? t("challenge.look_away.wait", { sec: remainingSec })
-            : t("challenge.look_away.done")}
-        </Text>
-      </Pressable>
+      <View style={styles.barTrack}>
+        <View style={[styles.barFill, { width: `${pct}%` }]} />
+      </View>
+      <Text style={styles.meta}>
+        {t("challenge.look_away.progress", { deg, need })}
+      </Text>
     </View>
   );
 }

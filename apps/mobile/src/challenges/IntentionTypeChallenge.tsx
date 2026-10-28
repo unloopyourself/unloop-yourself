@@ -1,69 +1,65 @@
-import { useMemo, useRef, useState } from "react";
-import { Text, TextInput, View } from "react-native";
-import { detectLocale, type Translate } from "../i18n";
+import { useRef, useState } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
+import type { Translate } from "../i18n";
 import { challengeStyles as styles } from "./challengeUi";
-import { normalizeUnlockPhrase } from "./UnlockPhraseChallenge";
 
 type Props = {
   t: Translate;
   onComplete: () => void;
 };
 
-/** Short exit-oriented intentions — typing breaks scroll muscle memory. */
-const INTENTIONS: Record<"en" | "it", readonly string[]> = {
-  en: [
-    "I choose to pause",
-    "I am leaving the feed",
-    "One check then done",
-    "Back to the room",
-    "I asked for this stop",
-  ],
-  it: [
-    "Scelgo di fermarmi",
-    "Lascio il feed",
-    "Un controllo e basta",
-    "Di nuovo nella stanza",
-    "Ho chiesto questo stop",
-  ],
-};
+const MIN_CHARS = 10;
 
+/**
+ * Free-text intention (not copy-the-phrase). Differs from unlock_phrase:
+ * you invent what you will do instead of scrolling.
+ */
 export function IntentionTypeChallenge({ t, onComplete }: Props) {
-  const locale = detectLocale() === "it" ? "it" : "en";
-  const phrase = useMemo(() => {
-    const pack = INTENTIONS[locale];
-    return pack[Math.floor(Math.random() * pack.length)]!;
-  }, [locale]);
   const [value, setValue] = useState("");
   const doneRef = useRef(false);
-  const target = useMemo(() => normalizeUnlockPhrase(phrase), [phrase]);
 
-  const onChange = (text: string) => {
-    setValue(text);
-    if (doneRef.current) {
+  const ready = value.trim().length >= MIN_CHARS;
+
+  const submit = () => {
+    if (doneRef.current || !ready) {
       return;
     }
-    if (normalizeUnlockPhrase(text) === target) {
-      doneRef.current = true;
-      onComplete();
-    }
+    doneRef.current = true;
+    onComplete();
   };
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>{t("challenge.intention.title")}</Text>
       <Text style={styles.subtitle}>{t("challenge.intention.body")}</Text>
-      <Text style={styles.prompt} testID="intention-prompt">
-        {phrase}
-      </Text>
+      <Text style={styles.prompt}>{t("challenge.intention.prompt")}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { minHeight: 88, textAlignVertical: "top" }]}
         value={value}
-        onChangeText={onChange}
-        autoCapitalize="none"
-        autoCorrect={false}
-        accessibilityLabel="Intention phrase"
+        onChangeText={setValue}
+        multiline
+        autoCapitalize="sentences"
+        autoCorrect
+        accessibilityLabel="Intention free text"
         testID="intention-input"
+        placeholder={t("challenge.intention.placeholder")}
+        placeholderTextColor="rgba(242,245,248,0.35)"
       />
+      <Text style={styles.meta}>
+        {t("challenge.intention.meta", {
+          n: Math.min(MIN_CHARS, value.trim().length),
+          min: MIN_CHARS,
+        })}
+      </Text>
+      <Pressable
+        style={[styles.btn, !ready && { opacity: 0.45 }]}
+        disabled={!ready}
+        onPress={submit}
+        accessibilityRole="button"
+        testID="intention-submit"
+      >
+        <Text style={styles.btnLabel}>{t("challenge.intention.submit")}</Text>
+      </Pressable>
     </View>
   );
 }

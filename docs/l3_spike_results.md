@@ -12,13 +12,16 @@ Host: macOS arm64 · Emulator started **by human** (agent headless starts were u
 | Usage Access via appops | PASS | `GET_USAGE_STATS: allow` |
 | Overlay via appops | PASS | `SYSTEM_ALERT_WINDOW: allow` |
 | UsageStats sees dummy | PASS | active package + growing `totalTimeUsed` |
-| Debug start monitor | PASS | broadcast `-p dev.unloopyourself.app` + `forceChallenge` |
+| Debug start monitor | PASS | broadcast `-p io.github.unloopyourself.unloop` + `forceChallenge` |
 | Threshold → overlay | PASS | logcat `THRESHOLD reached` + overlay shown |
 | Open challenge | PASS | uiautomator → `MainActivity` + `harness: enter_challenge:*` |
 | Soft-fail Skip E2E | PASS | `harness: cooldown_soft_fail` after Skip tap |
-| Challenge complete E2E (breath_tap) | PASS | 3× tap → `harness: cooldown_completed` |
+| Challenge complete E2E (breath / phrase / math) | PASS | forceChallenge + uiautomator → `cooldown_completed` |
+| Sticky forceChallenge clear | PASS | `DEBUG_CLEAR_HARNESS` then force `breath_tap` |
+| Menu → About | PASS | no “raw Text” crash; About content visible |
 | `adb emu sensor` accel | PASS | set/get `9:2:1` |
 | Shake → complete via sensor | PARTIAL | Shake UI + inject OK; expo-sensors on AVD does not accumulate to complete — L0 Vitest owns semantics; L4 human motor |
+| Sensor challenge enter (shake/coin/air/face) | PASS | `forceChallenge` enter asserts; complete = L4 |
 | Activity force-stop relaunch | PASS | pid returns |
 | FGS after force-stop | N/A | OS kills FGS on force-stop |
 | Debug APK without Metro | PASS | `debuggableVariants = []` embeds JS bundle |

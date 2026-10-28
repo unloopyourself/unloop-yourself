@@ -26,6 +26,18 @@ export function NearestMultipleChallenge({ t, onComplete }: Props) {
   const [value, setValue] = useState("");
   const [hint, setHint] = useState("");
 
+  const tryAnswer = (text: string) => {
+    setValue(text);
+    const n = Number(text.trim());
+    if (Number.isFinite(n) && n === puzzle.answer) {
+      onComplete();
+      return;
+    }
+    if (text.trim().length > 0) {
+      setHint("");
+    }
+  };
+
   const submit = () => {
     const n = Number(value.trim());
     if (n === puzzle.answer) {
@@ -43,11 +55,18 @@ export function NearestMultipleChallenge({ t, onComplete }: Props) {
       <TextInput
         style={styles.input}
         value={value}
-        onChangeText={setValue}
+        onChangeText={tryAnswer}
         keyboardType="number-pad"
         accessibilityLabel="Math answer"
+        testID="math-answer"
       />
-      <Pressable style={styles.btn} onPress={submit} accessibilityRole="button">
+      <Pressable
+        style={styles.btn}
+        onPress={submit}
+        accessibilityRole="button"
+        accessibilityLabel="Math unlock"
+        testID="math-unlock"
+      >
         <Text style={styles.btnLabel}>{t("challenge.math.submit")}</Text>
       </Pressable>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}

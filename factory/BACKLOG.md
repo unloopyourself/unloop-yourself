@@ -233,3 +233,10 @@ Offline-only product depth. No Buddy relay, no cloud AI, no accounts.
 - **AC:** Document platform×capability axes ([`docs/compatibility.md`](../docs/compatibility.md), ADR-008); Core `MVP_CHALLENGES` + `CAPABILITY_PROFILES` + matrix tests; picker never selects incompatible challenges; soft fallback on poor devices; App probes accelerometer (harness can override `capabilities`); testing.md updated.
 - **Tests:** `npm test` (incl. `mvpCatalog.test.ts`); `scripts/check-boundaries.sh`.
 - **Escalate if:** —
+
+### P1.5-13 — Play Console testing release prep
+- **Status:** ready
+- **Deps:** P1.5-12, ADR-009
+- **AC:** Application ID `io.github.unloopyourself.unloop`; `version`/`versionCode` in app.json; debug harness **not** in release; upload keystore workflow (local secrets only); privacy policy page + Play checklist; script to build signed AAB for internal/closed testing.
+- **Tests:** Release merge omits `DebugHarnessReceiver`; `./scripts/android/build-play-aab.sh` produces AAB when keystore configured (human).
+- **Escalate if:** Play policy rejection on Usage Access / FGS / overlay declarations; paid Play Console account issues.

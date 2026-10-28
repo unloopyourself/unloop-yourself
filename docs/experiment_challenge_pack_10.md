@@ -6,7 +6,7 @@ Branch: `experiment/challenge-pack-10`
 
 Opt-in in Settings. Defaults unchanged.
 
-`audio_silence_tap` is currently **visual-only** (fill bar → quiet → tap). Native `expo-av` crashed on device (JSI `UnsatisfiedLinkError`); real audio returns later with a pinned Expo module.
+`audio_silence_tap` plays a short tone via a **thin Android adapter** (`ToneGenerator` in `unloop-usage`) — not `expo-av` (that crashed with JSI `UnsatisfiedLinkError`). Visual bar stays as fallback if tone start fails.
 
 Reviewer notes: product rule (exit-the-loop) overruled gamey picks from engagement review.
 
@@ -14,16 +14,16 @@ Reviewer notes: product rule (exit-the-loop) overruled gamey picks from engageme
 
 | Id | Kind | Exit mechanism |
 |----|------|----------------|
-| `hold_still` | body / sensors | Anti-twitch stillness |
-| `countdown_type` | thumbs off feed | Short intentional typing |
-| `long_press` | friction | Deliberate hold, not a swipe |
-| `intention_type` | deliberation | Type why you are here / choosing pause |
-| `look_away` | eyes off glass | Forced wait, then tap when back |
-| `rotate_phone` | body | Reorient device (incompatible with scroll) |
-| `stand_up` | body (honor) | Stand, then confirm |
-| `sip_water` | body (honor) | Sip, then confirm |
-| `feeling_check` | deliberation | Name the feeling, then leave |
-| `audio_silence_tap` | presence (visual) | Wait for the quiet bar — native audio deferred (`expo-av` ABI crash) |
+| `hold_still` | body / sensors | ~5s real stillness (accelerometer) |
+| `countdown_type` | attention | Match chips; enter unit high (.55–.95); miss/wait stays in-unit; wrong tap moves correct off that button |
+| `long_press` | body + sensors | Hold + ~3 in-place turns (gyro) |
+| `intention_type` | deliberation | Free-text “what will you do instead” (not copy-phrase) |
+| `look_away` | body + gyro | Point phone behind you (≥120° yaw) |
+| `rotate_phone` | body | Reorient away+back a random 3–7 times |
+| `stand_up` | body / accel only | Stand↔sit motion ×3 (accelerometer |g| deltas; no gyro) |
+| `sip_water` | body + notice | Sip, then temp / gas / taste chips |
+| `feeling_check` | deliberation | Name feeling + soft tip if heavy |
+| `audio_silence_tap` | presence (+ tone) | Longer ToneGenerator beep, then tap in quiet |
 
 Removed from earlier draft as too “in-the-loop”: `odd_color`, `rhythm_tap`, `memory_seq`, `stroop_tap`, `word_unscramble`, `audio_beep_count`.
 

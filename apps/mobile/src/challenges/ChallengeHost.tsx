@@ -16,10 +16,8 @@ import { LongPressChallenge } from "./LongPressChallenge";
 import { IntentionTypeChallenge } from "./IntentionTypeChallenge";
 import { LookAwayChallenge } from "./LookAwayChallenge";
 import { RotatePhoneChallenge } from "./RotatePhoneChallenge";
-import {
-  SipWaterChallenge,
-  StandUpChallenge,
-} from "./HonorActionChallenge";
+import { StandUpChallenge } from "./StandUpChallenge";
+import { SipWaterChallenge } from "./SipWaterChallenge";
 import { FeelingCheckChallenge } from "./FeelingCheckChallenge";
 import { AudioSilenceTapChallenge } from "./AudioSilenceTapChallenge";
 

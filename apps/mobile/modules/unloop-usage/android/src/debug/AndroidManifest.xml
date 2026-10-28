@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Debug/AVD harness only — omitted from release variants. -->
+  <application>
+    <receiver
+      android:name=".DebugHarnessReceiver"
+      android:exported="true"
+      android:enabled="true">
+      <intent-filter>
+        <action android:name="io.github.unloopyourself.DEBUG_START_MONITOR" />
+        <action android:name="io.github.unloopyourself.DEBUG_STOP_MONITOR" />
+        <action android:name="io.github.unloopyourself.DEBUG_CLEAR_HARNESS" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

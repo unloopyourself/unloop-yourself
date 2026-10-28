@@ -12,7 +12,7 @@ import type { Capability } from "@unloop/core";
 import { colors, typography } from "../theme";
 import type { Translate } from "../i18n";
 import { WATCH_TARGETS } from "../targets";
-import { CHALLENGE_CATALOG, type ChallengeId } from "../challenges/registry";
+import { SETTINGS_CHALLENGE_CATALOG, type ChallengeId } from "../challenges/registry";
 import type { UnloopSettings } from "../settings";
 import { statusBarTopInset } from "../layout";
 
@@ -83,7 +83,7 @@ export function SettingsScreen({
 
       <Text style={styles.section}>{t("app.challenges_section")}</Text>
       <View style={styles.chips}>
-        {CHALLENGE_CATALOG.map((c) => {
+        {SETTINGS_CHALLENGE_CATALOG.map((c) => {
           const on = settings.enabledChallengeIds.includes(c.id);
           const hardwareOk = [...c.requires].every((cap) =>
             deviceCaps.has(cap),

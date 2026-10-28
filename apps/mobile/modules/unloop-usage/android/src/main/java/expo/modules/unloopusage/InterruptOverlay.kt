@@ -132,8 +132,11 @@ object InterruptOverlay {
               launchApp(appContext)
               return@setOnClickListener
             }
-            // Hide shield only while Unloop is in front — outstanding stays true.
-            suppressReshowUntilElapsed = android.os.SystemClock.elapsedRealtime() + 4_000L
+            // Hide shield while Unloop is in front — outstanding stays true.
+            // Longer suppress: UsageStats can still report the feed as FG for
+            // many seconds after Open (Samsung OEMs), which would re-cover the
+            // challenge mid-spin.
+            suppressReshowUntilElapsed = android.os.SystemClock.elapsedRealtime() + 60_000L
             openChallengeCallback?.invoke()
             launchApp(appContext)
             dismissLocked(appContext, clearOutstanding = false)

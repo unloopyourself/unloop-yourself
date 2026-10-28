@@ -87,6 +87,13 @@ export default function App() {
   const [message, setMessage] = useState(t("app.intro"));
   const [screen, setScreen] = useState<AppScreen>("home");
   const [menuOpen, setMenuOpen] = useState(false);
+  /** Remount ChallengeHost when the user taps Open (fresh sensors + timeout). */
+  const [challengeMountKey, setChallengeMountKey] = useState(0);
+  /**
+   * Challenge UI (tone/sensors) stays off until Open challenge — otherwise
+   * enter_challenge under the overlay starts audio/sensors too early.
+   */
+  const [challengeOpened, setChallengeOpened] = useState(false);
   const pendingOpenRef = useRef(false);
   useEffect(() => {
     settingsRef.current = settings;
@@ -163,7 +170,10 @@ export default function App() {
             setActiveChallengeId(effect.challengeId as ChallengeId);
             setLastDelta(effect.deltaU);
             setMessage(t("app.interrupt"));
+            // Wait for Open — do not mount ChallengeHost under the shield yet.
+            setChallengeOpened(false);
             if (Platform.OS === "android") {
+              UnloopUsage.stopChallengeTone();
               UnloopUsage.logHarness(`enter_challenge:${effect.challengeId}`);
             }
             bus.emit("THRESHOLD_REACHED", {
@@ -172,6 +182,7 @@ export default function App() {
             });
             break;
           case "cooldown_started":
+            setChallengeOpened(false);
             UnloopUsage.dismissInterruptOverlay();
             UnloopUsage.setCooldownUntilMs(effect.untilMs);
             if (Platform.OS === "android") {
@@ -318,8 +329,12 @@ export default function App() {
       pendingOpenRef.current = true;
       return;
     }
-    // Already on the challenge screen — ignore duplicate Open / AppState sync.
+    // Already in CHALLENGE (threshold entered under the overlay): give the user
+    // a full timeout window and mount UI — Open is the real start.
     if (engine.state === "CHALLENGE") {
+      engine.refreshChallengeDeadline();
+      setChallengeOpened(true);
+      setChallengeMountKey((k) => k + 1);
       setMessage(t("app.interrupt"));
       return;
     }
@@ -336,6 +351,8 @@ export default function App() {
           snap.lastDeltaU || 0,
         ),
       );
+      setChallengeOpened(true);
+      setChallengeMountKey((k) => k + 1);
       return;
     }
     // PAUSED / COOLDOWN with outstanding interrupt — hydrate into CHALLENGE.
@@ -346,6 +363,8 @@ export default function App() {
         inCooldown: false,
       }),
     );
+    setChallengeOpened(true);
+    setChallengeMountKey((k) => k + 1);
   }, [applyEffects, deviceCaps, engine, syncFromNative, t]);
 
   useEffect(() => {
@@ -518,7 +537,7 @@ export default function App() {
       }
       style={styles.gradient}
     >
-      {inChallenge && settings ? (
+      {inChallenge && settings && challengeOpened ? (
         <ScrollView
           contentContainerStyle={styles.challengeContainer}
           keyboardShouldPersistTaps="handled"
@@ -528,12 +547,19 @@ export default function App() {
           <Text style={styles.brandOnInk}>Unloop</Text>
           <Text style={styles.taglineOnInk}>{t("app.tagline")}</Text>
           <ChallengeHost
+            key={`${activeChallengeId}-${challengeMountKey}`}
             challengeId={activeChallengeId}
             timeoutMs={settings.challengeTimeoutMs}
             t={t}
             onComplete={completeChallenge}
             onSoftFail={softFailChallenge}
           />
+        </ScrollView>
+      ) : inChallenge && settings && !challengeOpened ? (
+        <ScrollView contentContainerStyle={styles.challengeContainer}>
+          <Text style={styles.brandOnInk}>Unloop</Text>
+          <Text style={styles.taglineOnInk}>{t("app.tagline")}</Text>
+          <Text style={styles.messageOnInk}>{t("app.interrupt")}</Text>
         </ScrollView>
       ) : screen === "settings" && settings ? (
         <SettingsScreen
@@ -598,5 +624,13 @@ const styles = StyleSheet.create({
     color: colors.textOnInk,
     textAlign: "center",
     marginTop: -4,
+  },
+  messageOnInk: {
+    fontSize: typography.bodySize,
+    lineHeight: 24,
+    color: colors.textOnInk,
+    textAlign: "center",
+    marginTop: 12,
+    opacity: 0.92,
   },
 });

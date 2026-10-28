@@ -52,10 +52,11 @@ const TITLE_KEYS: Record<ChallengeId, string> = {
 };
 
 /**
- * Challenges that would play device audio (none while expo-av is unpinned —
- * silence_tap is visual-only to avoid native ABI crashes).
+ * Challenges that may play a short device tone (Android ToneGenerator adapter).
  */
-export const AUDIO_CHALLENGE_IDS: ReadonlySet<ChallengeId> = new Set([]);
+export const AUDIO_CHALLENGE_IDS: ReadonlySet<ChallengeId> = new Set([
+  "audio_silence_tap",
+]);
 
 /** UI catalog: Core requires + local title keys (single source for requires). */
 export const CHALLENGE_CATALOG: ChallengeMeta[] = MVP_CHALLENGES.map((c) => ({

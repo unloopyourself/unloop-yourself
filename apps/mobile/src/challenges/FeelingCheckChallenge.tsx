@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Translate } from "../i18n";
 import { colors } from "../theme";
@@ -10,17 +10,34 @@ type Props = {
 };
 
 const FEELINGS = [
-  "challenge.feeling.bored",
-  "challenge.feeling.anxious",
-  "challenge.feeling.tired",
-  "challenge.feeling.curious",
+  {
+    key: "challenge.feeling.bored",
+    tip: "challenge.feeling.tip_bored",
+    heavy: true,
+  },
+  {
+    key: "challenge.feeling.anxious",
+    tip: "challenge.feeling.tip_anxious",
+    heavy: true,
+  },
+  {
+    key: "challenge.feeling.tired",
+    tip: "challenge.feeling.tip_tired",
+    heavy: true,
+  },
+  {
+    key: "challenge.feeling.curious",
+    tip: "challenge.feeling.tip_curious",
+    heavy: false,
+  },
 ] as const;
 
-/** Name the feeling — deliberation beat, then exit. Any choice completes. */
+/** Name the feeling; soft tip for heavier moods, then continue. */
 export function FeelingCheckChallenge({ t, onComplete }: Props) {
+  const [tipKey, setTipKey] = useState<string | null>(null);
   const doneRef = useRef(false);
 
-  const onPick = () => {
+  const finish = () => {
     if (doneRef.current) {
       return;
     }
@@ -28,14 +45,26 @@ export function FeelingCheckChallenge({ t, onComplete }: Props) {
     onComplete();
   };
 
+  if (tipKey) {
+    return (
+      <View style={styles.wrap}>
+        <Text style={styles.title}>{t("challenge.feeling.title")}</Text>
+        <Text style={styles.subtitle}>{t(tipKey)}</Text>
+        <Pressable style={styles.btn} onPress={finish} testID="feeling-continue">
+          <Text style={styles.btnLabel}>{t("challenge.feeling.continue")}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>{t("challenge.feeling.title")}</Text>
       <Text style={styles.subtitle}>{t("challenge.feeling.body")}</Text>
       <View style={[styles.row, { width: "100%" }]}>
-        {FEELINGS.map((key, index) => (
+        {FEELINGS.map((f, index) => (
           <Pressable
-            key={key}
+            key={f.key}
             style={[
               styles.btnGhost,
               {
@@ -44,12 +73,18 @@ export function FeelingCheckChallenge({ t, onComplete }: Props) {
                 backgroundColor: colors.inkSoft,
               },
             ]}
-            onPress={onPick}
+            onPress={() => {
+              if (f.heavy || f.tip) {
+                setTipKey(f.tip);
+                return;
+              }
+              finish();
+            }}
             accessibilityRole="button"
-            accessibilityLabel={t(key)}
+            accessibilityLabel={t(f.key)}
             testID={`feeling-${index}`}
           >
-            <Text style={styles.btnGhostLabel}>{t(key)}</Text>
+            <Text style={styles.btnGhostLabel}>{t(f.key)}</Text>
           </Pressable>
         ))}
       </View>

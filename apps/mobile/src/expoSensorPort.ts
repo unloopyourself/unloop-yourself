@@ -19,8 +19,14 @@ export class ExpoSensorPort implements SensorPort {
         return null;
       }
       return new Promise((resolve) => {
+        let settled = false;
         Accelerometer.setUpdateInterval(100);
         const sub = Accelerometer.addListener(({ x, y, z }) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearTimeout(timer);
           sub.remove();
           const magnitude = Math.sqrt(x * x + y * y + z * z);
           resolve({
@@ -29,6 +35,14 @@ export class ExpoSensorPort implements SensorPort {
             observedAtMs: Date.now(),
           });
         });
+        const timer = setTimeout(() => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          sub.remove();
+          resolve(null);
+        }, 800);
       });
     }
     if (capability === "gyroscope") {
@@ -37,15 +51,32 @@ export class ExpoSensorPort implements SensorPort {
         return null;
       }
       return new Promise((resolve) => {
+        let settled = false;
         Gyroscope.setUpdateInterval(100);
-        const sub = Gyroscope.addListener(({ z }) => {
+        const sub = Gyroscope.addListener(({ x, y, z }) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearTimeout(timer);
           sub.remove();
+          const rate = Math.sqrt(x * x + y * y + z * z);
           resolve({
             capability: "gyroscope",
-            value: Math.abs(z),
+            value: rate,
             observedAtMs: Date.now(),
           });
         });
+        // Avoid a stuck listener if the OEM never delivers a sample (blocks later
+        // subscriptions on some Samsung devices).
+        const timer = setTimeout(() => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          sub.remove();
+          resolve(null);
+        }, 800);
       });
     }
     return null;
@@ -97,22 +128,41 @@ export type YawSampleHandler = (
   deltaMs: number,
 ) => void;
 
-/** Continuous gyroscope Z stream for CoinSpin (face-up yaw). */
+/**
+ * Continuous gyroscope stream for CoinSpin.
+ * Uses full angular-rate magnitude so OEM axis mapping (Z vs X/Y when flat)
+ * does not leave the counter stuck at 0.
+ */
 export function subscribeGyroscopeYaw(
   onSample: YawSampleHandler,
   intervalMs = 50,
 ): { stop: () => void } {
   let lastMs = Date.now();
-  Gyroscope.setUpdateInterval(intervalMs);
-  const sub = Gyroscope.addListener(({ z }) => {
-    const now = Date.now();
-    const deltaMs = Math.max(1, now - lastMs);
-    lastMs = now;
-    onSample(z, deltaMs);
-  });
+  let stopped = false;
+  let sub: { remove: () => void } | null = null;
+  // Defer attach so a remount after Open can release the previous OEM handle
+  // (Samsung SensorManager often fails immediate re-register).
+  const attachTimer = setTimeout(() => {
+    if (stopped) {
+      return;
+    }
+    Gyroscope.setUpdateInterval(intervalMs);
+    sub = Gyroscope.addListener(({ x, y, z }) => {
+      if (stopped) {
+        return;
+      }
+      const now = Date.now();
+      const deltaMs = Math.max(1, now - lastMs);
+      lastMs = now;
+      onSample(Math.sqrt(x * x + y * y + z * z), deltaMs);
+    });
+  }, 120);
   return {
     stop: () => {
-      sub.remove();
+      stopped = true;
+      clearTimeout(attachTimer);
+      sub?.remove();
+      sub = null;
     },
   };
 }

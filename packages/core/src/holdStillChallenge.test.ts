@@ -4,16 +4,16 @@ import { advanceHoldStillProgress } from "./holdStillChallenge.js";
 describe("hold still", () => {
   it("completes after sustained stillness", () => {
     let held = 0;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
       const p = advanceHoldStillProgress(held, {
         deviation: 0.02,
         jerk: 0.01,
         deltaMs: 100,
-        requiredMs: 2500,
+        requiredMs: 5_000,
       });
       held = p.heldMs;
       if (p.complete) {
-        expect(i).toBeGreaterThanOrEqual(24);
+        expect(i).toBeGreaterThanOrEqual(49);
         return;
       }
     }

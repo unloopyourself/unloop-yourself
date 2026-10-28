@@ -58,6 +58,21 @@ describe("capability profiles × MVP catalog", () => {
       no_gyro: true,
       full: true,
     });
+    expect(matrix.long_press).toEqual({
+      low_end: false,
+      no_gyro: false,
+      full: true,
+    });
+    expect(matrix.look_away).toEqual({
+      low_end: false,
+      no_gyro: false,
+      full: true,
+    });
+    expect(matrix.stand_up).toEqual({
+      low_end: false,
+      no_gyro: true,
+      full: true,
+    });
     expect(matrix.rotate_phone).toEqual({
       low_end: false,
       no_gyro: true,

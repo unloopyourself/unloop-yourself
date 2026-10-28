@@ -12,3 +12,5 @@ yarn-error.log*
 .expo/
 *.apk
 *.aab
+apps/mobile/credentials/
+**/keystore.properties

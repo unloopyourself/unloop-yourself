@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, Vibration, View } from "react-native";
 import { Accelerometer } from "expo-sensors";
 import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
@@ -11,9 +11,9 @@ type Props = {
 
 type Phase = "wait_down" | "hold" | "flip_window" | "done";
 
-const HOLD_MS = 3_000;
-/** Flip must finish within this window after hold ends (±0.5s style). */
-const FLIP_WINDOW_MS = 1_000;
+export const FACE_DOWN_HOLD_MS = 3_000;
+/** Flip must finish within this window after hold ends. */
+export const FACE_DOWN_FLIP_WINDOW_MS = 1_000;
 
 function isFaceDown(z: number): boolean {
   return z < -0.65;
@@ -49,7 +49,8 @@ export function FaceDownFlipChallenge({ t, onComplete }: Props) {
         if (isFaceDown(z)) {
           holdStart.current = now;
           phaseRef.current = "hold";
-          setLabel(tr("challenge.face.down"));
+          // Screen is face-down — user counts from this moment (copy explains).
+          setLabel(tr("challenge.face.down_counting"));
           setHoldPct(0);
         }
         return;
@@ -65,18 +66,23 @@ export function FaceDownFlipChallenge({ t, onComplete }: Props) {
         }
         const start = holdStart.current ?? now;
         const elapsed = now - start;
-        setHoldPct(Math.min(99, Math.floor((elapsed / HOLD_MS) * 100)));
-        if (elapsed >= HOLD_MS) {
+        setHoldPct(
+          Math.min(99, Math.floor((elapsed / FACE_DOWN_HOLD_MS) * 100)),
+        );
+        if (elapsed >= FACE_DOWN_HOLD_MS) {
           windowStart.current = now;
           phaseRef.current = "flip_window";
           setLabel(tr("challenge.face.flip"));
+          // Face-down: screen not visible — buzz means “flip now”.
+          Vibration.vibrate(180);
         }
         return;
       }
 
       if (phase === "flip_window") {
         const start = windowStart.current ?? now;
-        if (now - start > FLIP_WINDOW_MS) {
+        const elapsed = now - start;
+        if (elapsed > FACE_DOWN_FLIP_WINDOW_MS) {
           holdStart.current = null;
           windowStart.current = null;
           phaseRef.current = "wait_down";
@@ -88,6 +94,7 @@ export function FaceDownFlipChallenge({ t, onComplete }: Props) {
           finished.current = true;
           phaseRef.current = "done";
           setHoldPct(100);
+          Vibration.vibrate(40);
           queueMicrotask(() => onCompleteRef.current());
         }
       }

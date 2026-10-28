@@ -184,3 +184,29 @@ Unloop must run on old and cheap phones. Modeling support as “every Android ma
 ### Consequences
 * **Pros:** Poor devices keep soft challenges; Core stays OS-free; L0 Vitest owns eligibility; L3 AVD can force `capabilities=""` for `low_end`; L4 absorbs OEM-specific feel.
 * **Trade-off:** Adapters must probe honestly; debug overrides are for harness only.
+
+---
+
+## ADR-009: Android applicationId `io.github.unloopyourself.unloop`
+
+* **Date:** 2026-09-25
+* **Status:** Accepted
+
+### Context
+Play Console needs a permanent application ID before first upload. The project has no owned commercial domain; GitHub org `unloopyourself` (and eventual GitHub Pages) is the durable identity.
+
+### Decision
+Use OSS reverse-DNS under GitHub:
+* App: **`io.github.unloopyourself.unloop`**
+* AVD dummy target: **`io.github.unloopyourself.dummytarget`**
+* Debug/harness intent actions: **`io.github.unloopyourself.*`**
+
+Display name remains **Unloop** (not “Unloop Yourself”).
+
+### Alternatives
+1. Keep `dev.unloopyourself.app` — workable but `dev.` reads as non-store.
+2. Invent `com.*` without owning the domain — misleading for an open-source non-commercial app.
+
+### Consequences
+* **Pros:** Stable Play ID aligned with GitHub identity; no fake `.com`.
+* **Trade-off:** Changing again after Play publish would require a new listing; do not rename later.

@@ -13,7 +13,8 @@ type Props = {
   onComplete: () => void;
 };
 
-const REQUIRED_MS = 2500;
+/** Real stillness via accelerometer magnitude + jerk (not a timer alone). */
+const REQUIRED_MS = 5_000;
 
 export function HoldStillChallenge({ t, onComplete }: Props) {
   const [heldMs, setHeldMs] = useState(0);
@@ -56,7 +57,7 @@ export function HoldStillChallenge({ t, onComplete }: Props) {
       <View style={styles.barTrack}>
         <View style={[styles.barFill, { width: `${pct}%` }]} />
       </View>
-      <Text style={styles.meta}>{Math.round(heldMs / 100) / 10}s</Text>
+      <Text style={styles.meta}>{Math.round(heldMs / 100) / 10}s / 5s</Text>
     </View>
   );
 }
