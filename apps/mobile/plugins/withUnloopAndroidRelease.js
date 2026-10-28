@@ -25,6 +25,16 @@ def unloopKeyPassword = System.getenv("UNLOOP_UPLOAD_KEY_PASSWORD") ?: unloopKey
 function withVersionAndSigning(config) {
   return withAppBuildGradle(config, (cfg) => {
     let contents = cfg.modResults.contents;
+    const versionCode = config.android?.versionCode ?? 1;
+    const versionName = config.version ?? "0.1.0";
+    contents = contents.replace(
+      /versionCode\s+\d+/,
+      `versionCode ${versionCode}`,
+    );
+    contents = contents.replace(
+      /versionName\s+"[^"]*"/,
+      `versionName "${versionName}"`,
+    );
 
     if (!contents.includes("debuggableVariants = []")) {
       contents = contents.replace(
