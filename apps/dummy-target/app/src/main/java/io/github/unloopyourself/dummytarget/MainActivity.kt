@@ -1,4 +1,4 @@
-package dev.unloopyourself.dummytarget
+package io.github.unloopyourself.dummytarget
 
 import android.graphics.Color
 import android.os.Bundle

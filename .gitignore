@@ -14,3 +14,15 @@ yarn-error.log*
 *.aab
 apps/mobile/credentials/
 **/keystore.properties
+
+# Dummy-target Android build outputs (were committed by mistake once)
+apps/dummy-target/.gradle/
+apps/dummy-target/**/build/
+apps/dummy-target/local.properties
+
+# Keep project docs / nested gitignores tracked even if a global excludesFile
+# ignores "docs/" or ".gitignore"
+!docs/
+!docs/**
+!.gitignore
+!**/.gitignore
