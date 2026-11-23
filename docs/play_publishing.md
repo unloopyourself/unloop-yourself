@@ -8,8 +8,8 @@ Checklist for the first **internal / closed testing** upload of Unloop.
 |-------|--------|
 | App name | **Unloop** |
 | Application ID | `io.github.unloopyourself.unloop` |
-| Version name | from `apps/mobile/app.json` → `expo.version` (currently `0.1.0`) |
-| Version code | from `apps/mobile/app.json` → `expo.android.versionCode` (currently `1`) |
+| Version name | from `apps/mobile/app.json` → `expo.version` (currently `0.1.1`) |
+| Version code | from `apps/mobile/app.json` → `expo.android.versionCode` (currently `3`) |
 | Contact | `unloopyourself.dev@gmail.com` |
 
 ## Before you build the AAB
