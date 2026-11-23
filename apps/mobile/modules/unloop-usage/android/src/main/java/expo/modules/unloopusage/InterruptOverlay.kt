@@ -11,8 +11,10 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import java.util.Locale
 
 /**
  * Full-screen TYPE_APPLICATION_OVERLAY interrupt.
@@ -106,6 +108,31 @@ object InterruptOverlay {
           isFocusable = true
         }
 
+        val italian = isItalian(appContext)
+        val copyText = if (italian) {
+          "Ti interrompo perché me l’hai chiesto tu.\nUna piccola challenge per sbloccare e continuare."
+        } else {
+          "I’m interrupting you because you asked me to.\nA short challenge unlocks the feed again."
+        }
+        val buttonText = if (italian) {
+          "Inizia la challenge"
+        } else {
+          "Start challenge"
+        }
+
+        val icon = ImageView(appContext).apply {
+          setImageDrawable(
+            appContext.packageManager.getApplicationIcon(appContext.packageName),
+          )
+          val size = dp(72)
+          layoutParams = LinearLayout.LayoutParams(size, size).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            bottomMargin = dp(12)
+          }
+          scaleType = ImageView.ScaleType.FIT_CENTER
+          contentDescription = "Unloop"
+        }
+
         val brand = TextView(appContext).apply {
           text = "Unloop"
           setTextColor(Color.parseColor("#FF8A5B"))
@@ -114,7 +141,7 @@ object InterruptOverlay {
         }
 
         val copy = TextView(appContext).apply {
-          text = "I’m interrupting you because you asked me to.\nOpen Unloop to continue with a short challenge."
+          text = copyText
           setTextColor(Color.parseColor("#F2F5F8"))
           setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
           gravity = Gravity.CENTER
@@ -122,7 +149,7 @@ object InterruptOverlay {
         }
 
         val open = Button(appContext).apply {
-          text = "Open challenge"
+          text = buttonText
           setBackgroundColor(Color.parseColor("#E85D04"))
           setTextColor(Color.WHITE)
           setOnClickListener {
@@ -143,6 +170,7 @@ object InterruptOverlay {
           }
         }
 
+        root.addView(icon)
         root.addView(brand)
         root.addView(copy)
         root.addView(open)
@@ -205,5 +233,15 @@ object InterruptOverlay {
     } catch (t: Throwable) {
       Log.e(TAG, "launchApp from overlay failed", t)
     }
+  }
+
+  private fun isItalian(context: Context): Boolean {
+    val locale: Locale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+      context.resources.configuration.locales[0]
+    } else {
+      @Suppress("DEPRECATION")
+      context.resources.configuration.locale
+    }
+    return locale.language.equals("it", ignoreCase = true)
   }
 }

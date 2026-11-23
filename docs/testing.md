@@ -27,7 +27,7 @@ Named bug → test mapping: [`regression_usecases.md`](regression_usecases.md).
 | UsageStats sees dummy FG | **PASS** | `dumpsys usagestats` |
 | Start monitor without UI | **PASS** | `DebugHarnessReceiver` broadcast `DEBUG_START_MONITOR` (**`-p` package required**; **debug builds only**) |
 | Threshold → native interrupt overlay | **PASS** | logcat `THRESHOLD reached` + `interrupt overlay shown` |
-| Open challenge → Unloop Activity | **PASS** | `uiautomator` tap “Open challenge” |
+| Open challenge → Unloop Activity | **PASS** | `uiautomator` tap “Start challenge” (legacy “Open challenge” still matched) |
 | Accel get/set | **PASS** | `adb emu sensor set/get acceleration` |
 | Force-stop / relaunch Activity | **PASS** | `am force-stop` + `am start` |
 | Soft-fail Skip E2E | **PASS** | `harness: cooldown_soft_fail` after Skip (`forceChallenge` + embedded JS) |

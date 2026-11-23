@@ -60,6 +60,18 @@ Defined in Core as `CAPABILITY_PROFILES` / `compatibilityMatrix()` — Vitest as
 
 Missing hardware ⇒ challenge **ineligible**, not “Unloop broken.” Soft challenges (`requires = ∅`) keep an interruption path on poor devices.
 
+### Progressive enhancement (same challenge id)
+
+Some challenges keep a **broad** `requires` floor and upgrade the algorithm when extra sensors are present (adapter passes `deviceCaps` into the challenge UI):
+
+| Challenge | Floor (`requires`) | Advanced when gyro present |
+|-----------|--------------------|----------------------------|
+| `stand_up` | accelerometer | World-vertical linear accel + ignore spin-only waving |
+| `hold_still` | accelerometer | Also reject micro-rotations via gyro rate |
+| `rotate_phone` | accelerometer | World-up yaw away/back (~75°); accel-only keeps portrait↔landscape |
+
+`coin_spin` / `long_press` / `look_away` still **require** gyro (ineligible without it). `shake` / `face_down_flip` stay accel-only.
+
 ## Core vs Android detection
 
 * **Core:** `Challenge`, `Capability`, `DeviceContext`, `pickEligibleChallengeId`, profiles, matrix tests. No RN/Expo/Android imports.

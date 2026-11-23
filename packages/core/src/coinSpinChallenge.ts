@@ -1,4 +1,4 @@
-/** MVP Coin spin: accumulate absolute yaw while phone pivots (~5 full turns). */
+/** Coin spin / in-place turns: accumulate |yaw| around world-up (~N full turns). */
 
 export const COIN_SPIN_CHALLENGE_ID = "coin_spin" as const;
 
@@ -13,8 +13,8 @@ export interface CoinSpinProgress {
 
 /**
  * Integrate |yawRate| over time. Tiny rates are ignored (table noise).
- * `yawRateRadPerSec` should be the gyroscope angular-rate magnitude
- * (√(x²+y²+z²)) so OEM axis mapping does not stall progress.
+ * `yawRateRadPerSec` must be rotation around world-up (gravity axis), not the
+ * 3-axis magnitude — otherwise any phone wobble counts as spin.
  */
 export function advanceCoinSpinProgress(
   previousAccumulatedRad: number,

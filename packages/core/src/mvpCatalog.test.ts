@@ -116,16 +116,40 @@ describe("capability profiles × MVP catalog", () => {
     expect(chosen!.id).not.toBe("shake");
   });
 
-  it("picker falls back when only sensor challenges are enabled but sensors missing", () => {
+  it("picker returns null when only incompatible sensor challenges are enabled", () => {
     const id = pickEligibleChallengeId(
       MVP_CHALLENGES,
       ["shake", "face_down_flip"],
       CAPABILITY_PROFILES.low_end,
     );
-    // soft catalog fallback — interruption path still exists
-    expect(id).toBeTruthy();
-    const challenge = MVP_CHALLENGES.find((c) => c.id === id);
-    expect(challenge?.requires.size).toBe(0);
+    // Do not invent a disabled soft challenge (e.g. breath_tap).
+    expect(id).toBeNull();
+  });
+
+  it("REGRESSION: never picks a challenge the user turned off", () => {
+    const id = pickEligibleChallengeId(
+      MVP_CHALLENGES,
+      ["coin_spin"],
+      CAPABILITY_PROFILES.full,
+      { random: () => 0.99 },
+    );
+    expect(id).toBe("coin_spin");
+
+    const again = pickEligibleChallengeId(
+      MVP_CHALLENGES,
+      ["coin_spin"],
+      CAPABILITY_PROFILES.full,
+      { excludeId: "coin_spin", random: () => 0 },
+    );
+    // Single enabled option may repeat — still never breath_tap.
+    expect(again).toBe("coin_spin");
+
+    const noGyro = pickEligibleChallengeId(
+      MVP_CHALLENGES,
+      ["coin_spin"],
+      CAPABILITY_PROFILES.low_end,
+    );
+    expect(noGyro).toBeNull();
   });
 
   it("REGRESSION: avoids immediate repeat when ≥2 eligible", () => {

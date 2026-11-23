@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import type { Translate } from "../i18n";
+import { detectLocale, type Translate } from "../i18n";
 import { colors, typography } from "../theme";
 
 type Props = {
@@ -10,19 +10,38 @@ type Props = {
 
 type Puzzle = { prompt: string; answer: number };
 
-const PUZZLES: Puzzle[] = [
-  { prompt: "Nearest multiple of 7 to 45?", answer: 42 },
-  { prompt: "Nearest multiple of 5 to 23?", answer: 25 },
-  { prompt: "Nearest multiple of 9 to 50?", answer: 54 },
-  { prompt: "Nearest even number to 17?", answer: 18 },
-  { prompt: "Nearest multiple of 3 to 20?", answer: 21 },
+/**
+ * Directional prompts only — never “nearest” alone when two answers tie
+ * (e.g. odd → two nearest evens). Always say above/below (or higher/lower).
+ */
+const PUZZLES_EN: Puzzle[] = [
+  { prompt: "Nearest multiple of 7 below 45?", answer: 42 },
+  { prompt: "Nearest multiple of 5 above 23?", answer: 25 },
+  { prompt: "Nearest multiple of 9 above 50?", answer: 54 },
+  { prompt: "Nearest even number above 17?", answer: 18 },
+  { prompt: "Nearest multiple of 3 above 20?", answer: 21 },
+  { prompt: "Nearest multiple of 4 below 31?", answer: 28 },
+  { prompt: "Nearest odd number below 20?", answer: 19 },
+  { prompt: "Nearest multiple of 6 above 40?", answer: 42 },
+];
+
+const PUZZLES_IT: Puzzle[] = [
+  { prompt: "Multiplo di 7 più vicino sotto 45?", answer: 42 },
+  { prompt: "Multiplo di 5 più vicino sopra 23?", answer: 25 },
+  { prompt: "Multiplo di 9 più vicino sopra 50?", answer: 54 },
+  { prompt: "Numero pari più vicino sopra 17?", answer: 18 },
+  { prompt: "Multiplo di 3 più vicino sopra 20?", answer: 21 },
+  { prompt: "Multiplo di 4 più vicino sotto 31?", answer: 28 },
+  { prompt: "Numero dispari più vicino sotto 20?", answer: 19 },
+  { prompt: "Multiplo di 6 più vicino sopra 40?", answer: 42 },
 ];
 
 export function NearestMultipleChallenge({ t, onComplete }: Props) {
-  const puzzle = useMemo(
-    () => PUZZLES[Math.floor(Math.random() * PUZZLES.length)]!,
-    [],
-  );
+  const puzzle = useMemo(() => {
+    const pack =
+      detectLocale() === "it" ? PUZZLES_IT : PUZZLES_EN;
+    return pack[Math.floor(Math.random() * pack.length)]!;
+  }, []);
   const [value, setValue] = useState("");
   const [hint, setHint] = useState("");
 

@@ -202,9 +202,16 @@ open_challenge() {
       note "open_challenge: soft-fail home visible — abort"
       return 1
     fi
-    if tap_text "Open challenge" >/dev/null 2>&1; then
+    # EN button is "Start challenge"; keep legacy "Open challenge" for older APKs.
+    local btn=""
+    if tap_text "Start challenge" >/dev/null 2>&1; then
+      btn="Start challenge"
+    elif tap_text "Open challenge" >/dev/null 2>&1; then
+      btn="Open challenge"
+    fi
+    if [[ -n "$btn" ]]; then
       if [[ "$opened" -eq 0 ]]; then
-        safe_tap "Open challenge" || true
+        safe_tap "$btn" || true
         opened=1
         sleep 0.8
         continue

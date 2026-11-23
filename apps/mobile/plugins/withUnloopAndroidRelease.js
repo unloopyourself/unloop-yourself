@@ -1,13 +1,39 @@
 /**
  * Expo config plugin: Play-oriented Android defaults that survive `prebuild --clean`.
+ *
+ * Also ships the brand splash: Expo SDK 57 templates leave a generic
+ * adaptive-icon "target" placeholder as splashscreen_logo unless we overwrite it.
  */
+const fs = require("fs");
+const path = require("path");
 const {
   withAppBuildGradle,
   withAndroidColors,
+  withAndroidStyles,
+  withDangerousMod,
   createRunOncePlugin,
 } = require("@expo/config-plugins");
+const { generateImageAsync } = require("@expo/image-utils");
 
 const PLUGIN_NAME = "withUnloopAndroidRelease";
+
+/** mdpi→xxxhdpi sizes used by the Expo Android template for splashscreen_logo. */
+const SPLASH_LOGO_SIZES = [
+  { folder: "drawable-mdpi", size: 288 },
+  { folder: "drawable-hdpi", size: 432 },
+  { folder: "drawable-xhdpi", size: 576 },
+  { folder: "drawable-xxhdpi", size: 864 },
+  { folder: "drawable-xxxhdpi", size: 1152 },
+];
+
+const SPLASHSCREEN_XML = `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:drawable="@color/splashscreen_background"/>
+  <item>
+    <bitmap android:gravity="center" android:src="@drawable/splashscreen_logo"/>
+  </item>
+</layer-list>
+`;
 
 const SIGNING_SNIPPET = `
 // --- Unloop Play upload signing (env or android/keystore.properties) ---
@@ -112,14 +138,101 @@ function withSplashColors(config) {
   });
 }
 
+/** Point the launch theme at a layer-list (bg + centered mark), not the raw logo. */
+function withSplashTheme(config) {
+  return withAndroidStyles(config, (cfg) => {
+    const styles = cfg.modResults;
+    const appGroup = styles.resources.style || [];
+    for (const style of appGroup) {
+      if (style.$.name !== "Theme.App.SplashScreen") {
+        continue;
+      }
+      const items = style.item || [];
+      let found = false;
+      for (const item of items) {
+        if (item.$.name === "android:windowBackground") {
+          item._ = "@drawable/splashscreen";
+          found = true;
+        }
+      }
+      if (!found) {
+        items.push({
+          $: { name: "android:windowBackground" },
+          _: "@drawable/splashscreen",
+        });
+        style.item = items;
+      }
+    }
+    return cfg;
+  });
+}
+
+function resolveSplashImage(projectRoot, config) {
+  const rel =
+    config.android?.splash?.image ||
+    config.splash?.image ||
+    "./assets/splash-icon.png";
+  return path.resolve(projectRoot, rel);
+}
+
+function withBrandSplashImages(config) {
+  return withDangerousMod(config, [
+    "android",
+    async (cfg) => {
+      const projectRoot = cfg.modRequest.projectRoot;
+      const resRoot = path.join(
+        cfg.modRequest.platformProjectRoot,
+        "app",
+        "src",
+        "main",
+        "res",
+      );
+      const src = resolveSplashImage(projectRoot, cfg);
+      if (!fs.existsSync(src)) {
+        console.warn(
+          `[${PLUGIN_NAME}] splash image missing at ${src} — leaving template logo`,
+        );
+        return cfg;
+      }
+
+      const drawableDir = path.join(resRoot, "drawable");
+      fs.mkdirSync(drawableDir, { recursive: true });
+      fs.writeFileSync(path.join(drawableDir, "splashscreen.xml"), SPLASHSCREEN_XML);
+
+      const cachePath = path.join(projectRoot, ".expo", "unloop-splash-cache");
+      fs.mkdirSync(cachePath, { recursive: true });
+
+      for (const { folder, size } of SPLASH_LOGO_SIZES) {
+        const outDir = path.join(resRoot, folder);
+        fs.mkdirSync(outDir, { recursive: true });
+        const { source: buffer } = await generateImageAsync(
+          { projectRoot, cacheType: "unloop-splash" },
+          {
+            src,
+            width: size,
+            height: size,
+            resizeMode: "contain",
+            backgroundColor: "transparent",
+          },
+        );
+        fs.writeFileSync(path.join(outDir, "splashscreen_logo.png"), buffer);
+      }
+
+      return cfg;
+    },
+  ]);
+}
+
 function withUnloopAndroidRelease(config) {
   config = withVersionAndSigning(config);
   config = withSplashColors(config);
+  config = withSplashTheme(config);
+  config = withBrandSplashImages(config);
   return config;
 }
 
 module.exports = createRunOncePlugin(
   withUnloopAndroidRelease,
   PLUGIN_NAME,
-  "1.0.0",
+  "1.1.0",
 );

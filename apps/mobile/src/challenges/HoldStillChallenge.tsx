@@ -5,18 +5,20 @@ import {
   challengeProgressDisplayPct,
 } from "@unloop/core";
 import type { Translate } from "../i18n";
-import { subscribeAccelerometerRaw } from "../expoSensorPort";
+import { subscribeAccelWithOptionalGyro } from "../expoSensorPort";
 import { challengeStyles as styles } from "./challengeUi";
 
 type Props = {
   t: Translate;
   onComplete: () => void;
+  /** When true, micro-rotations (gyro) also reset the hold. */
+  hasGyro?: boolean;
 };
 
-/** Real stillness via accelerometer magnitude + jerk (not a timer alone). */
+/** Real stillness via accelerometer (± gyro). Not a timer alone. */
 const REQUIRED_MS = 5_000;
 
-export function HoldStillChallenge({ t, onComplete }: Props) {
+export function HoldStillChallenge({ t, onComplete, hasGyro = false }: Props) {
   const [heldMs, setHeldMs] = useState(0);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -25,28 +27,32 @@ export function HoldStillChallenge({ t, onComplete }: Props) {
     let held = 0;
     let prevMag = 1;
     let finished = false;
-    const { stop } = subscribeAccelerometerRaw((ax, ay, az, deltaMs) => {
-      if (finished) {
-        return;
-      }
-      const mag = Math.sqrt(ax * ax + ay * ay + az * az);
-      const progress = advanceHoldStillProgress(held, {
-        deviation: Math.abs(mag - 1),
-        jerk: Math.abs(mag - prevMag),
-        deltaMs,
-        requiredMs: REQUIRED_MS,
-      });
-      prevMag = mag;
-      held = progress.heldMs;
-      setHeldMs(held);
-      if (progress.complete) {
-        finished = true;
-        stop();
-        queueMicrotask(() => onCompleteRef.current());
-      }
-    }, 50);
+    const { stop } = subscribeAccelWithOptionalGyro(
+      (ax, ay, az, gyroRate, deltaMs) => {
+        if (finished) {
+          return;
+        }
+        const mag = Math.sqrt(ax * ax + ay * ay + az * az);
+        const progress = advanceHoldStillProgress(held, {
+          deviation: Math.abs(mag - 1),
+          jerk: Math.abs(mag - prevMag),
+          deltaMs,
+          requiredMs: REQUIRED_MS,
+          ...(hasGyro ? { gyroRate } : {}),
+        });
+        prevMag = mag;
+        held = progress.heldMs;
+        setHeldMs(held);
+        if (progress.complete) {
+          finished = true;
+          stop();
+          queueMicrotask(() => onCompleteRef.current());
+        }
+      },
+      { intervalMs: 50, useGyro: hasGyro },
+    );
     return () => stop();
-  }, []);
+  }, [hasGyro]);
 
   const pct = challengeProgressDisplayPct(heldMs, REQUIRED_MS, heldMs >= REQUIRED_MS);
 

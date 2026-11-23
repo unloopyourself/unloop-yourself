@@ -86,10 +86,37 @@ export type { LookAwayRotateProgress } from "./lookAwayRotateChallenge.js";
 
 export {
   STAND_SIT_CHALLENGE_ID,
+  advanceStandSitFromSample,
   advanceStandSitProgress,
   createStandSitState,
 } from "./standSitChallenge.js";
-export type { StandSitProgress, StandSitState } from "./standSitChallenge.js";
+export type {
+  StandSitMode,
+  StandSitProgress,
+  StandSitState,
+} from "./standSitChallenge.js";
+
+export {
+  ROTATE_AWAY_RAD,
+  ROTATE_BACK_RAD,
+  ROTATE_PHONE_CHALLENGE_ID,
+  advanceRotateYawProgress,
+  createRotateYawState,
+} from "./rotatePhoneChallenge.js";
+export type {
+  RotateYawProgress,
+  RotateYawState,
+  RotateYawStep,
+} from "./rotatePhoneChallenge.js";
+
+export {
+  createGravityState,
+  gravityUnit,
+  updateGravity,
+  verticalLinearAccel,
+  yawRateAroundGravity,
+} from "./gravityEstimate.js";
+export type { GravityState } from "./gravityEstimate.js";
 
 export {
   AIR_CIRCLE,

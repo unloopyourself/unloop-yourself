@@ -121,6 +121,7 @@ class UsageMonitorService : Service() {
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
       ACTION_STOP -> {
+        MonitorPrefs.clearDesired(this)
         stopSelfSafe()
         return START_NOT_STICKY
       }
@@ -128,24 +129,7 @@ class UsageMonitorService : Service() {
         val raw = intent.getStringExtra(EXTRA_PACKAGES)
           ?: intent.getStringExtra(EXTRA_PACKAGE)
           ?: ""
-        packageTargets = parsePackages(raw)
-        thresholdMs = intent.getLongExtra(EXTRA_THRESHOLD_MS, 60_000L)
-        packagesCsv = packageTargets.joinToString(",")
-        serviceRunning = true
-        accumulatedMs = 0L
-        lastTickElapsedRealtime = 0L
-        lastKnownFgPackage = null
-        matchingPlaybackPackage = null
-        fired = false
-        wasMatching = false
-        wasInCooldown = false
-        armCooldownUntil(0L)
-        Log.i(TAG, "START monitoring $packageTargets thr=${thresholdMs}ms")
-        startForeground(NOTIFICATION_ID, buildNotification("Watching for autopilot…"))
-        handler.removeCallbacks(tick)
-        refreshForegroundState()
-        lastTickElapsedRealtime = SystemClock.elapsedRealtime()
-        handler.post(tick)
+        applyStart(parsePackages(raw), intent.getLongExtra(EXTRA_THRESHOLD_MS, 60_000L))
       }
       ACTION_UPDATE_PACKAGES -> {
         val raw = intent.getStringExtra(EXTRA_PACKAGES) ?: ""
@@ -156,6 +140,7 @@ class UsageMonitorService : Service() {
         }
         packageTargets = next
         packagesCsv = packageTargets.joinToString(",")
+        MonitorPrefs.setPackages(this, packagesCsv)
         if (matchingPlaybackPackage != null && matchingPlaybackPackage !in packageTargets) {
           matchingPlaybackPackage = null
         }
@@ -167,8 +152,43 @@ class UsageMonitorService : Service() {
         Log.i(TAG, "UPDATE packages $packageTargets (cooldown=${inCooldown()})")
         updateNotification(friendlyStatus(matchedTargetPackage() != null, matchedTargetPackage()))
       }
+      else -> {
+        // System sticky restart (null intent) or unknown action — resume if desired.
+        if (!serviceRunning || packageTargets.isEmpty()) {
+          val packages = parsePackages(MonitorPrefs.packagesCsv(this))
+          if (MonitorPrefs.isDesired(this) && packages.isNotEmpty()) {
+            Log.i(TAG, "sticky/null intent — resuming from prefs")
+            applyStart(packages, MonitorPrefs.thresholdMs(this))
+          } else if (!serviceRunning) {
+            stopSelf()
+            return START_NOT_STICKY
+          }
+        }
+      }
     }
     return START_STICKY
+  }
+
+  private fun applyStart(targets: Set<String>, threshold: Long) {
+    packageTargets = targets
+    thresholdMs = threshold
+    packagesCsv = packageTargets.joinToString(",")
+    MonitorPrefs.setDesired(this, true, packagesCsv, thresholdMs)
+    serviceRunning = true
+    accumulatedMs = 0L
+    lastTickElapsedRealtime = 0L
+    lastKnownFgPackage = null
+    matchingPlaybackPackage = null
+    fired = false
+    wasMatching = false
+    wasInCooldown = false
+    armCooldownUntil(0L)
+    Log.i(TAG, "START monitoring $packageTargets thr=${thresholdMs}ms")
+    startForeground(NOTIFICATION_ID, buildNotification("Watching for autopilot…"))
+    handler.removeCallbacks(tick)
+    refreshForegroundState()
+    lastTickElapsedRealtime = SystemClock.elapsedRealtime()
+    handler.post(tick)
   }
 
   private fun parsePackages(raw: String): Set<String> =

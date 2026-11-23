@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { Capability } from "@unloop/core";
 import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
 import type { ChallengeId } from "./registry";
@@ -27,6 +28,8 @@ type Props = {
   t: Translate;
   onComplete: () => void;
   onSoftFail: () => void;
+  /** Runtime sensor set — progressive enhancement inside a challenge id. */
+  deviceCaps?: ReadonlySet<Capability>;
 };
 
 export function ChallengeHost({
@@ -35,7 +38,9 @@ export function ChallengeHost({
   t,
   onComplete,
   onSoftFail,
+  deviceCaps,
 }: Props) {
+  const hasGyro = deviceCaps?.has("gyroscope") === true;
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   const onSoftFailRef = useRef(onSoftFail);
@@ -99,7 +104,11 @@ export function ChallengeHost({
         <AirWriteChallenge t={t} onComplete={finishComplete} />
       )}
       {challengeId === "hold_still" && (
-        <HoldStillChallenge t={t} onComplete={finishComplete} />
+        <HoldStillChallenge
+          t={t}
+          onComplete={finishComplete}
+          hasGyro={hasGyro}
+        />
       )}
       {challengeId === "countdown_type" && (
         <CountdownTypeChallenge t={t} onComplete={finishComplete} />
@@ -114,10 +123,18 @@ export function ChallengeHost({
         <LookAwayChallenge t={t} onComplete={finishComplete} />
       )}
       {challengeId === "rotate_phone" && (
-        <RotatePhoneChallenge t={t} onComplete={finishComplete} />
+        <RotatePhoneChallenge
+          t={t}
+          onComplete={finishComplete}
+          hasGyro={hasGyro}
+        />
       )}
       {challengeId === "stand_up" && (
-        <StandUpChallenge t={t} onComplete={finishComplete} />
+        <StandUpChallenge
+          t={t}
+          onComplete={finishComplete}
+          hasGyro={hasGyro}
+        />
       )}
       {challengeId === "sip_water" && (
         <SipWaterChallenge t={t} onComplete={finishComplete} />

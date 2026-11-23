@@ -24,24 +24,29 @@ export function CoinSpinChallenge({ t, onComplete }: Props) {
   useEffect(() => {
     let accumulated = 0;
     let finished = false;
-    const { stop } = subscribeGyroscopeYaw((yawRate, deltaMs) => {
-      if (finished) {
-        return;
-      }
-      const progress = advanceCoinSpinProgress(accumulated, {
-        yawRateRadPerSec: yawRate,
-        deltaMs,
-        requiredTurns: REQUIRED_TURNS,
-      });
-      accumulated = progress.accumulatedRad;
-      setTurns(progress.turns);
-      if (progress.complete) {
-        finished = true;
-        stop();
-        setDone(true);
-        queueMicrotask(() => onCompleteRef.current());
-      }
-    });
+    const { stop } = subscribeGyroscopeYaw(
+      (yawRate, deltaMs) => {
+        if (finished) {
+          return;
+        }
+        const progress = advanceCoinSpinProgress(accumulated, {
+          yawRateRadPerSec: yawRate,
+          deltaMs,
+          requiredTurns: REQUIRED_TURNS,
+          minRateRadPerSec: 0.35,
+        });
+        accumulated = progress.accumulatedRad;
+        setTurns(progress.turns);
+        if (progress.complete) {
+          finished = true;
+          stop();
+          setDone(true);
+          queueMicrotask(() => onCompleteRef.current());
+        }
+      },
+      // Freeze world-up after settle so the spin itself does not corrupt gravity.
+      { lockGravityAfterMs: 400 },
+    );
     return () => stop();
   }, []);
 

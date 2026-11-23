@@ -32,28 +32,31 @@ export function LongPressChallenge({ t, onComplete }: Props) {
 
   useEffect(() => {
     let accumulated = 0;
-    const { stop } = subscribeGyroscopeYaw((yawRate, deltaMs) => {
-      if (doneRef.current || !holdingRef.current) {
-        return;
-      }
-      const progress = advanceCoinSpinProgress(accumulated, {
-        yawRateRadPerSec: yawRate,
-        deltaMs,
-        requiredTurns: REQUIRED_TURNS,
-        minRateRadPerSec: 0.4,
-      });
-      accumulated = progress.accumulatedRad;
-      setTurns(progress.turns);
-      if (
-        progress.complete &&
-        heldMsRef.current >= MIN_HOLD_MS &&
-        !doneRef.current
-      ) {
-        doneRef.current = true;
-        stop();
-        queueMicrotask(() => onCompleteRef.current());
-      }
-    });
+    const { stop } = subscribeGyroscopeYaw(
+      (yawRate, deltaMs) => {
+        if (doneRef.current || !holdingRef.current) {
+          return;
+        }
+        const progress = advanceCoinSpinProgress(accumulated, {
+          yawRateRadPerSec: yawRate,
+          deltaMs,
+          requiredTurns: REQUIRED_TURNS,
+          minRateRadPerSec: 0.35,
+        });
+        accumulated = progress.accumulatedRad;
+        setTurns(progress.turns);
+        if (
+          progress.complete &&
+          heldMsRef.current >= MIN_HOLD_MS &&
+          !doneRef.current
+        ) {
+          doneRef.current = true;
+          stop();
+          queueMicrotask(() => onCompleteRef.current());
+        }
+      },
+      { lockGravityAfterMs: 400 },
+    );
     return () => stop();
   }, []);
 

@@ -35,4 +35,21 @@ describe("hold still", () => {
     expect(reset.heldMs).toBe(0);
     expect(reset.complete).toBe(false);
   });
+
+  it("gyro assist resets on micro-rotation even when accel looks still", () => {
+    const mid = advanceHoldStillProgress(2000, {
+      deviation: 0.02,
+      jerk: 0.01,
+      deltaMs: 100,
+      gyroRate: 0.05,
+    });
+    expect(mid.heldMs).toBeGreaterThan(2000);
+    const spun = advanceHoldStillProgress(mid.heldMs, {
+      deviation: 0.02,
+      jerk: 0.01,
+      deltaMs: 100,
+      gyroRate: 1.2,
+    });
+    expect(spun.heldMs).toBe(0);
+  });
 });
