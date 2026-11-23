@@ -14,7 +14,7 @@ type Props = {
   onComplete: () => void;
 };
 
-/** Look behind you and point the phone that way — ≥120° yaw via gyroscope. */
+/** Look behind you — net ~120° around world-up (signed yaw, not 3-axis |ω|). */
 export function LookAwayChallenge({ t, onComplete }: Props) {
   const [rad, setRad] = useState(0);
   const onCompleteRef = useRef(onComplete);
@@ -43,9 +43,14 @@ export function LookAwayChallenge({ t, onComplete }: Props) {
     return () => stop();
   }, []);
 
-  const deg = Math.round((rad * 180) / Math.PI);
+  const net = Math.abs(rad);
+  const deg = Math.round((net * 180) / Math.PI);
   const need = Math.round((LOOK_AWAY_MIN_RAD * 180) / Math.PI);
-  const pct = challengeProgressDisplayPct(rad, LOOK_AWAY_MIN_RAD, rad >= LOOK_AWAY_MIN_RAD);
+  const pct = challengeProgressDisplayPct(
+    net,
+    LOOK_AWAY_MIN_RAD,
+    net >= LOOK_AWAY_MIN_RAD,
+  );
 
   return (
     <View style={styles.wrap}>

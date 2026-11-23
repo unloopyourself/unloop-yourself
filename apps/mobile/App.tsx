@@ -148,10 +148,22 @@ export default function App() {
     };
   }, [sensorPort]);
 
-  const persist = useCallback((next: UnloopSettings) => {
-    setSettings(next);
-    void saveSettings(next);
-  }, []);
+  const persist = useCallback(
+    (next: UnloopSettings) => {
+      // Sync ref + engine immediately so a threshold that fires while Settings
+      // is open (or before React effects flush) sees the new challenge list /
+      // timings — not the previous selection.
+      settingsRef.current = next;
+      engine.setTimings({
+        cooldownMs: next.cooldownMs,
+        challengeTimeoutMs: next.challengeTimeoutMs,
+      });
+      engine.setChallengeOptions(next.enabledChallengeIds, deviceCaps);
+      setSettings(next);
+      void saveSettings(next);
+    },
+    [deviceCaps, engine],
+  );
 
   const applyEffects = useCallback(
     (effects: EngineEffect[]) => {
@@ -211,8 +223,19 @@ export default function App() {
             UnloopUsage.clearCooldown();
             setMessage(t("app.back_on_watch"));
             break;
-          case "monitoring_started":
+          case "monitoring_started": {
+            const s = settingsRef.current;
+            if (s) {
+              setMessage(
+                t("app.watching", {
+                  feeds: s.enabledLabels.join(", "),
+                  threshold: Math.round(s.thresholdMs / 1000),
+                  cooldown: Math.round(s.cooldownMs / 1000),
+                }),
+              );
+            }
             break;
+          }
           case "paused":
             UnloopUsage.clearCooldown();
             break;
@@ -553,6 +576,7 @@ export default function App() {
             t={t}
             onComplete={completeChallenge}
             onSoftFail={softFailChallenge}
+            deviceCaps={deviceCaps}
           />
         </ScrollView>
       ) : inChallenge && settings && !challengeOpened ? (

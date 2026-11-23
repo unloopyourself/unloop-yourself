@@ -1,61 +1,70 @@
 import { useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import {
-  advanceStandSitProgress,
+  advanceStandSitFromSample,
   challengeProgressDisplayPct,
   createStandSitState,
+  type Capability,
 } from "@unloop/core";
 import type { Translate } from "../i18n";
-import { subscribeAccelerometerRaw } from "../expoSensorPort";
+import { subscribeAccelWithOptionalGyro } from "../expoSensorPort";
 import { challengeStyles as styles } from "./challengeUi";
 
 type Props = {
   t: Translate;
   onComplete: () => void;
+  /** When true, use vertical gravity path + gyro spin rejection. */
+  hasGyro?: boolean;
 };
 
 const REQUIRED = 3;
 
-/** Stand up / sit down three times — accelerometer |g| deltas only (no gyro). */
-export function StandUpChallenge({ t, onComplete }: Props) {
+/**
+ * Stand up / sit down three times.
+ * - Broad path (no gyro): world-vertical linear accel from gravity low-pass.
+ * - Advanced (gyro): same vertical path + ignore spin-only phone waving.
+ */
+export function StandUpChallenge({ t, onComplete, hasGyro = false }: Props) {
   const [bursts, setBursts] = useState(0);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
   useEffect(() => {
     let state = createStandSitState();
-    let prevMag = 1;
     let finished = false;
-    const { stop } = subscribeAccelerometerRaw((ax, ay, az, deltaMs) => {
-      if (finished) {
-        return;
-      }
-      const mag = Math.sqrt(ax * ax + ay * ay + az * az);
-      // Delta-|g| only: holding the phone tilted still must not count as motion.
-      const motion = Math.abs(mag - prevMag);
-      prevMag = mag;
-      const progress = advanceStandSitProgress(state, {
-        motion,
-        deltaMs,
-        requiredBursts: REQUIRED,
-        motionThreshold: 0.16,
-        minCalmMs: 280,
-        minBurstMs: 200,
-      });
-      state = {
-        bursts: progress.bursts,
-        movingMs: progress.movingMs,
-        calmMs: progress.calmMs,
-      };
-      setBursts(progress.bursts);
-      if (progress.complete) {
-        finished = true;
-        stop();
-        queueMicrotask(() => onCompleteRef.current());
-      }
-    }, 50);
+    const { stop } = subscribeAccelWithOptionalGyro(
+      (ax, ay, az, gyroRate, deltaMs) => {
+        if (finished) {
+          return;
+        }
+        const progress = advanceStandSitFromSample(state, {
+          ax,
+          ay,
+          az,
+          deltaMs,
+          gyroRate,
+          requiredBursts: REQUIRED,
+          useVertical: true,
+          useGyroAssist: hasGyro,
+        });
+        state = {
+          bursts: progress.bursts,
+          movingMs: progress.movingMs,
+          calmMs: progress.calmMs,
+          gravity: progress.gravity,
+          lastVerticalSign: progress.lastVerticalSign,
+        };
+        setBursts(progress.bursts);
+        if (progress.complete) {
+          finished = true;
+          stop();
+          queueMicrotask(() => onCompleteRef.current());
+        }
+      },
+      { intervalMs: 50, useGyro: hasGyro },
+    );
     return () => stop();
-  }, []);
+  }, [hasGyro]);
 
   const pct = challengeProgressDisplayPct(bursts, REQUIRED, bursts >= REQUIRED);
 
@@ -71,4 +80,9 @@ export function StandUpChallenge({ t, onComplete }: Props) {
       </Text>
     </View>
   );
+}
+
+/** Helper for tests / settings hints. */
+export function standUpUsesGyro(caps: ReadonlySet<Capability>): boolean {
+  return caps.has("gyroscope");
 }

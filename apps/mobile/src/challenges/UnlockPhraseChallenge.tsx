@@ -27,7 +27,8 @@ export function normalizeUnlockPhrase(text: string): string {
 }
 
 export function UnlockPhraseChallenge({ t, onComplete }: Props) {
-  const phrase = useMemo(() => pickUnlockPhrase(detectLocale()), []);
+  // Fresh pick every mount (ChallengeHost remounts per interrupt).
+  const [phrase] = useState(() => pickUnlockPhrase(detectLocale()));
   const [value, setValue] = useState("");
   const doneRef = useRef(false);
   const normalizedTarget = useMemo(

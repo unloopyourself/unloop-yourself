@@ -87,9 +87,12 @@ export type PickEligibleOptions = {
 };
 
 /**
- * Pick one eligible id. Prefer enabled∩compatible; if empty, any soft
- * (requires∅) challenge still enabled; then any soft in catalog; never an
- * incompatible challenge. Returns null only if catalog has no soft fallback.
+ * Pick one eligible id from the user's enabled set only.
+ * Prefer enabled∩compatible; if empty, soft (requires∅) challenges that are
+ * still enabled. Never invent a challenge the user turned off (e.g. do not
+ * fall back to breath_tap when only coin_spin is enabled).
+ *
+ * Returns null when nothing in `enabledIds` is usable on this device.
  *
  * When `excludeId` is set and there are ≥2 eligible, picks among the others.
  * With a single eligible option, that id may repeat.
@@ -127,14 +130,7 @@ export function pickEligibleChallengeId(
   if (softEnabled.length > 0) {
     return pickFrom(softEnabled);
   }
-  // Last resort: soft catalog challenges only if nothing enabled is compatible
-  // (never invent a disabled sensor challenge like shake).
-  const anySoft = challenges.find(
-    (c) =>
-      c.requires.size === 0 &&
-      isChallengeCompatible(c, { availableCapabilities: available }),
-  );
-  return anySoft?.id ?? null;
+  return null;
 }
 
 /** Matrix cell: challenge id → profile → eligible? */

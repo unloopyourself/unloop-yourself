@@ -26,6 +26,13 @@ const DEFAULTS: UnloopSettings = {
   challengeTimeoutMs: CHALLENGE_TIMEOUT_MS,
 };
 
+/**
+ * Process-local write-through cache. Survives Activity / React remounts while
+ * the JS runtime is alive, so a threshold that races AsyncStorage cannot revive
+ * the previous challenge list after a Settings toggle.
+ */
+let memorySettings: UnloopSettings | null = null;
+
 function clampMs(value: unknown, fallback: number, min: number, max: number): number {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) {
@@ -43,7 +50,33 @@ function resolveChallengeTimeoutMs(raw: unknown): number {
   return clamped;
 }
 
+function normalize(parsed: Partial<UnloopSettings>): UnloopSettings {
+  const labels =
+    Array.isArray(parsed.enabledLabels) && parsed.enabledLabels.length > 0
+      ? parsed.enabledLabels
+      : DEFAULTS.enabledLabels;
+  const challenges = sanitizeEnabledChallengeIds(
+    Array.isArray(parsed.enabledChallengeIds) && parsed.enabledChallengeIds.length > 0
+      ? parsed.enabledChallengeIds
+      : DEFAULTS.enabledChallengeIds,
+  );
+  return {
+    enabledLabels: labels,
+    enabledChallengeIds: challenges,
+    thresholdMs: clampMs(parsed.thresholdMs, DEFAULTS.thresholdMs, 15_000, 600_000),
+    cooldownMs: clampMs(parsed.cooldownMs, DEFAULTS.cooldownMs, 30_000, 600_000),
+    challengeTimeoutMs: resolveChallengeTimeoutMs(parsed.challengeTimeoutMs),
+  };
+}
+
 export async function loadSettings(): Promise<UnloopSettings> {
+  if (memorySettings) {
+    return {
+      ...memorySettings,
+      enabledLabels: [...memorySettings.enabledLabels],
+      enabledChallengeIds: [...memorySettings.enabledChallengeIds],
+    };
+  }
   try {
     const raw = await AsyncStorage.getItem(KEY);
     if (!raw) {
@@ -51,46 +84,68 @@ export async function loadSettings(): Promise<UnloopSettings> {
       const v1 = await AsyncStorage.getItem("unloop.settings.v1");
       if (v1) {
         const parsed = JSON.parse(v1) as { enabledLabels?: string[] };
-        return {
+        const migrated = {
           ...DEFAULTS,
           enabledLabels:
             Array.isArray(parsed.enabledLabels) && parsed.enabledLabels.length > 0
               ? parsed.enabledLabels
               : DEFAULTS.enabledLabels,
         };
+        memorySettings = migrated;
+        return {
+          ...migrated,
+          enabledLabels: [...migrated.enabledLabels],
+          enabledChallengeIds: [...migrated.enabledChallengeIds],
+        };
       }
-      return {
+      const fresh = {
         ...DEFAULTS,
         enabledLabels: [...DEFAULTS.enabledLabels],
         enabledChallengeIds: [...DEFAULTS.enabledChallengeIds],
       };
+      memorySettings = fresh;
+      return {
+        ...fresh,
+        enabledLabels: [...fresh.enabledLabels],
+        enabledChallengeIds: [...fresh.enabledChallengeIds],
+      };
     }
-    const parsed = JSON.parse(raw) as Partial<UnloopSettings>;
-    const labels =
-      Array.isArray(parsed.enabledLabels) && parsed.enabledLabels.length > 0
-        ? parsed.enabledLabels
-        : DEFAULTS.enabledLabels;
-    const challenges = sanitizeEnabledChallengeIds(
-      Array.isArray(parsed.enabledChallengeIds) && parsed.enabledChallengeIds.length > 0
-        ? parsed.enabledChallengeIds
-        : DEFAULTS.enabledChallengeIds,
-    );
+    // Prefer any toggle that landed while this read was in flight.
+    if (memorySettings) {
+      return {
+        ...memorySettings,
+        enabledLabels: [...memorySettings.enabledLabels],
+        enabledChallengeIds: [...memorySettings.enabledChallengeIds],
+      };
+    }
+    const loaded = normalize(JSON.parse(raw) as Partial<UnloopSettings>);
+    memorySettings = loaded;
     return {
-      enabledLabels: labels,
-      enabledChallengeIds: challenges,
-      thresholdMs: clampMs(parsed.thresholdMs, DEFAULTS.thresholdMs, 15_000, 600_000),
-      cooldownMs: clampMs(parsed.cooldownMs, DEFAULTS.cooldownMs, 30_000, 600_000),
-      challengeTimeoutMs: resolveChallengeTimeoutMs(parsed.challengeTimeoutMs),
+      ...loaded,
+      enabledLabels: [...loaded.enabledLabels],
+      enabledChallengeIds: [...loaded.enabledChallengeIds],
     };
   } catch {
-    return {
+    const fallback = {
       ...DEFAULTS,
       enabledLabels: [...DEFAULTS.enabledLabels],
       enabledChallengeIds: [...DEFAULTS.enabledChallengeIds],
     };
+    memorySettings = fallback;
+    return fallback;
   }
 }
 
 export async function saveSettings(settings: UnloopSettings): Promise<void> {
-  await AsyncStorage.setItem(KEY, JSON.stringify(settings));
+  memorySettings = {
+    ...settings,
+    enabledLabels: [...settings.enabledLabels],
+    enabledChallengeIds: [...settings.enabledChallengeIds],
+  };
+  await AsyncStorage.setItem(KEY, JSON.stringify(memorySettings));
+}
+
+/** Test helper — drop the process-local cache. */
+export function clearSettingsMemoryCache(): void {
+  memorySettings = null;
 }
