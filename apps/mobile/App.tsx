@@ -433,6 +433,14 @@ export default function App() {
       const intents = nb.tick();
       for (const intent of intents) {
         if (intent.type === "approaching") {
+          console.log(
+            `buddy_approaching:${intent.eventId}:${intent.mailboxId}`,
+          );
+          if (Platform.OS === "android") {
+            UnloopUsage.logHarness(
+              `buddy_approaching:${intent.eventId}:${intent.mailboxId}`,
+            );
+          }
           void (async () => {
             const s = settingsRef.current;
             if (!s?.buddyEnabled) return;

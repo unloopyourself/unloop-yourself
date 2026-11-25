@@ -318,8 +318,9 @@ Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). Sing
 - **Escalate if:** Policy wording ambiguity.
 
 ### P3-10 — Two-device acceptance (human)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3-06, P3-07
 - **AC:** Two Android devices pair; approaching → nudge → interrupt shows it; cancel path works; documented in STATUS.
 - **Tests:** Human device acceptance.
 - **Escalate if:** Always — milestone.
+- **Notes (2026-11-26):** Live smoke on Samsung + Nokia — pair, approaching FCM, mailbox nudge, interrupt shows “DAL TUO BUDDY / Nokia nudge: take a breath.” Human signed off without re-checking cancel/leave-early.
