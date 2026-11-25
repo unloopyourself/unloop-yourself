@@ -283,21 +283,21 @@ Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). Sing
 - **Escalate if:** Google account / Firebase project creation.
 
 ### P3-05 — Progressive live path: approaching / cancel / B notify UI
-- **Status:** in_progress
+- **Status:** done
 - **Deps:** P3-02, P3-03, P3-04
 - **AC:** At T−warn emit approaching; B notification → ignore / pick staged / record live / default nudge; mailbox bound to eventId; cancel on early exit.
 - **Tests:** Core tests for eventId lifecycle; device scenario when two devices or harness available.
 - **Escalate if:** —
 
 ### P3-06 — Interrupt UI shows buddy nudge; fall through to challenges
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3-05
 - **AC:** Overlay/challenge host renders buddy nudge media/text; empty mailbox → AI stub → embedded challenges; soft-unlock unchanged.
 - **Tests:** Unit + device smoke.
 - **Escalate if:** —
 
 ### P3-07 — Buddy settings (warn lead, quiet hours, default nudge, frequency)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3-02
 - **AC:** All progressive behaviours gated; defaults off or conservative; i18n EN/IT.
 - **Tests:** Settings persist/load; clamp/snap as needed.

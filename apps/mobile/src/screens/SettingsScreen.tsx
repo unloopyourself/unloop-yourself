@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import type { Capability } from "@unloop/core";
@@ -18,6 +19,10 @@ import {
 import { SETTINGS_CHALLENGE_CATALOG, type ChallengeId } from "../challenges/registry";
 import type { UnloopSettings } from "../settings";
 import { statusBarTopInset } from "../layout";
+import {
+  BUDDY_MAX_PUSH_OPTIONS,
+  BUDDY_WARN_LEAD_MINUTE_OPTIONS,
+} from "../buddySettings";
 
 type Props = {
   t: Translate;
@@ -32,6 +37,7 @@ type Props = {
     key: "thresholdMs" | "cooldownMs" | "challengeTimeoutMs",
     minutes: number,
   ) => void;
+  onPatchSettings: (patch: Partial<UnloopSettings>) => void;
   onOpenBuddy: () => void;
 };
 
@@ -45,6 +51,7 @@ export function SettingsScreen({
   onToggleLabel,
   onToggleChallenge,
   onSetTiming,
+  onPatchSettings,
   onOpenBuddy,
 }: Props) {
   const [expandedChallengeId, setExpandedChallengeId] =
@@ -156,12 +163,125 @@ export function SettingsScreen({
 
       <Text style={styles.section}>{t("buddy.section")}</Text>
       <Pressable
+        onPress={() =>
+          onPatchSettings({ buddyEnabled: !settings.buddyEnabled })
+        }
+        style={[styles.buddyLink, settings.buddyEnabled && styles.buddyLinkOn]}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: settings.buddyEnabled }}
+      >
+        <Text
+          style={[
+            styles.buddyLinkLabel,
+            settings.buddyEnabled && styles.buddyLinkLabelOn,
+          ]}
+        >
+          {settings.buddyEnabled ? "✓ " : ""}
+          {t("buddy.enable")}
+        </Text>
+      </Pressable>
+      <Pressable
         onPress={onOpenBuddy}
         style={styles.buddyLink}
         accessibilityRole="button"
       >
         <Text style={styles.buddyLinkLabel}>{t("buddy.open")}</Text>
       </Pressable>
+      {settings.buddyEnabled ? (
+        <>
+          <TimingPicker
+            label={t("buddy.warn_lead")}
+            minutes={Math.round(settings.buddyWarnLeadMs / 60_000)}
+            options={BUDDY_WARN_LEAD_MINUTE_OPTIONS}
+            unitLabel={t("app.minutes_unit")}
+            onSelect={(m) =>
+              onPatchSettings({ buddyWarnLeadMs: m * 60_000 })
+            }
+          />
+          <Pressable
+            onPress={() =>
+              onPatchSettings({
+                buddyQuietHoursEnabled: !settings.buddyQuietHoursEnabled,
+              })
+            }
+            style={[
+              styles.buddyLink,
+              settings.buddyQuietHoursEnabled && styles.buddyLinkOn,
+            ]}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: settings.buddyQuietHoursEnabled }}
+          >
+            <Text
+              style={[
+                styles.buddyLinkLabel,
+                settings.buddyQuietHoursEnabled && styles.buddyLinkLabelOn,
+              ]}
+            >
+              {settings.buddyQuietHoursEnabled ? "✓ " : ""}
+              {t("buddy.quiet_on")}
+            </Text>
+          </Pressable>
+          {settings.buddyQuietHoursEnabled ? (
+            <>
+              <TimingPicker
+                label={t("buddy.quiet_start")}
+                minutes={settings.buddyQuietStartHour}
+                options={[0, 6, 8, 20, 21, 22, 23]}
+                unitLabel="h"
+                onSelect={(h) => onPatchSettings({ buddyQuietStartHour: h })}
+              />
+              <TimingPicker
+                label={t("buddy.quiet_end")}
+                minutes={settings.buddyQuietEndHour}
+                options={[6, 7, 8, 9, 10, 12]}
+                unitLabel="h"
+                onSelect={(h) => onPatchSettings({ buddyQuietEndHour: h })}
+              />
+            </>
+          ) : null}
+          <TimingPicker
+            label={t("buddy.max_push")}
+            minutes={settings.buddyMaxPushPerHour}
+            options={BUDDY_MAX_PUSH_OPTIONS}
+            unitLabel="/h"
+            onSelect={(n) => onPatchSettings({ buddyMaxPushPerHour: n })}
+          />
+          <Pressable
+            onPress={() =>
+              onPatchSettings({
+                buddyNotifyOnLeave: !settings.buddyNotifyOnLeave,
+              })
+            }
+            style={[
+              styles.buddyLink,
+              settings.buddyNotifyOnLeave && styles.buddyLinkOn,
+            ]}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: settings.buddyNotifyOnLeave }}
+          >
+            <Text
+              style={[
+                styles.buddyLinkLabel,
+                settings.buddyNotifyOnLeave && styles.buddyLinkLabelOn,
+              ]}
+            >
+              {settings.buddyNotifyOnLeave ? "✓ " : ""}
+              {t("buddy.notify_leave")}
+            </Text>
+          </Pressable>
+          <Text style={styles.timingLabel}>{t("buddy.default_nudge")}</Text>
+          <TextInput
+            style={styles.buddyInput}
+            value={settings.buddyDefaultNudge}
+            onChangeText={(text) =>
+              onPatchSettings({ buddyDefaultNudge: text.slice(0, 280) })
+            }
+            placeholder={t("buddy.default_nudge_placeholder")}
+            placeholderTextColor={colors.textMuted}
+            multiline
+          />
+        </>
+      ) : null}
 
       <Text style={styles.section}>{t("app.timings_section")}</Text>
       <TimingPicker
@@ -370,5 +490,17 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: colors.chipOff,
   },
+  buddyLinkOn: { backgroundColor: colors.chipOn },
   buddyLinkLabel: { fontWeight: "700", color: colors.ink, fontSize: 14 },
+  buddyLinkLabelOn: { color: colors.white },
+  buddyInput: {
+    width: "100%",
+    minHeight: 72,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: colors.white,
+    color: colors.ink,
+    fontSize: 14,
+    textAlignVertical: "top",
+  },
 });

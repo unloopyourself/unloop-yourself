@@ -9,6 +9,11 @@ import {
   TIMING_MINUTE_OPTIONS,
 } from "./targets";
 import { DEFAULT_ENABLED_CHALLENGE_IDS, sanitizeEnabledChallengeIds } from "./challenges/registry";
+import {
+  BUDDY_SETTINGS_DEFAULTS,
+  normalizeBuddySettings,
+  type BuddySettingsSlice,
+} from "./buddySettings";
 
 const KEY = "unloop.settings.v2";
 const MINUTE_MS = 60_000;
@@ -19,7 +24,7 @@ export type UnloopSettings = {
   thresholdMs: number;
   cooldownMs: number;
   challengeTimeoutMs: number;
-};
+} & BuddySettingsSlice;
 
 const DEFAULTS: UnloopSettings = {
   enabledLabels: [...DEFAULT_ENABLED_LABELS],
@@ -27,6 +32,7 @@ const DEFAULTS: UnloopSettings = {
   thresholdMs: THRESHOLD_MS,
   cooldownMs: COOLDOWN_MS,
   challengeTimeoutMs: CHALLENGE_TIMEOUT_MS,
+  ...BUDDY_SETTINGS_DEFAULTS,
 };
 
 /**
@@ -80,6 +86,14 @@ function resolveChallengeTimeoutMs(raw: unknown): number {
   );
 }
 
+function cloneSettings(s: UnloopSettings): UnloopSettings {
+  return {
+    ...s,
+    enabledLabels: [...s.enabledLabels],
+    enabledChallengeIds: [...s.enabledChallengeIds],
+  };
+}
+
 function normalize(parsed: Partial<UnloopSettings>): UnloopSettings {
   const labels =
     Array.isArray(parsed.enabledLabels) && parsed.enabledLabels.length > 0
@@ -104,16 +118,13 @@ function normalize(parsed: Partial<UnloopSettings>): UnloopSettings {
       DEFAULTS.cooldownMs,
     ),
     challengeTimeoutMs: resolveChallengeTimeoutMs(parsed.challengeTimeoutMs),
+    ...normalizeBuddySettings(parsed),
   };
 }
 
 export async function loadSettings(): Promise<UnloopSettings> {
   if (memorySettings) {
-    return {
-      ...memorySettings,
-      enabledLabels: [...memorySettings.enabledLabels],
-      enabledChallengeIds: [...memorySettings.enabledChallengeIds],
-    };
+    return cloneSettings(memorySettings);
   }
   try {
     const raw = await AsyncStorage.getItem(KEY);
@@ -130,56 +141,28 @@ export async function loadSettings(): Promise<UnloopSettings> {
               : DEFAULTS.enabledLabels,
         };
         memorySettings = migrated;
-        return {
-          ...migrated,
-          enabledLabels: [...migrated.enabledLabels],
-          enabledChallengeIds: [...migrated.enabledChallengeIds],
-        };
+        return cloneSettings(migrated);
       }
-      const fresh = {
-        ...DEFAULTS,
-        enabledLabels: [...DEFAULTS.enabledLabels],
-        enabledChallengeIds: [...DEFAULTS.enabledChallengeIds],
-      };
+      const fresh = cloneSettings(DEFAULTS);
       memorySettings = fresh;
-      return {
-        ...fresh,
-        enabledLabels: [...fresh.enabledLabels],
-        enabledChallengeIds: [...fresh.enabledChallengeIds],
-      };
+      return cloneSettings(fresh);
     }
     // Prefer any toggle that landed while this read was in flight.
     if (memorySettings) {
-      return {
-        ...memorySettings,
-        enabledLabels: [...memorySettings.enabledLabels],
-        enabledChallengeIds: [...memorySettings.enabledChallengeIds],
-      };
+      return cloneSettings(memorySettings);
     }
     const loaded = normalize(JSON.parse(raw) as Partial<UnloopSettings>);
     memorySettings = loaded;
-    return {
-      ...loaded,
-      enabledLabels: [...loaded.enabledLabels],
-      enabledChallengeIds: [...loaded.enabledChallengeIds],
-    };
+    return cloneSettings(loaded);
   } catch {
-    const fallback = {
-      ...DEFAULTS,
-      enabledLabels: [...DEFAULTS.enabledLabels],
-      enabledChallengeIds: [...DEFAULTS.enabledChallengeIds],
-    };
+    const fallback = cloneSettings(DEFAULTS);
     memorySettings = fallback;
     return fallback;
   }
 }
 
 export async function saveSettings(settings: UnloopSettings): Promise<void> {
-  memorySettings = {
-    ...settings,
-    enabledLabels: [...settings.enabledLabels],
-    enabledChallengeIds: [...settings.enabledChallengeIds],
-  };
+  memorySettings = cloneSettings(settings);
   await AsyncStorage.setItem(KEY, JSON.stringify(memorySettings));
 }
 

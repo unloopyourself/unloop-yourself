@@ -53,6 +53,8 @@ export {
 export type { NudgeBusClock, NudgeLiveSession } from "./nudgeBus.js";
 export { NudgeBus, createNudgeEventId } from "./nudgeBus.js";
 
+export { isInQuietHours } from "./quietHours.js";
+
 export type { BuddyRecord, PairInviteV0, PairRole } from "./pairing.js";
 export {
   PAIR_HOST,

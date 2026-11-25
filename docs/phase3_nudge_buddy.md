@@ -173,10 +173,10 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 | P3-01 | Core: `NudgeProvider`, `NudgeBus` types, cascade hook | done | AiStub no-op |
 | P3-02 | Local pairing UI + `unloop://` parse + buddy store (no relay yet) | done | QR + paste; system camera opens scheme |
 | P3-03 | CF Worker skeleton + KV mailbox TTL | done | `unloop-relay.unloopyourself.workers.dev` |
-| P3-04 | `PushPort` + FCM adapter (Android); token register | done | expo-notifications + Worker FCM v1; device smoke when ADB |
-| P3-05 | `approaching` / `cancel` / mailbox put-get; B notification UI | todo | Progressive live path |
-| P3-06 | Interrupt UI renders buddy nudge; fallback challenges | todo | |
-| P3-07 | Settings: warn lead, quiet hours, default nudge, frequencies | todo | |
+| P3-04 | `PushPort` + FCM adapter (Android); token register | done | expo-notifications + Worker FCM v1 |
+| P3-05 | `approaching` / `cancel` / mailbox put-get; B compose UI | done | Ignore / staged / live / default |
+| P3-06 | Interrupt UI renders buddy nudge; fallback challenges | done | Text nudge then challenge |
+| P3-07 | Settings: warn lead, quiet hours, default nudge, frequencies | done | Default Buddy off |
 | P3-08 | Optional HTTPS pair links on Pages + `assetlinks.json` | todo | After package signing fingerprints stable |
 | P3-09 | Privacy policy / Play declarations for Buddy + FCM | todo | Human |
 | P3-10 | Device acceptance: two Android devices paired | todo | Human |

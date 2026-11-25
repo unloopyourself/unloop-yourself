@@ -41,9 +41,20 @@ import * as Linking from "expo-linking";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { AboutScreen } from "./src/screens/AboutScreen";
+import * as Notifications from "expo-notifications";
 import { BuddyScreen } from "./src/screens/BuddyScreen";
+import { BuddyComposeScreen } from "./src/screens/BuddyComposeScreen";
+import { BuddyNudgeView } from "./src/screens/BuddyNudgeView";
 import { MenuSheet } from "./src/screens/MenuSheet";
 import { loadBuddies, loadOrCreateIdentity } from "./src/buddyStore";
+import {
+  allowApproachingPush,
+  decodeNudgeBlob,
+  loadPendingApproach,
+  setPendingApproach,
+  type PendingApproach,
+} from "./src/buddyNudgeStore";
+import { isInQuietHours } from "./src/buddySettings";
 import {
   ExpoPushPort,
   getRelayBaseUrl,
@@ -51,15 +62,22 @@ import {
 } from "./src/push/expoPushPort";
 import { HttpRelayPort } from "./src/push/httpRelayPort";
 
-/** Default warn lead before interrupt (P3-05); Settings UI comes in P3-07. */
-const BUDDY_WARN_LEAD_MS = 2 * 60_000;
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 type DomainEvents = {
   CHALLENGE_COMPLETED: { atMs: number };
   THRESHOLD_REACHED: { appId: string; deltaU: number };
 };
 
-type AppScreen = "home" | "settings" | "about" | "buddy";
+type AppScreen = "home" | "settings" | "about" | "buddy" | "buddyCompose";
 
 function isPairDeepLink(url: string): boolean {
   return /unloop:\/\/pair/i.test(url) || /[?&#]p=/.test(url);
@@ -110,6 +128,10 @@ export default function App() {
   const [pendingPairInvite, setPendingPairInvite] = useState<string | null>(
     null,
   );
+  const [pendingApproach, setPendingApproachState] =
+    useState<PendingApproach | null>(null);
+  const [buddyNudgeText, setBuddyNudgeText] = useState<string | null>(null);
+  const [buddyNudgeDismissed, setBuddyNudgeDismissed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const nudgeBusRef = useRef<NudgeBus | null>(null);
   /** Remount ChallengeHost when the user taps Open (fresh sensors + timeout). */
@@ -203,12 +225,18 @@ export default function App() {
 
       for (const effect of effects) {
         switch (effect.type) {
-          case "enter_challenge":
+            case "enter_challenge":
             setActiveChallengeId(effect.challengeId as ChallengeId);
             setLastDelta(effect.deltaU);
             setMessage(t("app.interrupt"));
             // Wait for Open — do not mount ChallengeHost under the shield yet.
             setChallengeOpened(false);
+            setBuddyNudgeDismissed(false);
+            void nudgeBusRef.current?.fetchNudge().then((blob) => {
+              if (!blob) return;
+              const decoded = decodeNudgeBlob(blob);
+              if (decoded?.body) setBuddyNudgeText(decoded.body);
+            });
             if (Platform.OS === "android") {
               UnloopUsage.stopChallengeTone();
               UnloopUsage.logHarness(`enter_challenge:${effect.challengeId}`);
@@ -312,6 +340,76 @@ export default function App() {
     };
   }, []);
 
+  const openApproachCompose = useCallback(async (pending: PendingApproach) => {
+    const s = settingsRef.current;
+    if (s?.buddyQuietHoursEnabled) {
+      const hour = new Date().getHours();
+      if (
+        isInQuietHours(hour, s.buddyQuietStartHour, s.buddyQuietEndHour)
+      ) {
+        return;
+      }
+    }
+    if (s && !(await allowApproachingPush(s.buddyMaxPushPerHour))) {
+      return;
+    }
+    await setPendingApproach(pending);
+    setPendingApproachState(pending);
+    setScreen("buddyCompose");
+    setMenuOpen(false);
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: t("buddy.approaching_title"),
+          body: t("buddy.approaching_body"),
+          data: {
+            type: "approaching",
+            eventId: pending.eventId,
+            mailboxId: pending.mailboxId,
+          },
+        },
+        trigger: null,
+      });
+    } catch {
+      /* banner optional */
+    }
+  }, [t]);
+
+  // FCM / local notification → Buddy compose (approaching).
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    void loadPendingApproach().then((p) => {
+      if (p) {
+        setPendingApproachState(p);
+      }
+    });
+
+    const handleData = (data: Record<string, unknown> | undefined) => {
+      if (!data || data.type !== "approaching") return;
+      const eventId = String(data.eventId ?? "");
+      const mailboxId = String(data.mailboxId ?? "");
+      if (!eventId || !mailboxId) return;
+      void openApproachCompose({
+        eventId,
+        mailboxId,
+        receivedAtMs: Date.now(),
+      });
+    };
+
+    const subRecv = Notifications.addNotificationReceivedListener((n) => {
+      handleData(n.request.content.data as Record<string, unknown>);
+    });
+    const subResp = Notifications.addNotificationResponseReceivedListener(
+      (r) => {
+        handleData(r.notification.request.content.data as Record<string, unknown>);
+      },
+    );
+    return () => {
+      subRecv.remove();
+      subResp.remove();
+    };
+  }, [openApproachCompose]);
+
   useEffect(() => {
     return bus.on("CHALLENGE_COMPLETED", (payload) => {
       void audit.append({
@@ -336,9 +434,12 @@ export default function App() {
       for (const intent of intents) {
         if (intent.type === "approaching") {
           void (async () => {
+            const s = settingsRef.current;
+            if (!s?.buddyEnabled) return;
             const relayUrl = getRelayBaseUrl();
             if (!relayUrl) return;
             const buddies = await loadBuddies();
+            if (buddies.length === 0) return;
             await Promise.all(
               buddies.map(async (b) => {
                 try {
@@ -365,13 +466,17 @@ export default function App() {
         }
         if (intent.type === "interrupt_fetch") {
           void nb.fetchNudge().then((blob) => {
-            if (blob) {
-              void audit.append({
-                type: "BUDDY_NUDGE_FETCHED",
-                atMs: Date.now(),
-                detail: intent.eventId,
-              });
+            if (!blob) return;
+            const decoded = decodeNudgeBlob(blob);
+            if (decoded?.body) {
+              setBuddyNudgeText(decoded.body);
+              setBuddyNudgeDismissed(false);
             }
+            void audit.append({
+              type: "BUDDY_NUDGE_FETCHED",
+              atMs: Date.now(),
+              detail: intent.eventId,
+            });
           });
         }
       }
@@ -606,23 +711,32 @@ export default function App() {
       appId: packages.join(","),
       thresholdUnits: settings.thresholdMs,
     });
-    // Progressive Buddy live path (P3-05): local eventId + warn window.
-    try {
-      const identity = await loadOrCreateIdentity();
-      const relayUrl = getRelayBaseUrl();
-      if (relayUrl) {
-        const relay = new HttpRelayPort(relayUrl);
-        const busLive = new NudgeBus(relay, { now: () => Date.now() });
-        const now = Date.now();
-        busLive.begin({
-          mailboxId: identity.mailboxId,
-          interruptAtMs: now + settings.thresholdMs,
-          warnLeadMs: Math.min(BUDDY_WARN_LEAD_MS, settings.thresholdMs),
-        });
-        nudgeBusRef.current = busLive;
+    // Progressive Buddy live path (P3-05/07): gated by Settings.
+    nudgeBusRef.current = null;
+    setBuddyNudgeText(null);
+    setBuddyNudgeDismissed(false);
+    if (settings.buddyEnabled) {
+      try {
+        const identity = await loadOrCreateIdentity();
+        const buddies = await loadBuddies();
+        const relayUrl = getRelayBaseUrl();
+        if (relayUrl && buddies.length > 0) {
+          const relay = new HttpRelayPort(relayUrl);
+          const busLive = new NudgeBus(relay, { now: () => Date.now() });
+          const now = Date.now();
+          busLive.begin({
+            mailboxId: identity.mailboxId,
+            interruptAtMs: now + settings.thresholdMs,
+            warnLeadMs: Math.min(
+              settings.buddyWarnLeadMs,
+              settings.thresholdMs,
+            ),
+          });
+          nudgeBusRef.current = busLive;
+        }
+      } catch {
+        nudgeBusRef.current = null;
       }
-    } catch {
-      nudgeBusRef.current = null;
     }
     setMessage(
       t("app.watching", {
@@ -635,9 +749,42 @@ export default function App() {
 
   const stopMonitoring = async () => {
     const nb = nudgeBusRef.current;
+    const s = settingsRef.current;
     if (nb) {
+      const session = nb.active;
+      const shouldNotifyLeave = Boolean(
+        session && session.approachingSent && !session.cancelled,
+      );
       try {
         await nb.cancel();
+        if (s?.buddyEnabled && s.buddyNotifyOnLeave && shouldNotifyLeave && session) {
+          const relayUrl = getRelayBaseUrl();
+          const buddies = await loadBuddies();
+          if (relayUrl) {
+            await Promise.all(
+              buddies.map(async (b) => {
+                try {
+                  await fetch(
+                    `${relayUrl.replace(/\/+$/, "")}/v1/notify/${encodeURIComponent(b.mailboxId)}`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        data: {
+                          type: "left_early",
+                          eventId: session.eventId,
+                          mailboxId: session.mailboxId,
+                        },
+                      }),
+                    },
+                  );
+                } catch {
+                  /* ignore */
+                }
+              }),
+            );
+          }
+        }
       } catch {
         /* best-effort cancel */
       }
@@ -699,21 +846,31 @@ export default function App() {
         >
           <Text style={styles.brandOnInk}>Unloop</Text>
           <Text style={styles.taglineOnInk}>{t("app.tagline")}</Text>
-          <ChallengeHost
-            key={`${activeChallengeId}-${challengeMountKey}`}
-            challengeId={activeChallengeId}
-            timeoutMs={settings.challengeTimeoutMs}
-            t={t}
-            onComplete={completeChallenge}
-            onSoftFail={softFailChallenge}
-            deviceCaps={deviceCaps}
-          />
+          {buddyNudgeText && !buddyNudgeDismissed ? (
+            <BuddyNudgeView
+              t={t}
+              body={buddyNudgeText}
+              onContinue={() => setBuddyNudgeDismissed(true)}
+            />
+          ) : (
+            <ChallengeHost
+              key={`${activeChallengeId}-${challengeMountKey}`}
+              challengeId={activeChallengeId}
+              timeoutMs={settings.challengeTimeoutMs}
+              t={t}
+              onComplete={completeChallenge}
+              onSoftFail={softFailChallenge}
+              deviceCaps={deviceCaps}
+            />
+          )}
         </ScrollView>
       ) : inChallenge && settings && !challengeOpened ? (
         <ScrollView contentContainerStyle={styles.challengeContainer}>
           <Text style={styles.brandOnInk}>Unloop</Text>
           <Text style={styles.taglineOnInk}>{t("app.tagline")}</Text>
-          <Text style={styles.messageOnInk}>{t("app.interrupt")}</Text>
+          <Text style={styles.messageOnInk}>
+            {buddyNudgeText ? t("buddy.nudge_from") : t("app.interrupt")}
+          </Text>
         </ScrollView>
       ) : screen === "settings" && settings ? (
         <SettingsScreen
@@ -726,7 +883,20 @@ export default function App() {
           onToggleLabel={toggleLabel}
           onToggleChallenge={toggleChallenge}
           onSetTiming={setTiming}
+          onPatchSettings={(patch) => persist({ ...settings, ...patch })}
           onOpenBuddy={() => setScreen("buddy")}
+        />
+      ) : screen === "buddyCompose" && pendingApproach ? (
+        <BuddyComposeScreen
+          t={t}
+          pending={pendingApproach}
+          defaultNudge={settings?.buddyDefaultNudge ?? ""}
+          onBack={() => setScreen("home")}
+          onDone={() => {
+            void setPendingApproach(null);
+            setPendingApproachState(null);
+            setScreen("home");
+          }}
         />
       ) : screen === "buddy" ? (
         <BuddyScreen
