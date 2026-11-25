@@ -1,6 +1,6 @@
 # Unloop — Privacy Policy
 
-**Last updated:** 2026-09-25  
+**Last updated:** 2026-11-25  
 **Contact:** unloopyourself.dev@gmail.com  
 **App package:** `io.github.unloopyourself.unloop`
 
@@ -11,6 +11,7 @@ Unloop is a privacy-first, open-source Android app that briefly interrupts dooms
 - Unloop does **not** require an account.
 - Unloop does **not** include analytics, advertising, or crash-reporting SDKs that send behavioral data off-device.
 - Usage monitoring and challenge progress stay **on your device**.
+- Optional **Buddy** features (off by default) use a stateless relay and push transport as described below.
 - You can revoke Android permissions or uninstall at any time.
 
 ## Data we process on the device
@@ -24,8 +25,20 @@ To interrupt selected apps after a time threshold you choose, Unloop may use:
 | **Foreground service + notification** | Keep monitoring reliable while you use other apps (Android requirement) |
 | **Sensors** (accelerometer / gyroscope) | Optional physical challenges you enable (e.g. shake, coin spin, air write) |
 | **Local settings & audit log** | Remember feeds, timings, enabled challenges; optional local debug/audit entries |
+| **Local Buddy pairing records** (optional) | Store invite fingerprints / mailbox ids you accept on this device |
 
 This processing happens **locally**. Unloop’s product intent is not to build a cloud profile of what you watch.
+
+## Optional Buddy / push (off by default)
+
+If you enable Buddy features in Settings:
+
+| Off-device piece | What it carries | What it must not do |
+|------------------|-----------------|---------------------|
+| **Cloudflare Worker relay** | Opaque mailbox blobs (short TTL), push-token ↔ mailbox routing ids | No plaintext message store, no usage profiles, no analytics product |
+| **Firebase Cloud Messaging** | Opaque data pushes to wake a paired device | No Firebase Analytics / Crashlytics / advertising SDKs in the Unloop app |
+
+Buddy invites are shared via OS share / QR / deep link. Unloop does **not** upload your address book. You can revoke a pairing on-device; tokens can be forgotten on the relay.
 
 ## Data we do not collect
 
@@ -35,8 +48,6 @@ By default Unloop does **not**:
 - Upload your usage history, challenge results, or feed choices to Unloop servers
 - Sell or share personal data with advertisers
 - Embed third-party analytics / behavioral telemetry SDKs
-
-Future optional features (for example a privacy-preserving Buddy relay described in project docs) will only send what that feature strictly needs, with separate user action and documentation. They are **not** part of the current Android MVP.
 
 ## Permissions
 

@@ -177,8 +177,8 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 | P3-05 | `approaching` / `cancel` / mailbox put-get; B compose UI | done | Ignore / staged / live / default |
 | P3-06 | Interrupt UI renders buddy nudge; fallback challenges | done | Text nudge then challenge |
 | P3-07 | Settings: warn lead, quiet hours, default nudge, frequencies | done | Default Buddy off |
-| P3-08 | Optional HTTPS pair links on Pages + `assetlinks.json` | todo | After package signing fingerprints stable |
-| P3-09 | Privacy policy / Play declarations for Buddy + FCM | todo | Human |
+| P3-08 | Optional HTTPS pair links on Pages + `assetlinks.json` | done | https://unloop-pair.pages.dev (add Play certs) |
+| P3-09 | Privacy policy / Play declarations for Buddy + FCM | done | docs updated; human pastes Console |
 | P3-10 | Device acceptance: two Android devices paired | todo | Human |
 
 **Explicitly deferred:** benefactor provider, real AI provider, iOS PushPort, paid domain.

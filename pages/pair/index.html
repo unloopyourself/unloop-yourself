@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Unloop — Pair</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #0a2540;
+        --mist: #e8f0f7;
+        --teal: #1b9aaa;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Georgia, "Times New Roman", serif;
+        background: linear-gradient(160deg, var(--mist), #f7fafc);
+        color: var(--ink);
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+      }
+      main {
+        max-width: 28rem;
+        text-align: center;
+      }
+      h1 {
+        font-size: 2.5rem;
+        margin: 0 0 0.5rem;
+        letter-spacing: -0.02em;
+      }
+      p {
+        line-height: 1.5;
+        opacity: 0.85;
+      }
+      a.cta {
+        display: inline-block;
+        margin-top: 1.25rem;
+        padding: 0.85rem 1.4rem;
+        border-radius: 999px;
+        background: var(--ink);
+        color: #fff;
+        text-decoration: none;
+        font-family: system-ui, sans-serif;
+        font-weight: 700;
+      }
+    </style>
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search);
+        var hash = location.hash.startsWith("#")
+          ? location.hash.slice(1)
+          : location.hash;
+        var hp = new URLSearchParams(hash.includes("=") ? hash : "p=" + hash);
+        var p = q.get("p") || hp.get("p");
+        if (p) {
+          var deep = "unloop://pair?p=" + encodeURIComponent(p);
+          location.replace(deep);
+          document.addEventListener("DOMContentLoaded", function () {
+            var a = document.getElementById("open");
+            if (a) a.href = deep;
+          });
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <main>
+      <h1>Unloop</h1>
+      <p>
+        Open this link on a phone with Unloop installed to finish Buddy pairing.
+        If nothing happens, tap below or paste the invite inside the app.
+      </p>
+      <a class="cta" id="open" href="unloop://pair">Open in Unloop</a>
+    </main>
+  </body>
+</html>

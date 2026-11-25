@@ -304,14 +304,14 @@ Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). Sing
 - **Escalate if:** —
 
 ### P3-08 — HTTPS pair links on Cloudflare Pages + assetlinks
-- **Status:** blocked
+- **Status:** done
 - **Deps:** P3-02; **human:** CF Pages project OK (can share account with Workers)
 - **AC:** Pair landing + `/.well-known/assetlinks.json` for `io.github.unloopyourself.unloop` (upload + Play app-signing cert fingerprints); document host URL.
 - **Tests:** `curl` assetlinks JSON; optional App Links verification.
 - **Escalate if:** Custom domain purchase (optional — `*.pages.dev` enough).
 
 ### P3-09 — Privacy policy + Play declarations for Buddy/FCM
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3-04
 - **AC:** Privacy page updated; Play Data safety / permissions notes for FCM + optional relay; no telemetry SDKs.
 - **Tests:** — (docs); human paste into Console.
