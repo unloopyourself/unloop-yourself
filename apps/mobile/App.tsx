@@ -36,9 +36,11 @@ import {
 } from "./src/challenges/registry";
 import { ChallengeHost } from "./src/challenges/ChallengeHost";
 import { ExpoSensorPort } from "./src/expoSensorPort";
+import * as Linking from "expo-linking";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { AboutScreen } from "./src/screens/AboutScreen";
+import { BuddyScreen } from "./src/screens/BuddyScreen";
 import { MenuSheet } from "./src/screens/MenuSheet";
 
 type DomainEvents = {
@@ -46,7 +48,11 @@ type DomainEvents = {
   THRESHOLD_REACHED: { appId: string; deltaU: number };
 };
 
-type AppScreen = "home" | "settings" | "about";
+type AppScreen = "home" | "settings" | "about" | "buddy";
+
+function isPairDeepLink(url: string): boolean {
+  return /unloop:\/\/pair/i.test(url) || /[?&#]p=/.test(url);
+}
 
 export default function App() {
   const t = useMemo(() => createTranslator(detectLocale()), []);
@@ -90,6 +96,9 @@ export default function App() {
     useState<ChallengeId>("breath_tap");
   const [message, setMessage] = useState(t("app.intro"));
   const [screen, setScreen] = useState<AppScreen>("home");
+  const [pendingPairInvite, setPendingPairInvite] = useState<string | null>(
+    null,
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   /** Remount ChallengeHost when the user taps Open (fresh sensors + timeout). */
   const [challengeMountKey, setChallengeMountKey] = useState(0);
@@ -256,6 +265,18 @@ export default function App() {
       setSettings(s);
       settingsRef.current = s;
     });
+  }, []);
+
+  useEffect(() => {
+    const openPair = (url: string | null) => {
+      if (!url || !isPairDeepLink(url)) return;
+      setPendingPairInvite(url);
+      setScreen("buddy");
+      setMenuOpen(false);
+    };
+    void Linking.getInitialURL().then(openPair);
+    const sub = Linking.addEventListener("url", ({ url }) => openPair(url));
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
@@ -599,6 +620,14 @@ export default function App() {
           onToggleLabel={toggleLabel}
           onToggleChallenge={toggleChallenge}
           onSetTiming={setTiming}
+          onOpenBuddy={() => setScreen("buddy")}
+        />
+      ) : screen === "buddy" ? (
+        <BuddyScreen
+          t={t}
+          onBack={() => setScreen("settings")}
+          pendingInvite={pendingPairInvite}
+          onPendingInviteConsumed={() => setPendingPairInvite(null)}
         />
       ) : screen === "about" ? (
         <AboutScreen t={t} onBack={() => setScreen("home")} />

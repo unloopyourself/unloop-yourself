@@ -32,6 +32,7 @@ type Props = {
     key: "thresholdMs" | "cooldownMs" | "challengeTimeoutMs",
     minutes: number,
   ) => void;
+  onOpenBuddy: () => void;
 };
 
 export function SettingsScreen({
@@ -44,6 +45,7 @@ export function SettingsScreen({
   onToggleLabel,
   onToggleChallenge,
   onSetTiming,
+  onOpenBuddy,
 }: Props) {
   const [expandedChallengeId, setExpandedChallengeId] =
     useState<ChallengeId | null>(null);
@@ -151,6 +153,15 @@ export function SettingsScreen({
           );
         })}
       </View>
+
+      <Text style={styles.section}>{t("buddy.section")}</Text>
+      <Pressable
+        onPress={onOpenBuddy}
+        style={styles.buddyLink}
+        accessibilityRole="button"
+      >
+        <Text style={styles.buddyLinkLabel}>{t("buddy.open")}</Text>
+      </Pressable>
 
       <Text style={styles.section}>{t("app.timings_section")}</Text>
       <TimingPicker
@@ -352,4 +363,12 @@ const styles = StyleSheet.create({
     fontSize: typography.metaSize,
     color: colors.textMuted,
   },
+  buddyLink: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: colors.chipOff,
+  },
+  buddyLinkLabel: { fontWeight: "700", color: colors.ink, fontSize: 14 },
 });

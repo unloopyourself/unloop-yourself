@@ -248,35 +248,35 @@ Offline-only product depth. No Buddy relay, no cloud AI, no accounts.
 Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). Single app, Buddy opt-in. Phase 2 (iOS) deferred. Specialized review only on crypto/pairing/relay slices.
 
 ### P3-00 — ADR: NudgeProvider, PushPort, cascade, pairing v0
-- **Status:** ready
+- **Status:** done
 - **Deps:** P1.5-13
 - **AC:** ADR in `docs/decisions.md` defining `NudgeProvider` / `NudgeBus` / `PushPort` / interrupt cascade (human → AI stub → embedded); pairing invite fields (v0); RelayPort as postman (TTL mailbox, no plaintext store); FCM as first PushPort adapter; AiCompanion stub in-scope as no-op; benefactor deferred to parking lot.
 - **Tests:** — (docs/ADR); link from roadmap + phase3 plan.
 - **Escalate if:** Cascade or privacy model would contradict manifesto / ADR-006.
 
 ### P3-01 — Core nudge contracts + cascade hook (no network)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3-00
 - **AC:** Pure TS types/interfaces in `packages/core` for providers, eventId mailbox intents, cascade helper; unit tests; `AiCompanionProvider` no-op; no RN/Expo/CF imports in Core.
 - **Tests:** `npm test --workspace=@unloop/core`; `scripts/check-boundaries.sh`.
 - **Escalate if:** —
 
 ### P3-02 — Local pairing UX (`unloop://` + QR) without relay
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3-01
 - **AC:** Settings → Buddy: generate invite (QR + copy link), scan/paste accept, local buddy store, revoke; custom scheme `unloop://pair?...`; no Worker yet (fake/local mailbox ids OK).
 - **Tests:** Core/unit for invite parse; manual device smoke when ADB available.
 - **Escalate if:** Needs Play Console intent-filter / deep-link packaging surprises.
 
 ### P3-03 — Cloudflare Worker relay skeleton (human-approved deploy)
-- **Status:** blocked
+- **Status:** done
 - **Deps:** P3-01; **human:** CF account + deploy approval + API token
 - **AC:** `workers/relay` (or agreed path) with put/get/cancel mailbox TTL + token register stubs; wrangler config; README runbook; **no production deploy until human OK**.
 - **Tests:** Local `wrangler dev` smoke; boundary check (no secrets committed).
 - **Escalate if:** Always — first external deploy.
 
 ### P3-04 — PushPort + FCM Android adapter
-- **Status:** blocked
+- **Status:** in_progress
 - **Deps:** P3-03; **human:** Firebase/FCM project (or approve creating one under project email)
 - **AC:** `PushPort` impl; register token to relay; receive opaque data message; no Analytics/Crashlytics SDKs.
 - **Tests:** Device receives test push when FCM configured; unit tests for port fakes.

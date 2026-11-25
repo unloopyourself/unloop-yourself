@@ -1,0 +1,13 @@
+# Unloop Buddy relay (ADR-006 / ADR-010). Free-tier KV + Worker.
+# Secrets: never commit. Use `wrangler secret` / .env.local for deploy tokens.
+name = "unloop-relay"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+[[kv_namespaces]]
+binding = "MAILBOX"
+id = "a4b62a3d726c463d9c0db94290f5461c"
+preview_id = "26a33625654e4725b432d1d2ac959d1d"
+
+[vars]
+RELAY_TTL_DEFAULT_SEC = "120"

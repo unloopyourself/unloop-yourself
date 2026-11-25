@@ -210,3 +210,45 @@ Display name remains **Unloop** (not “Unloop Yourself”).
 ### Consequences
 * **Pros:** Stable Play ID aligned with GitHub identity; no fake `.com`.
 * **Trade-off:** Changing again after Play publish would require a new listing; do not rename later.
+
+---
+
+## ADR-010: Nudge cascade, ports, and Buddy pairing v0
+
+* **Date:** 2026-11-25
+* **Status:** Accepted
+* **Plan:** [`phase3_nudge_buddy.md`](phase3_nudge_buddy.md)
+
+### Context
+Phase 3 adds a human Buddy nudge path without turning Unloop into a social network or a telemetry product. ADR-006 already requires a local-first app and a **stateless encrypted relay**. We need locked ports so Core stays free of FCM/Cloudflare, and a cascade so missing buddy data never breaks interrupts.
+
+### Decision
+
+1. **Cascade at interrupt** (Settings-gated; soft-unlock unchanged):
+   1. **Human Buddy** — ciphertext/media already in mailbox for this `eventId` (live, staged pick, or buddy default).
+   2. **AI Companion** — same `NudgeProvider` contract; Phase 3 ships **`AiCompanionProvider` as no-op / local template stub** only.
+   3. **Embedded challenges** — existing pack (`shake`, …). Empty mailbox or missing hardware ⇒ fall through, not app failure.
+
+2. **Core ports / types** (no RN, Expo, CF, or Firebase imports in `packages/core`):
+   * `NudgeProvider` — capability-tagged source that may supply a nudge for an `eventId`.
+   * `NudgeBus` — coordinates `eventId` lifecycle (`approaching` → mailbox → interrupt fetch → `cancel`).
+   * `RelayPort` — postman only: put/get/cancel opaque blobs with TTL; register/forget push routing ids. **No plaintext message store, no profiles DB.**
+   * `PushPort` — send/register opaque data pushes; **first adapter = FCM** (Android); APNs later. No Analytics / Crashlytics / OneSignal SDKs.
+
+3. **Pairing invite v0** (QR + same deep-link text; share via OS sheet only):
+   * Fields: `v`, `mailboxId`, `pub` (identity/public key or fingerprint), optional `role` (`seeker`|`buddy`), `exp`, `sig`.
+   * Slice 1: custom scheme `unloop://pair?...`. HTTPS App Links + `assetlinks.json` when a free Pages host is ready (no paid domain required).
+   * Contacts picker optional → Share only; address book never uploaded.
+   * Revoke = delete local buddy record + relay forget token / deny mailbox.
+   * Exact E2EE algorithms → short follow-up ADR when crypto lands; relay must only see ciphertext + routing ids.
+
+4. **Out of Phase 3 scope:** benefactor provider, real AI companion behaviour, iOS PushPort, paid custom domain, in-app WhatsApp/Telegram SDKs.
+
+### Alternatives
+1. **Buddy as hard dependency of interrupt** — fails manifesto (not a punisher) and breaks offline/cheap devices.
+2. **Firebase/Supabase as Buddy backend** — contradicts ADR-006 (profiles, retention, GDPR surface).
+3. **Plugin marketplace for providers** — deferred; Core keeps a small fixed provider list.
+
+### Consequences
+* **Pros:** Cascade preserves local challenges; ports keep Core testable; FCM is transport only; relay stays a postman.
+* **Trade-off:** Progressive live path needs two devices (or harness) for full acceptance; crypto details deferred one ADR.

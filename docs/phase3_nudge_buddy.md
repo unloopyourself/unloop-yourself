@@ -4,8 +4,8 @@
 > Related: [`roadmap.md`](roadmap.md), [`decisions.md`](decisions.md) ADR-006, [`ideas_parking_lot.md`](ideas_parking_lot.md), [`vision.md`](vision.md).
 
 **Last updated:** 2026-11-25  
-**Status:** Draft plan (not yet broken into `factory/BACKLOG.md` items)  
-**Human gates:** Cloudflare Workers deploy; any paid domain; Play / privacy copy updates for Buddy
+**Status:** Active — backlog P3-00…P3-10; ADR-010 accepted  
+**Human gates:** Play / privacy copy updates for Buddy; two-device acceptance (P3-10). CF free-tier deploy approved 2026-11-25.
 
 ---
 
@@ -169,11 +169,11 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 
 | ID | Slice | Status | Notes |
 |----|-------|--------|-------|
-| P3-00 | ADR: NudgeProvider + PushPort + cascade; pairing v0 sketch | todo | Lock abstractions before code |
-| P3-01 | Core: `NudgeProvider`, `NudgeBus` types, cascade hook in Policy/Session | todo | AiStub no-op |
-| P3-02 | Local pairing UI + `unloop://` parse + buddy store (no relay yet) | todo | QR gen/scan; fake mailbox ids |
-| P3-03 | Human approval → CF Worker skeleton + KV mailbox TTL | todo | Escalate |
-| P3-04 | `PushPort` + FCM adapter (Android); token register | todo | No Analytics SDK |
+| P3-00 | ADR: NudgeProvider + PushPort + cascade; pairing v0 sketch | done | ADR-010 |
+| P3-01 | Core: `NudgeProvider`, `NudgeBus` types, cascade hook | done | AiStub no-op |
+| P3-02 | Local pairing UI + `unloop://` parse + buddy store (no relay yet) | done | QR + paste; system camera opens scheme |
+| P3-03 | CF Worker skeleton + KV mailbox TTL | done | `unloop-relay.unloopyourself.workers.dev` |
+| P3-04 | `PushPort` + FCM adapter (Android); token register | doing | No Analytics SDK |
 | P3-05 | `approaching` / `cancel` / mailbox put-get; B notification UI | todo | Progressive live path |
 | P3-06 | Interrupt UI renders buddy nudge; fallback challenges | todo | |
 | P3-07 | Settings: warn lead, quiet hours, default nudge, frequencies | todo | |

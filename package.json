@@ -6,7 +6,8 @@
   "license": "AGPL-3.0-only",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "workers/*"
   ],
   "scripts": {
     "test": "npm run test -w @unloop/core",

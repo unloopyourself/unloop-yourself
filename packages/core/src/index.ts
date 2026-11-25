@@ -29,6 +29,38 @@ export type {
 } from "./ports.js";
 export { InMemoryStoragePort, computeDeltaU } from "./ports.js";
 
+export type {
+  CascadeInput,
+  CascadeOutcome,
+  InMemoryMailboxEntry,
+  NudgeBusIntent,
+  NudgeFetchContext,
+  NudgeKind,
+  NudgePayload,
+  NudgeProvider,
+  NudgeProviderId,
+  PushPort,
+  RelayPort,
+} from "./nudge.js";
+export {
+  AiCompanionProvider,
+  HumanBuddyProvider,
+  InMemoryRelayPort,
+  NullPushPort,
+  resolveInterruptCascade,
+} from "./nudge.js";
+
+export type { BuddyRecord, PairInviteV0, PairRole } from "./pairing.js";
+export {
+  PAIR_HOST,
+  PAIR_SCHEME,
+  createPairInviteV0,
+  encodePairDeepLink,
+  isPairInviteFresh,
+  normalizePairInvite,
+  parsePairInvite,
+} from "./pairing.js";
+
 export {
   baselineKey,
   clearBaseline,

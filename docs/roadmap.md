@@ -45,7 +45,7 @@ Factory execution detail lives in [`factory/BACKLOG.md`](../factory/BACKLOG.md).
 
 ## Phase 3: Nudge system & human Buddy
 
-**Living plan:** [`phase3_nudge_buddy.md`](phase3_nudge_buddy.md) (pairing protocol, cascade, slices, domain/deep-link options).
+**Living plan:** [`phase3_nudge_buddy.md`](phase3_nudge_buddy.md). **ADR:** [`decisions.md`](decisions.md) ADR-010 (NudgeProvider / PushPort / cascade / pairing v0).
 
 * Abstract `NudgeProvider` / `NudgeBus` / `PushPort` (FCM now; iOS later)
 * Cascade: human Buddy → AI stub → embedded challenges
