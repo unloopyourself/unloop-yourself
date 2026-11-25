@@ -4,7 +4,7 @@ Last updated: 2026-11-25
 
 ## Active item
 
-**P3-05** — Progressive live path: approaching / cancel / B notify UI (`ready`; next).  
+**P3-05** — Progressive live path: approaching / cancel / B notify UI (`in_progress`).  
 **Branch:** `feature/phase3-nudge-buddy`  
 Autonomy: light factory (ADR-007). Human go-ahead 2026-11-25 (“parti pure…”).
 
@@ -12,10 +12,10 @@ Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). ADR-
 
 ## Last gate result
 
-- **P3-00…P3-04** done on this branch (ADR-010, Core ports, Buddy UI, Worker+KV+FCM secret, Expo PushPort).
-- Relay: `https://unloop-relay.unloopyourself.workers.dev` (secret `FIREBASE_SERVICE_ACCOUNT_JSON` set).
-- App registers FCM device token → relay on Android start (needs rebuild with `google-services.json`).
-- Device E2E push smoke still pending ADB / physical install.
+- **P3-00…P3-04** done (ADR-010, Core ports, Buddy UI, Worker+KV+FCM, Expo PushPort).
+- **P3-05** Core `NudgeBus` eventId lifecycle + Vitest landed; app approaching/B-notify UI still open.
+- Relay: `https://unloop-relay.unloopyourself.workers.dev`
+- Device E2E push / two-device smoke pending ADB rebuild with `google-services.json`.
 - Timing defaults: interrupt 10 / grace 20 / soft unlock 3 min.
 
 ## Human decisions / inputs pending
