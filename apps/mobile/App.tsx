@@ -9,6 +9,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import {
+  NudgeBus,
   SessionEngine,
   TypedEventEmitter,
   type Capability,
@@ -42,12 +43,16 @@ import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { AboutScreen } from "./src/screens/AboutScreen";
 import { BuddyScreen } from "./src/screens/BuddyScreen";
 import { MenuSheet } from "./src/screens/MenuSheet";
-import { loadOrCreateIdentity } from "./src/buddyStore";
+import { loadBuddies, loadOrCreateIdentity } from "./src/buddyStore";
 import {
   ExpoPushPort,
   getRelayBaseUrl,
   registerPushTokenWithRelay,
 } from "./src/push/expoPushPort";
+import { HttpRelayPort } from "./src/push/httpRelayPort";
+
+/** Default warn lead before interrupt (P3-05); Settings UI comes in P3-07. */
+const BUDDY_WARN_LEAD_MS = 2 * 60_000;
 
 type DomainEvents = {
   CHALLENGE_COMPLETED: { atMs: number };
@@ -106,6 +111,7 @@ export default function App() {
     null,
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const nudgeBusRef = useRef<NudgeBus | null>(null);
   /** Remount ChallengeHost when the user taps Open (fresh sensors + timeout). */
   const [challengeMountKey, setChallengeMountKey] = useState(0);
   /**
@@ -317,15 +323,61 @@ export default function App() {
   }, [audit, bus]);
 
   // Drive soft-unlock / cooldown timers from the same engine tests use.
+  // Also tick NudgeBus → approaching push to paired buddies / interrupt fetch.
   useEffect(() => {
     const id = setInterval(() => {
       const effects = engine.tick();
       if (effects.length > 0) {
         applyEffects(effects);
       }
+      const nb = nudgeBusRef.current;
+      if (!nb) return;
+      const intents = nb.tick();
+      for (const intent of intents) {
+        if (intent.type === "approaching") {
+          void (async () => {
+            const relayUrl = getRelayBaseUrl();
+            if (!relayUrl) return;
+            const buddies = await loadBuddies();
+            await Promise.all(
+              buddies.map(async (b) => {
+                try {
+                  await fetch(
+                    `${relayUrl.replace(/\/+$/, "")}/v1/notify/${encodeURIComponent(b.mailboxId)}`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        data: {
+                          type: "approaching",
+                          eventId: intent.eventId,
+                          mailboxId: intent.mailboxId,
+                        },
+                      }),
+                    },
+                  );
+                } catch {
+                  /* best-effort */
+                }
+              }),
+            );
+          })();
+        }
+        if (intent.type === "interrupt_fetch") {
+          void nb.fetchNudge().then((blob) => {
+            if (blob) {
+              void audit.append({
+                type: "BUDDY_NUDGE_FETCHED",
+                atMs: Date.now(),
+                detail: intent.eventId,
+              });
+            }
+          });
+        }
+      }
     }, 500);
     return () => clearInterval(id);
-  }, [applyEffects, engine]);
+  }, [applyEffects, audit, engine]);
 
   const onThreshold = useCallback(
     (event: UsageThresholdEvent) => {
@@ -554,6 +606,24 @@ export default function App() {
       appId: packages.join(","),
       thresholdUnits: settings.thresholdMs,
     });
+    // Progressive Buddy live path (P3-05): local eventId + warn window.
+    try {
+      const identity = await loadOrCreateIdentity();
+      const relayUrl = getRelayBaseUrl();
+      if (relayUrl) {
+        const relay = new HttpRelayPort(relayUrl);
+        const busLive = new NudgeBus(relay, { now: () => Date.now() });
+        const now = Date.now();
+        busLive.begin({
+          mailboxId: identity.mailboxId,
+          interruptAtMs: now + settings.thresholdMs,
+          warnLeadMs: Math.min(BUDDY_WARN_LEAD_MS, settings.thresholdMs),
+        });
+        nudgeBusRef.current = busLive;
+      }
+    } catch {
+      nudgeBusRef.current = null;
+    }
     setMessage(
       t("app.watching", {
         feeds: settings.enabledLabels.join(", "),
@@ -564,6 +634,15 @@ export default function App() {
   };
 
   const stopMonitoring = async () => {
+    const nb = nudgeBusRef.current;
+    if (nb) {
+      try {
+        await nb.cancel();
+      } catch {
+        /* best-effort cancel */
+      }
+      nudgeBusRef.current = null;
+    }
     await detector.stop();
     applyEffects(engine.stop());
     setMessage(t("app.stopped"));

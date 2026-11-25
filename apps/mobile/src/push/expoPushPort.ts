@@ -39,17 +39,10 @@ export async function registerPushTokenWithRelay(
   mailboxId: string,
   token: string,
 ): Promise<boolean> {
-  const base = relayBaseUrl.replace(/\/+$/, "");
   try {
-    const res = await fetch(
-      `${base}/v1/push-token/${encodeURIComponent(mailboxId)}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      },
-    );
-    return res.ok;
+    const { HttpRelayPort } = await import("./httpRelayPort");
+    await new HttpRelayPort(relayBaseUrl).registerPushToken(mailboxId, token);
+    return true;
   } catch {
     return false;
   }
