@@ -47,3 +47,6 @@ modules/**/ios/build/
 # Play upload credentials (never commit)
 credentials/
 keystore.properties
+
+google-services.json
+
