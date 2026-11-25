@@ -235,8 +235,91 @@ Offline-only product depth. No Buddy relay, no cloud AI, no accounts.
 - **Escalate if:** —
 
 ### P1.5-13 — Play Console testing release prep
-- **Status:** ready
+- **Status:** done
 - **Deps:** P1.5-12, ADR-009
 - **AC:** Application ID `io.github.unloopyourself.unloop`; `version`/`versionCode` in app.json; debug harness **not** in release; upload keystore workflow (local secrets only); privacy policy page + Play checklist; script to build signed AAB for internal/closed testing.
-- **Tests:** Release merge omits `DebugHarnessReceiver`; `./scripts/android/build-play-aab.sh` produces AAB when keystore configured (human).
+- **Tests:** Release merge omits `DebugHarnessReceiver`; signed AAB produced when keystore configured (human upload / key-reset is Play Console).
 - **Escalate if:** Play policy rejection on Usage Access / FGS / overlay declarations; paid Play Console account issues.
+
+---
+
+## Phase 3 — Nudge system & human Buddy
+
+Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). Single app, Buddy opt-in. Phase 2 (iOS) deferred. Specialized review only on crypto/pairing/relay slices.
+
+### P3-00 — ADR: NudgeProvider, PushPort, cascade, pairing v0
+- **Status:** ready
+- **Deps:** P1.5-13
+- **AC:** ADR in `docs/decisions.md` defining `NudgeProvider` / `NudgeBus` / `PushPort` / interrupt cascade (human → AI stub → embedded); pairing invite fields (v0); RelayPort as postman (TTL mailbox, no plaintext store); FCM as first PushPort adapter; AiCompanion stub in-scope as no-op; benefactor deferred to parking lot.
+- **Tests:** — (docs/ADR); link from roadmap + phase3 plan.
+- **Escalate if:** Cascade or privacy model would contradict manifesto / ADR-006.
+
+### P3-01 — Core nudge contracts + cascade hook (no network)
+- **Status:** ready
+- **Deps:** P3-00
+- **AC:** Pure TS types/interfaces in `packages/core` for providers, eventId mailbox intents, cascade helper; unit tests; `AiCompanionProvider` no-op; no RN/Expo/CF imports in Core.
+- **Tests:** `npm test --workspace=@unloop/core`; `scripts/check-boundaries.sh`.
+- **Escalate if:** —
+
+### P3-02 — Local pairing UX (`unloop://` + QR) without relay
+- **Status:** ready
+- **Deps:** P3-01
+- **AC:** Settings → Buddy: generate invite (QR + copy link), scan/paste accept, local buddy store, revoke; custom scheme `unloop://pair?...`; no Worker yet (fake/local mailbox ids OK).
+- **Tests:** Core/unit for invite parse; manual device smoke when ADB available.
+- **Escalate if:** Needs Play Console intent-filter / deep-link packaging surprises.
+
+### P3-03 — Cloudflare Worker relay skeleton (human-approved deploy)
+- **Status:** blocked
+- **Deps:** P3-01; **human:** CF account + deploy approval + API token
+- **AC:** `workers/relay` (or agreed path) with put/get/cancel mailbox TTL + token register stubs; wrangler config; README runbook; **no production deploy until human OK**.
+- **Tests:** Local `wrangler dev` smoke; boundary check (no secrets committed).
+- **Escalate if:** Always — first external deploy.
+
+### P3-04 — PushPort + FCM Android adapter
+- **Status:** blocked
+- **Deps:** P3-03; **human:** Firebase/FCM project (or approve creating one under project email)
+- **AC:** `PushPort` impl; register token to relay; receive opaque data message; no Analytics/Crashlytics SDKs.
+- **Tests:** Device receives test push when FCM configured; unit tests for port fakes.
+- **Escalate if:** Google account / Firebase project creation.
+
+### P3-05 — Progressive live path: approaching / cancel / B notify UI
+- **Status:** ready
+- **Deps:** P3-02, P3-03, P3-04
+- **AC:** At T−warn emit approaching; B notification → ignore / pick staged / record live / default nudge; mailbox bound to eventId; cancel on early exit.
+- **Tests:** Core tests for eventId lifecycle; device scenario when two devices or harness available.
+- **Escalate if:** —
+
+### P3-06 — Interrupt UI shows buddy nudge; fall through to challenges
+- **Status:** ready
+- **Deps:** P3-05
+- **AC:** Overlay/challenge host renders buddy nudge media/text; empty mailbox → AI stub → embedded challenges; soft-unlock unchanged.
+- **Tests:** Unit + device smoke.
+- **Escalate if:** —
+
+### P3-07 — Buddy settings (warn lead, quiet hours, default nudge, frequency)
+- **Status:** ready
+- **Deps:** P3-02
+- **AC:** All progressive behaviours gated; defaults off or conservative; i18n EN/IT.
+- **Tests:** Settings persist/load; clamp/snap as needed.
+- **Escalate if:** —
+
+### P3-08 — HTTPS pair links on Cloudflare Pages + assetlinks
+- **Status:** blocked
+- **Deps:** P3-02; **human:** CF Pages project OK (can share account with Workers)
+- **AC:** Pair landing + `/.well-known/assetlinks.json` for `io.github.unloopyourself.unloop` (upload + Play app-signing cert fingerprints); document host URL.
+- **Tests:** `curl` assetlinks JSON; optional App Links verification.
+- **Escalate if:** Custom domain purchase (optional — `*.pages.dev` enough).
+
+### P3-09 — Privacy policy + Play declarations for Buddy/FCM
+- **Status:** ready
+- **Deps:** P3-04
+- **AC:** Privacy page updated; Play Data safety / permissions notes for FCM + optional relay; no telemetry SDKs.
+- **Tests:** — (docs); human paste into Console.
+- **Escalate if:** Policy wording ambiguity.
+
+### P3-10 — Two-device acceptance (human)
+- **Status:** ready
+- **Deps:** P3-06, P3-07
+- **AC:** Two Android devices pair; approaching → nudge → interrupt shows it; cancel path works; documented in STATUS.
+- **Tests:** Human device acceptance.
+- **Escalate if:** Always — milestone.

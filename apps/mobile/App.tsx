@@ -22,7 +22,11 @@ import UnloopUsage, {
   addOpenChallengeListener,
 } from "./modules/unloop-usage/src/UnloopUsageModule";
 import { colors, typography } from "./src/theme";
-import { packagesForLabels } from "./src/targets";
+import {
+  CHALLENGE_TIMEOUT_MS,
+  COOLDOWN_MS,
+  packagesForLabels,
+} from "./src/targets";
 import { loadSettings, saveSettings, type UnloopSettings } from "./src/settings";
 import { createTranslator, detectLocale } from "./src/i18n";
 import {
@@ -59,7 +63,7 @@ export default function App() {
     () =>
       new SessionEngine(
         { now: () => Date.now() },
-        { cooldownMs: 120_000, challengeTimeoutMs: 120_000 },
+        { cooldownMs: COOLDOWN_MS, challengeTimeoutMs: CHALLENGE_TIMEOUT_MS },
         (enabled, available, excludeId) => {
           if (Platform.OS === "android") {
             const forced = UnloopUsage.getHarnessForceChallengeId()?.trim();
@@ -204,7 +208,7 @@ export default function App() {
               effect.reason === "completed"
                 ? t("app.challenge_ok", {
                     cooldown: Math.round(
-                      (settingsRef.current?.cooldownMs ?? 120_000) / 1000,
+                      (settingsRef.current?.cooldownMs ?? COOLDOWN_MS) / 60_000,
                     ),
                   })
                 : effect.reason === "soft_fail"
@@ -213,7 +217,7 @@ export default function App() {
                       cooldown: Math.max(
                         1,
                         Math.round(
-                          (effect.untilMs - Date.now()) / 1000,
+                          (effect.untilMs - Date.now()) / 60_000,
                         ),
                       ),
                     }),
@@ -229,8 +233,8 @@ export default function App() {
               setMessage(
                 t("app.watching", {
                   feeds: s.enabledLabels.join(", "),
-                  threshold: Math.round(s.thresholdMs / 1000),
-                  cooldown: Math.round(s.cooldownMs / 1000),
+                  threshold: Math.round(s.thresholdMs / 60_000),
+                  cooldown: Math.round(s.cooldownMs / 60_000),
                 }),
               );
             }
@@ -429,8 +433,8 @@ export default function App() {
         setMessage(
           t("app.watching", {
             feeds: safe.join(", "),
-            threshold: Math.round(updated.thresholdMs / 1000),
-            cooldown: Math.round(updated.cooldownMs / 1000),
+            threshold: Math.round(updated.thresholdMs / 60_000),
+            cooldown: Math.round(updated.cooldownMs / 60_000),
           }),
         );
       }
@@ -456,16 +460,15 @@ export default function App() {
 
   const setTiming = (
     key: "thresholdMs" | "cooldownMs" | "challengeTimeoutMs",
-    secondsText: string,
+    minutes: number,
   ) => {
     if (!settings) {
       return;
     }
-    const sec = Number(secondsText);
-    if (!Number.isFinite(sec) || sec <= 0) {
+    if (!Number.isFinite(minutes) || minutes <= 0) {
       return;
     }
-    persist({ ...settings, [key]: Math.round(sec * 1000) });
+    persist({ ...settings, [key]: Math.round(minutes * 60_000) });
   };
 
   const startMonitoring = async () => {
@@ -506,8 +509,8 @@ export default function App() {
     setMessage(
       t("app.watching", {
         feeds: settings.enabledLabels.join(", "),
-        threshold: Math.round(settings.thresholdMs / 1000),
-        cooldown: Math.round(settings.cooldownMs / 1000),
+        threshold: Math.round(settings.thresholdMs / 60_000),
+        cooldown: Math.round(settings.cooldownMs / 60_000),
       }),
     );
   };

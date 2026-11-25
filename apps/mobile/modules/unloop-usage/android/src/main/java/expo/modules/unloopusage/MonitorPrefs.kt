@@ -16,7 +16,7 @@ object MonitorPrefs {
     context: Context,
     desired: Boolean,
     packagesCsv: String = "",
-    thresholdMs: Long = 60_000L,
+    thresholdMs: Long = 600_000L,
   ) {
     context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
       .edit()
@@ -59,7 +59,7 @@ object MonitorPrefs {
 
   fun thresholdMs(context: Context): Long =
     context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
-      .getLong(KEY_THRESHOLD_MS, 60_000L)
+      .getLong(KEY_THRESHOLD_MS, 600_000L)
 
   /**
    * Restart monitoring from prefs when the user left it on.

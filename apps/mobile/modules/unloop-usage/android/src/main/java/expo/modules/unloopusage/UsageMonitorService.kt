@@ -27,7 +27,7 @@ import androidx.core.app.NotificationCompat
 class UsageMonitorService : Service() {
   private val handler = Handler(Looper.getMainLooper())
   private var packageTargets: Set<String> = emptySet()
-  private var thresholdMs: Long = 60_000L
+  private var thresholdMs: Long = 600_000L
   private var accumulatedMs: Long = 0L
   private var lastTickElapsedRealtime: Long = 0L
   private var lastKnownFgPackage: String? = null
@@ -129,7 +129,7 @@ class UsageMonitorService : Service() {
         val raw = intent.getStringExtra(EXTRA_PACKAGES)
           ?: intent.getStringExtra(EXTRA_PACKAGE)
           ?: ""
-        applyStart(parsePackages(raw), intent.getLongExtra(EXTRA_THRESHOLD_MS, 60_000L))
+        applyStart(parsePackages(raw), intent.getLongExtra(EXTRA_THRESHOLD_MS, 600_000L))
       }
       ACTION_UPDATE_PACKAGES -> {
         val raw = intent.getStringExtra(EXTRA_PACKAGES) ?: ""

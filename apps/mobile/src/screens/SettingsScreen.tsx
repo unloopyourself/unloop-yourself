@@ -1,17 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import type { Capability } from "@unloop/core";
 import { colors, typography } from "../theme";
 import type { Translate } from "../i18n";
-import { WATCH_TARGETS } from "../targets";
+import {
+  SOFT_UNLOCK_MINUTE_OPTIONS,
+  TIMING_MINUTE_OPTIONS,
+  WATCH_TARGETS,
+} from "../targets";
 import { SETTINGS_CHALLENGE_CATALOG, type ChallengeId } from "../challenges/registry";
 import type { UnloopSettings } from "../settings";
 import { statusBarTopInset } from "../layout";
@@ -27,7 +30,7 @@ type Props = {
   onToggleChallenge: (id: ChallengeId) => void;
   onSetTiming: (
     key: "thresholdMs" | "cooldownMs" | "challengeTimeoutMs",
-    secondsText: string,
+    minutes: number,
   ) => void;
 };
 
@@ -150,20 +153,26 @@ export function SettingsScreen({
       </View>
 
       <Text style={styles.section}>{t("app.timings_section")}</Text>
-      <TimingRow
+      <TimingPicker
         label={t("app.threshold")}
-        seconds={Math.round(settings.thresholdMs / 1000)}
-        onCommit={(s) => onSetTiming("thresholdMs", s)}
+        minutes={Math.round(settings.thresholdMs / 60_000)}
+        options={TIMING_MINUTE_OPTIONS}
+        unitLabel={t("app.minutes_unit")}
+        onSelect={(m) => onSetTiming("thresholdMs", m)}
       />
-      <TimingRow
+      <TimingPicker
         label={t("app.cooldown")}
-        seconds={Math.round(settings.cooldownMs / 1000)}
-        onCommit={(s) => onSetTiming("cooldownMs", s)}
+        minutes={Math.round(settings.cooldownMs / 60_000)}
+        options={TIMING_MINUTE_OPTIONS}
+        unitLabel={t("app.minutes_unit")}
+        onSelect={(m) => onSetTiming("cooldownMs", m)}
       />
-      <TimingRow
+      <TimingPicker
         label={t("app.soft_timeout")}
-        seconds={Math.round(settings.challengeTimeoutMs / 1000)}
-        onCommit={(s) => onSetTiming("challengeTimeoutMs", s)}
+        minutes={Math.round(settings.challengeTimeoutMs / 60_000)}
+        options={SOFT_UNLOCK_MINUTE_OPTIONS}
+        unitLabel={t("app.minutes_unit")}
+        onSelect={(m) => onSetTiming("challengeTimeoutMs", m)}
       />
 
       {Platform.OS === "android" && (
@@ -187,29 +196,41 @@ export function SettingsScreen({
   );
 }
 
-function TimingRow({
+function TimingPicker({
   label,
-  seconds,
-  onCommit,
+  minutes,
+  options,
+  unitLabel,
+  onSelect,
 }: {
   label: string;
-  seconds: number;
-  onCommit: (text: string) => void;
+  minutes: number;
+  options: readonly number[];
+  unitLabel: string;
+  onSelect: (minutes: number) => void;
 }) {
-  const [text, setText] = useState(String(seconds));
-  useEffect(() => {
-    setText(String(seconds));
-  }, [seconds]);
   return (
-    <View style={styles.timingRow}>
+    <View style={styles.timingBlock}>
       <Text style={styles.timingLabel}>{label}</Text>
-      <TextInput
-        style={styles.timingInput}
-        value={text}
-        onChangeText={setText}
-        onEndEditing={() => onCommit(text)}
-        keyboardType="number-pad"
-      />
+      <View style={styles.chips}>
+        {options.map((m) => {
+          const on = m === minutes;
+          return (
+            <Pressable
+              key={m}
+              onPress={() => onSelect(m)}
+              style={[styles.timingChip, on && styles.timingChipOn]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={`${m} ${unitLabel}`}
+            >
+              <Text style={[styles.timingChipLabel, on && styles.timingChipLabelOn]}>
+                {m}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -310,26 +331,22 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   enableMarkOn: { color: colors.white },
-  timingRow: {
+  timingBlock: {
     width: "100%",
-    flexDirection: "row",
+    gap: 8,
+  },
+  timingLabel: { color: colors.textMuted, fontSize: 13 },
+  timingChip: {
+    minWidth: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: colors.chipOff,
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
   },
-  timingLabel: { flex: 1, color: colors.textMuted, fontSize: 13 },
-  timingInput: {
-    width: 72,
-    borderWidth: 1,
-    borderColor: colors.chipOff,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    textAlign: "center",
-    color: colors.ink,
-    backgroundColor: colors.white,
-    fontWeight: "700",
-  },
+  timingChipOn: { backgroundColor: colors.chipOn },
+  timingChipLabel: { fontWeight: "700", color: colors.ink, fontSize: 14 },
+  timingChipLabelOn: { color: colors.white },
   meta: {
     marginTop: 8,
     fontSize: typography.metaSize,

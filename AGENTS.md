@@ -86,5 +86,5 @@ Do **not** escalate routine implementation details omitted by the spec—choose 
 - Project email: `unloopyourself.dev@gmail.com` only.
 - Never commit secrets. MVP needs none.
 - Ideas outside MVP: [`docs/ideas_parking_lot.md`](docs/ideas_parking_lot.md).
-- Parallel implementation agents: default **no**. Prefer one local session completing one backlog item.
-- **Autonomy (Phase 0–1 implementation):** After a backlog item’s gates pass, commit and push to `main` without waiting for confirmation. Do not ask for permission on routine next-item selection within Phase 0. Stop only for the Human escalation list or Phase 1 device milestone (P1-08).
+- Parallel implementation agents: default **no**. Prefer one local session completing one backlog item; override only for explicitly independent worktrees named in STATUS.
+- **Autonomy (Phase 0–1 and Phase 3):** After a backlog item’s gates pass, commit and push to `main` without waiting for confirmation. Do not ask for permission on routine next-item selection. Stop only for the Human escalation list, device milestones (e.g. P1-08, P3-10), or items marked `blocked` on missing human credentials/deploy OK. Specialized review pass only when the item involves crypto, pairing, or relay privacy.

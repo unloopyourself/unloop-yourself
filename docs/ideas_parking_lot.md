@@ -52,6 +52,8 @@ The idea is preserved, not lost—frozen for later.
 
 *(Additional parked social/gamification ideas may be appended here as they arise. Keep MVP free of vanity metrics and social-network dynamics—see manifesto red lines.)*
 
+Active Phase 3 plan (human Buddy + nudge bus): [`phase3_nudge_buddy.md`](phase3_nudge_buddy.md). Items below are **not** in the first Phase 3 slices unless promoted.
+
 ### Autopilot Score as social leaderboard
 * **Interesting:** Motivation via comparison.
 * **Not MVP:** Risks vanity metrics and competitive shame; conflicts with “designed to disappear.”
@@ -67,6 +69,14 @@ The idea is preserved, not lost—frozen for later.
 ### Challenge traces and local stats
 * **Interesting:** On-device counts (shown / completed / timed out per challenge), optional short history — helps the user tune Settings → Challenges and proves the interrupt worked.
 * **Not MVP:** Easy to become a second dashboard habit. If shipped later: local-only, no social, no streaks-as-score, bury under Settings, never a home-screen vanity chart. Prefer “enough to decide” over engagement metrics.
+
+### Nudge cascade beyond human Buddy (AI + benefactor)
+* **Interesting:** At interrupt, prefer human Buddy nudges (live / pre-registered / default), then AI Companion as a `NudgeProvider`, then embedded local challenges. Optional **voluntary anonymous benefactor**: opt-in helpers get a rate-limited ping that someone wants a wake-up, with only U-chosen generics (nick, age range, coarse geo, optional sticky app). Same provider interface; not a social network.
+* **Not MVP / not first Phase 3 slice:** Needs relay + human Buddy first. AI = Phase 4 (keep a no-op stub provider in Phase 3). Benefactor = later slice; moderation is the hard box—start with rate limits / report; if abuse grows → **BYOK** external filter, not an Unloop moderation farm.
+
+### Progressive live Buddy warn window
+* **Interesting:** At T−N minutes before interrupt, push buddies; they ignore, pick a staged nudge, or record live (e.g. voice); default auto-nudge optional; mailbox TTL per `eventId`; cancel + optional “U left the tunnel” if threshold never hits. Quiet hours / max frequency settings for buddy-side push.
+* **Not MVP:** Documented as the target UX in [`phase3_nudge_buddy.md`](phase3_nudge_buddy.md); ships in Phase 3 after pairing + mailbox.
 
 ---
 

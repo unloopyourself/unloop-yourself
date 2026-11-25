@@ -83,15 +83,23 @@ export const SHORT_VIDEO_APPS = WATCH_TARGETS;
 export const DEFAULT_ENABLED_LABELS = ["YouTube", "TikTok", "Instagram"] as const;
 
 /** Time in a target feed before interrupt. */
-export const THRESHOLD_MS = 60_000;
+export const THRESHOLD_MS = 600_000;
 
 /** Grace after a completed challenge before interrupting again. */
-export const COOLDOWN_MS = 120_000;
+export const COOLDOWN_MS = 1_200_000;
 
 /** Soft unlock: release the feed without success (not a ban). */
-export const CHALLENGE_TIMEOUT_MS = 120_000;
+export const CHALLENGE_TIMEOUT_MS = 180_000;
 /** Previous factory default — upgraded on load so devices keep a usable window. */
 export const LEGACY_CHALLENGE_TIMEOUT_MS = 45_000;
+
+/** Minute presets for interrupt / grace selectors. */
+export const TIMING_MINUTE_OPTIONS = [
+  1, 2, 3, 5, 10, 15, 20, 30, 45, 60,
+] as const;
+
+/** Minute presets for soft-unlock (shorter ceiling). */
+export const SOFT_UNLOCK_MINUTE_OPTIONS = [1, 2, 3, 5, 10] as const;
 
 export function packagesForLabels(labels: string[]): string[] {
   const set = new Set(labels);

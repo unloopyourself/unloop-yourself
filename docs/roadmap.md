@@ -38,23 +38,29 @@ Factory execution detail lives in [`factory/BACKLOG.md`](../factory/BACKLOG.md).
 
 ## Phase 2: iOS and platform parity
 
-* `IOSDeviceActivityAdapter` (FamilyControls, DeviceActivity, ManagedSettings)
-* Native iOS extensions and shield configuration
-* Cross-platform FSM / cumulative time validation
+* **Deferred** while Android Buddy (Phase 3) is the priority — no Apple developer spend planned for now.
+* Later: `IOSDeviceActivityAdapter` (FamilyControls, DeviceActivity, ManagedSettings), shield extensions, `PushPort` APNs adapter.
 
 ---
 
-## Phase 3: Social accountability (Buddy Network)
+## Phase 3: Nudge system & human Buddy
 
-* Stateless Cloudflare Workers relay (zero fixed cost target; deploy only with human approval)
-* Local P2P pairing (keys / QR)
-* Buddy challenge integration
-* Network listeners on domain events (encrypted payloads only)
+**Living plan:** [`phase3_nudge_buddy.md`](phase3_nudge_buddy.md) (pairing protocol, cascade, slices, domain/deep-link options).
+
+* Abstract `NudgeProvider` / `NudgeBus` / `PushPort` (FCM now; iOS later)
+* Cascade: human Buddy → AI stub → embedded challenges
+* Progressive live warn window + mailbox TTL + cancel
+* Stateless Cloudflare Workers relay (deploy only with human approval)
+* Pairing: QR + shareable deep link (`unloop://` first; optional HTTPS via Pages)
+* Single app, Buddy opt-in (not a second package)
+
+Parked for later slices: anonymous benefactor nudges, full AI — see [`ideas_parking_lot.md`](ideas_parking_lot.md).
 
 ---
 
 ## Phase 4: AI Companion (local / privacy-preserving)
 
+* Real `AiCompanionProvider` on the same nudge cascade (Phase 3 ships a no-op stub)
 * Reflection challenges and prompts
 * Tone profiles (Wise, Ironic, Pragmatic)
 * Policy scoring using fatigue / time-of-day patterns
