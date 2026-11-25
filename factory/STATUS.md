@@ -5,6 +5,7 @@ Last updated: 2026-11-25
 ## Active item
 
 **P3-00** — ADR NudgeProvider / PushPort / cascade / pairing v0 (`ready`).  
+**Branch:** `feature/phase3-nudge-buddy` (all Phase 3 work stays off `main` until merge).  
 Autonomy mode: light factory (ADR-007). One backlog item at a time; specialized review only on crypto/pairing/relay. No multi-agent swarm.
 
 Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md).
