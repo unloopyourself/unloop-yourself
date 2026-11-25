@@ -29,6 +29,15 @@ npx wrangler deploy
 
 Never commit service-account JSON, API tokens, or mailbox contents.
 
+### FCM secret (P3-04)
+
+```bash
+# From repo root (gitignored credentials file)
+Get-Content credentials/firebase-service-account.json -Raw | npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_JSON --name unloop-relay
+```
+
+`POST /v1/notify/:mailboxId` then sends an FCM **data** message to the registered device token.
+
 ## API sketch
 
 | Method | Path | Body | Notes |
@@ -39,6 +48,8 @@ Never commit service-account JSON, API tokens, or mailbox contents.
 | DELETE | `/v1/mailbox/:mailboxId/:eventId` | — | Cancel |
 | PUT | `/v1/push-token/:mailboxId` | `{ token }` | FCM token register |
 | DELETE | `/v1/push-token/:mailboxId` | — | Forget |
-| POST | `/v1/notify/:mailboxId` | optional | Stub until P3-04 FCM |
+| POST | `/v1/notify/:mailboxId` | `{ data?: Record<string,string> }` | FCM HTTP v1 data push |
 
 Auth hardening (signed mailbox tokens) comes with the crypto follow-up ADR.
+
+**Deployed:** `https://unloop-relay.unloopyourself.workers.dev`

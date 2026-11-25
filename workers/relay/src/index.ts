@@ -3,9 +3,13 @@
  * Sees ciphertext and routing ids only (ADR-006 / ADR-010).
  */
 
+import { parseServiceAccount, sendFcmDataMessage } from "./fcm";
+
 export interface Env {
   MAILBOX?: KVNamespace;
   RELAY_TTL_DEFAULT_SEC?: string;
+  /** Full Firebase service-account JSON (wrangler secret). */
+  FIREBASE_SERVICE_ACCOUNT_JSON?: string;
 }
 
 type Json = Record<string, unknown>;
@@ -124,19 +128,42 @@ export default {
       return json({ ok: true });
     }
 
-    // POST /v1/notify/:mailboxId  body: { data? } — stub (FCM wire-up in P3-04)
+    // POST /v1/notify/:mailboxId  body: { data?: Record<string,string> }
     const notifyMatch = path.match(/^\/v1\/notify\/([^/]+)$/);
     if (notifyMatch && request.method === "POST") {
       const mailboxId = decodeURIComponent(notifyMatch[1]!);
       const token = await env.MAILBOX.get(tokenKey(mailboxId));
       if (!token) return bad("no push token for mailbox", 404);
-      return json({
-        ok: true,
-        queued: false,
-        stub: true,
-        hasToken: true,
-        note: "FCM send lands in P3-04",
-      });
+      const sa = parseServiceAccount(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      if (!sa) {
+        return json({
+          ok: false,
+          hasToken: true,
+          error: "FIREBASE_SERVICE_ACCOUNT_JSON secret missing",
+        }, 503);
+      }
+      const body = (await readJson(request)) ?? {};
+      const dataRaw =
+        body.data && typeof body.data === "object" && !Array.isArray(body.data)
+          ? (body.data as Record<string, unknown>)
+          : { type: "nudge", mailboxId };
+      const data: Record<string, string> = {};
+      for (const [k, v] of Object.entries(dataRaw)) {
+        data[k] = typeof v === "string" ? v : JSON.stringify(v);
+      }
+      try {
+        const result = await sendFcmDataMessage(sa, token, data);
+        return json({
+          ok: result.ok,
+          status: result.status,
+          fcm: result.body,
+        }, result.ok ? 200 : 502);
+      } catch (e) {
+        return json({
+          ok: false,
+          error: e instanceof Error ? e.message : String(e),
+        }, 502);
+      }
     }
 
     return bad("not found", 404);

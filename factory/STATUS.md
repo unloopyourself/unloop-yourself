@@ -4,7 +4,7 @@ Last updated: 2026-11-25
 
 ## Active item
 
-**P3-04** — PushPort + FCM Android adapter (`ready`; next).  
+**P3-05** — Progressive live path: approaching / cancel / B notify UI (`ready`; next).  
 **Branch:** `feature/phase3-nudge-buddy`  
 Autonomy: light factory (ADR-007). Human go-ahead 2026-11-25 (“parti pure…”).
 
@@ -12,11 +12,10 @@ Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). ADR-
 
 ## Last gate result
 
-- **P3-00** done — ADR-010 in `docs/decisions.md`.
-- **P3-01** done — Core nudge/pairing ports + Vitest (105 tests).
-- **P3-02** done — Settings → Buddy: QR + copy/share + paste accept + revoke; scheme `unloop://`; local store (no relay yet in app).
-- **P3-03** done — `workers/relay` deployed: `https://unloop-relay.unloopyourself.workers.dev` (KV bound). TLS from this Windows host may still handshake-fail briefly after subdomain create; wrangler deploy OK.
-- Firebase `unloop-82179` + gitignored credentials on machine.
+- **P3-00…P3-04** done on this branch (ADR-010, Core ports, Buddy UI, Worker+KV+FCM secret, Expo PushPort).
+- Relay: `https://unloop-relay.unloopyourself.workers.dev` (secret `FIREBASE_SERVICE_ACCOUNT_JSON` set).
+- App registers FCM device token → relay on Android start (needs rebuild with `google-services.json`).
+- Device E2E push smoke still pending ADB / physical install.
 - Timing defaults: interrupt 10 / grace 20 / soft unlock 3 min.
 
 ## Human decisions / inputs pending

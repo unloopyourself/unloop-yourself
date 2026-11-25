@@ -276,7 +276,7 @@ Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). Sing
 - **Escalate if:** Always — first external deploy.
 
 ### P3-04 — PushPort + FCM Android adapter
-- **Status:** in_progress
+- **Status:** done
 - **Deps:** P3-03; **human:** Firebase/FCM project (or approve creating one under project email)
 - **AC:** `PushPort` impl; register token to relay; receive opaque data message; no Analytics/Crashlytics SDKs.
 - **Tests:** Device receives test push when FCM configured; unit tests for port fakes.

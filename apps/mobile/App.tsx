@@ -42,6 +42,12 @@ import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { AboutScreen } from "./src/screens/AboutScreen";
 import { BuddyScreen } from "./src/screens/BuddyScreen";
 import { MenuSheet } from "./src/screens/MenuSheet";
+import { loadOrCreateIdentity } from "./src/buddyStore";
+import {
+  ExpoPushPort,
+  getRelayBaseUrl,
+  registerPushTokenWithRelay,
+} from "./src/push/expoPushPort";
 
 type DomainEvents = {
   CHALLENGE_COMPLETED: { atMs: number };
@@ -277,6 +283,27 @@ export default function App() {
     void Linking.getInitialURL().then(openPair);
     const sub = Linking.addEventListener("url", ({ url }) => openPair(url));
     return () => sub.remove();
+  }, []);
+
+  // Best-effort FCM token → relay (no Analytics SDK). Needs a device build with google-services.json.
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const identity = await loadOrCreateIdentity();
+        const token = await new ExpoPushPort().getToken();
+        if (cancelled || !token) return;
+        const relay = getRelayBaseUrl();
+        if (!relay) return;
+        await registerPushTokenWithRelay(relay, identity.mailboxId, token);
+      } catch {
+        // Push is optional until Buddy live path is on.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
