@@ -283,7 +283,7 @@ Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). Sing
 - **Escalate if:** Google account / Firebase project creation.
 
 ### P3-05 — Progressive live path: approaching / cancel / B notify UI
-- **Status:** ready
+- **Status:** in_progress
 - **Deps:** P3-02, P3-03, P3-04
 - **AC:** At T−warn emit approaching; B notification → ignore / pick staged / record live / default nudge; mailbox bound to eventId; cancel on early exit.
 - **Tests:** Core tests for eventId lifecycle; device scenario when two devices or harness available.
