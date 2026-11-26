@@ -3,7 +3,7 @@
 HTTPS host for Buddy invites + Digital Asset Links.
 
 - Site root must serve `/.well-known/assetlinks.json` (see `_headers` for `Content-Type`).
-- Debug fingerprint is baked for local/dev builds; **add Play App Signing + upload-key SHA-256** before production App Links.
+- Fingerprints in `assetlinks.json`: Play App Signing (installs from Play), upload key (local release / sideload), debug keystore (dev).
 
 ## Deploy
 
