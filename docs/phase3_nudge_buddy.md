@@ -201,3 +201,4 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 |------|--------|
 | 2026-11-25 | Initial living plan from product discussion (cascade, live warn window, pairing, domain options). |
 | 2026-11-26 | Phase 3.5 media nudges approved (presets, photo/GIF+text, voice 30s, video 10s compressed). |
+| 2026-11-26 | P3.5-00…07 done (video via `expo-video`, reject-oversize; privacy/Play notes). **P3.5-08** human media acceptance next. |

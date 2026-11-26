@@ -1,6 +1,6 @@
 # Unloop — Privacy Policy
 
-**Last updated:** 2026-11-25  
+**Last updated:** 2026-11-26  
 **Contact:** unloopyourself.dev@gmail.com  
 **App package:** `io.github.unloopyourself.unloop`
 
@@ -26,6 +26,7 @@ To interrupt selected apps after a time threshold you choose, Unloop may use:
 | **Sensors** (accelerometer / gyroscope) | Optional physical challenges you enable (e.g. shake, coin spin, air write) |
 | **Local settings & audit log** | Remember feeds, timings, enabled challenges; optional local debug/audit entries |
 | **Local Buddy pairing records** (optional) | Store invite fingerprints / mailbox ids you accept on this device |
+| **Camera / mic / photos (optional)** | Only if you compose a Buddy media nudge (photo, GIF, short voice ≤30s, short video ≤10s) |
 
 This processing happens **locally**. Unloop’s product intent is not to build a cloud profile of what you watch.
 
@@ -37,6 +38,10 @@ If you enable Buddy features in Settings:
 |------------------|-----------------|---------------------|
 | **Cloudflare Worker relay** | Opaque mailbox blobs (short TTL), push-token ↔ mailbox routing ids | No plaintext message store, no usage profiles, no analytics product |
 | **Firebase Cloud Messaging** | Opaque data pushes to wake a paired device | No Firebase Analytics / Crashlytics / advertising SDKs in the Unloop app |
+
+### Short-TTL media nudges
+
+When you send a Buddy media nudge, the ciphertext blob may include a short photo, GIF, voice clip, or video (hard size/duration caps). The relay holds that blob only for a **short TTL** as a postman—there is **no long-term media gallery or cloud library** on Unloop servers. Media is encoded on device; oversize content is rejected rather than uploaded raw (no 4K dumps).
 
 Buddy invites are shared via OS share / QR / deep link. Unloop does **not** upload your address book. You can revoke a pairing on-device; tokens can be forgotten on the relay.
 
@@ -52,6 +57,8 @@ By default Unloop does **not**:
 ## Permissions
 
 Permissions are requested so the interrupt loop can work as you configured it. You can deny or revoke them in Android Settings; monitoring simply will not work until required permissions are granted again.
+
+Optional Buddy media may also request **camera**, **microphone**, and **photos/videos** access. Denying them only disables composing those nudge types; the core interrupt loop does not require them.
 
 ## Children
 

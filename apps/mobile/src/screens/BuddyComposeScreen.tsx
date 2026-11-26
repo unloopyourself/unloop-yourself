@@ -27,8 +27,11 @@ import {
 } from "../buddyNudgeStore";
 import {
   captureCompressedPhoto,
+  captureVideoUnderCap,
   pickCompressedPhoto,
   pickGifUnderCap,
+  pickVideoUnderCap,
+  type VideoNudgeMedia,
 } from "../buddyMediaEncode";
 import {
   SOUND_PRESET_I18N_KEYS,
@@ -60,6 +63,7 @@ export function BuddyComposeScreen({
     media: NudgeMediaInline;
     durationMs: number;
   } | null>(null);
+  const [video, setVideo] = useState<VideoNudgeMedia | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -147,6 +151,8 @@ export function BuddyComposeScreen({
         return;
       }
       setGif(null);
+      setVoice(null);
+      setVideo(null);
       setPhoto(media);
       setStatus(t("buddy.compose_photo_ready"));
     } finally {
@@ -164,6 +170,8 @@ export function BuddyComposeScreen({
         return;
       }
       setGif(null);
+      setVoice(null);
+      setVideo(null);
       setPhoto(media);
       setStatus(t("buddy.compose_photo_ready"));
     } finally {
@@ -191,6 +199,71 @@ export function BuddyComposeScreen({
       setStatus(t("buddy.compose_gif_too_big"));
     }
   }, [gif, live, putCipher, t]);
+
+  const uploadVideo = useCallback(async () => {
+    if (!video) {
+      setStatus(t("buddy.compose_video_needed"));
+      return;
+    }
+    const caption = live.trim() || undefined;
+    try {
+      await putCipher(
+        encodeNudgeEnvelope({
+          v: 1,
+          kind: "video",
+          atMs: Date.now(),
+          durationMs: video.durationMs,
+          ...(caption ? { text: caption } : {}),
+          media: {
+            encoding: video.encoding,
+            mime: video.mime,
+            byteLength: video.byteLength,
+            data: video.data,
+          },
+        }),
+      );
+    } catch {
+      setStatus(t("buddy.compose_video_too_big"));
+    }
+  }, [live, putCipher, t, video]);
+
+  const onPickVideo = useCallback(async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const media = await pickVideoUnderCap();
+      if (!media) {
+        setStatus(t("buddy.compose_video_cancel"));
+        return;
+      }
+      setPhoto(null);
+      setGif(null);
+      setVoice(null);
+      setVideo(media);
+      setStatus(t("buddy.compose_video_ready"));
+    } finally {
+      setBusy(false);
+    }
+  }, [t]);
+
+  const onCaptureVideo = useCallback(async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const media = await captureVideoUnderCap();
+      if (!media) {
+        setStatus(t("buddy.compose_video_cancel"));
+        return;
+      }
+      setPhoto(null);
+      setGif(null);
+      setVoice(null);
+      setVideo(media);
+      setStatus(t("buddy.compose_video_ready"));
+    } finally {
+      setBusy(false);
+    }
+  }, [t]);
 
   const uploadVoice = useCallback(async () => {
     if (!voice) {
@@ -224,6 +297,8 @@ export function BuddyComposeScreen({
         return;
       }
       setPhoto(null);
+      setVoice(null);
+      setVideo(null);
       setGif(media);
       setStatus(t("buddy.compose_gif_ready"));
     } finally {
@@ -361,6 +436,7 @@ export function BuddyComposeScreen({
         onReady={(media, durationMs) => {
           setPhoto(null);
           setGif(null);
+          setVideo(null);
           setVoice({ media, durationMs });
         }}
       />
@@ -375,6 +451,36 @@ export function BuddyComposeScreen({
           </Text>
         </Pressable>
       ) : null}
+
+      <Text style={styles.section}>{t("buddy.compose_video")}</Text>
+      <Text style={styles.meta}>{t("buddy.compose_video_lead")}</Text>
+      <View style={styles.row}>
+        <Pressable
+          style={[styles.btn, busy && styles.disabled]}
+          disabled={busy}
+          onPress={() => void onPickVideo()}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_video_pick")}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, busy && styles.disabled]}
+          disabled={busy}
+          onPress={() => void onCaptureVideo()}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_video_camera")}</Text>
+        </Pressable>
+        {video ? (
+          <Pressable
+            style={[styles.btnPrimary, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void uploadVideo()}
+          >
+            <Text style={styles.btnPrimaryLabel}>
+              {t("buddy.compose_video_send")}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       <Text style={styles.section}>{t("buddy.compose_presets")}</Text>
       <Text style={styles.meta}>{t("buddy.compose_presets_lead")}</Text>

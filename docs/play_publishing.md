@@ -50,8 +50,8 @@ Output: `apps/mobile/android/app/build/outputs/bundle/release/app-release.aab`
    - 10-inch tablet (1600×2560): [`apps/mobile/assets/play/screenshots/tablet-10/`](../apps/mobile/assets/play/screenshots/tablet-10/)
    Re-capture helper (needs a running emulator): `scripts/avd/capture-play-screenshots.sh`.
 3. **App content → Privacy policy** → URL to the published privacy page.
-4. **Data safety**: no off-device collection/sharing for the MVP; declare on-device Usage Access / sensors as needed by the form wording.
-5. **App access / Sensitive permissions**: explain Usage Access, overlay, and foreground service (digital wellbeing interrupt requested by the user).
+4. **Data safety**: declare optional Buddy relay as ephemeral / short-TTL ciphertext (not a permanent user media store). No analytics/ads collection. On-device Usage Access / sensors as needed by the form wording. If the form asks about photos, video, or audio: user-initiated Buddy nudge blobs only, encrypted, deleted after mailbox TTL — not sold or used for ads.
+5. **App access / Sensitive permissions**: explain Usage Access, overlay, and foreground service (digital wellbeing interrupt requested by the user). Also note optional **camera / microphone / photos** for Buddy media compose (photo, ≤30s voice, ≤10s video) — not required for the core interrupt loop.
 6. Create **Internal testing** track → upload AAB → add tester emails / Google group → share opt-in link.
 
 ## Smoke on a tester device

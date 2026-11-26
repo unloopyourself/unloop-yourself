@@ -377,14 +377,15 @@ Caps (initial): text ≤500 chars; photo/GIF ≤2 MiB each; voice ≤30 s / 
 - **Escalate if:** —
 
 ### P3.5-06 — Video ≤10s (compressed)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3.5-00, P3.5-01
 - **AC:** Capture/trim ≤10s; compress toward ≤8 MiB / ~720p (never upload 4K raw); interrupt plays inline; optional text.
 - **Tests:** Cap enforcement; device smoke.
 - **Escalate if:** Expo/FFmpeg tooling forces paid SaaS — stop and propose local-only path.
+- **Notes:** Local-only path — picker/camera `videoMaxDuration` 10s + reject >8 MiB (no FFmpeg/SaaS). `expo-video` on interrupt. Debug APK installed Samsung + Nokia 2026-11-26.
 
 ### P3.5-07 — Privacy + Play notes for media
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3.5-03
 - **AC:** Privacy page notes short-TTL media via relay (no long-term store); Play Data safety / permissions for mic/camera if needed.
 - **Tests:** — (docs).

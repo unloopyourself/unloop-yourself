@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
+import { useVideoPlayer, VideoView } from "expo-video";
 import type { SoundPresetId } from "@unloop/core";
 import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
@@ -8,6 +9,7 @@ import {
   SOUND_PRESET_ASSETS,
   SOUND_PRESET_I18N_KEYS,
 } from "../buddySoundPresets";
+import { writeVideoCacheFile } from "../buddyMediaEncode";
 import { writeVoiceCacheFile } from "../buddyVoice";
 
 export type BuddyNudgeMedia = {
@@ -75,6 +77,25 @@ function isAudioMime(mime: string): boolean {
   return mime.startsWith("audio/");
 }
 
+function isVideoMime(mime: string): boolean {
+  return mime.startsWith("video/");
+}
+
+function NudgeVideoPlayer({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = false;
+    p.play();
+  });
+  return (
+    <VideoView
+      player={player}
+      style={styles.video}
+      contentFit="contain"
+      nativeControls
+    />
+  );
+}
+
 /** Interrupt surface for a buddy nudge (text, photo/GIF, voice, sound preset). */
 export function BuddyNudgeView({
   t,
@@ -84,6 +105,7 @@ export function BuddyNudgeView({
   onContinue,
 }: Props) {
   const [voiceUri, setVoiceUri] = useState<string | null>(null);
+  const [videoUri, setVideoUri] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +125,24 @@ export function BuddyNudgeView({
     };
   }, [media]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!media || !isVideoMime(media.mime)) {
+      setVideoUri(null);
+      return;
+    }
+    void writeVideoCacheFile(media.mime, media.data)
+      .then((path) => {
+        if (!cancelled) setVideoUri(path);
+      })
+      .catch(() => {
+        if (!cancelled) setVideoUri(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [media]);
+
   const imageUri =
     media && isImageMime(media.mime)
       ? `data:${media.mime};base64,${media.data}`
@@ -114,15 +154,18 @@ export function BuddyNudgeView({
     !(presetId && body === "sound_preset") &&
     body !== "photo" &&
     body !== "gif" &&
-    body !== "voice"
+    body !== "voice" &&
+    body !== "video"
       ? body
       : presetId
         ? t(SOUND_PRESET_I18N_KEYS[presetId])
         : voiceUri
           ? t("buddy.nudge_voice")
-          : imageUri
-            ? t("buddy.nudge_photo")
-            : body;
+          : videoUri
+            ? t("buddy.nudge_video")
+            : imageUri
+              ? t("buddy.nudge_photo")
+              : body;
 
   return (
     <View style={styles.wrap}>
@@ -135,6 +178,9 @@ export function BuddyNudgeView({
       {voiceUri ? (
         <Text style={styles.preset}>{t("buddy.nudge_playing_voice")}</Text>
       ) : null}
+      {videoUri ? (
+        <Text style={styles.preset}>{t("buddy.nudge_playing_video")}</Text>
+      ) : null}
       {imageUri ? (
         <Image
           source={{ uri: imageUri }}
@@ -142,6 +188,7 @@ export function BuddyNudgeView({
           accessibilityLabel={t("buddy.nudge_photo")}
         />
       ) : null}
+      {videoUri ? <NudgeVideoPlayer uri={videoUri} /> : null}
       <Text style={styles.body}>{caption}</Text>
       <Pressable
         style={styles.btn}
@@ -180,6 +227,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.08)",
     resizeMode: "cover",
+  },
+  video: {
+    width: "100%",
+    maxWidth: 320,
+    height: 220,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.35)",
   },
   body: {
     fontSize: typography.bodySize + 2,

@@ -37,8 +37,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Unloop needs photo access so you can send a short buddy nudge picture. Photos are not uploaded to a permanent gallery — only a short-lived relay blob for this interrupt.",
-          "cameraPermission": "Unloop needs the camera so you can send a short buddy nudge picture for this interrupt only."
+          "photosPermission": "Unloop needs photo/video access so you can send a short buddy nudge. Media is not uploaded to a permanent gallery — only a short-lived relay blob for this interrupt.",
+          "cameraPermission": "Unloop needs the camera so you can send a short buddy nudge photo or video (max ~10s) for this interrupt only.",
+          "microphonePermission": "Unloop needs the mic when recording a short buddy nudge video. Audio is not kept on a server — only a short-lived relay blob for this interrupt."
         }
       ],
       "./plugins/withUnloopAndroidRelease.js",
@@ -51,7 +52,8 @@
           "enableBackgroundRecording": false,
           "enableBackgroundPlayback": false
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

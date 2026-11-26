@@ -35,10 +35,15 @@ export async function writeVoiceCacheFile(
 ): Promise<string> {
   const dir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
   if (!dir) throw new Error("no_cache_dir");
-  const path = `${dir}buddy-voice-${Date.now()}.m4a`;
+  const ext =
+    mime.includes("3gp") || mime.includes("3gpp")
+      ? "3gp"
+      : mime.includes("webm")
+        ? "webm"
+        : "m4a";
+  const path = `${dir}buddy-voice-${Date.now()}.${ext}`;
   await FileSystem.writeAsStringAsync(path, data, {
     encoding: FileSystem.EncodingType.Base64,
   });
-  void mime;
   return path;
 }
