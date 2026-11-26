@@ -363,7 +363,7 @@ Caps (initial): text ≤500 chars; photo/GIF ≤2 MiB each; voice ≤30 s / 
 - **Escalate if:** —
 
 ### P3.5-04 — GIF + text+GIF
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3.5-03
 - **AC:** Pick GIF (or short animated) under cap; same composed render path as photo.
 - **Tests:** Envelope kind `gif`; manual smoke.

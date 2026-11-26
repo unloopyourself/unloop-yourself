@@ -62,7 +62,8 @@ export function BuddyNudgeView({
     body &&
     !(presetId && body === presetId) &&
     !(presetId && body === "sound_preset") &&
-    body !== "photo"
+    body !== "photo" &&
+    body !== "gif"
       ? body
       : presetId
         ? t(SOUND_PRESET_I18N_KEYS[presetId])

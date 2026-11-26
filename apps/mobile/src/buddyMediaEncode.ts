@@ -1,5 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
+import * as FileSystem from "expo-file-system/legacy";
 import { NUDGE_CAPS, type NudgeMediaInline } from "@unloop/core";
 
 function approxBytesFromBase64(b64: string): number {
@@ -92,4 +93,45 @@ export async function captureCompressedPhoto(): Promise<NudgeMediaInline | null>
     compress = Math.max(0.35, compress - 0.1);
   }
   return last && last.byteLength <= NUDGE_CAPS.photoBytes ? last : null;
+}
+
+/**
+ * Pick a GIF without re-encoding (keeps animation). Rejects files over gif cap.
+ */
+export async function pickGifUnderCap(): Promise<NudgeMediaInline | null> {
+  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!perm.granted) return null;
+
+  const picked = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    quality: 1,
+    exif: false,
+  });
+  if (picked.canceled || !picked.assets[0]?.uri) return null;
+
+  const asset = picked.assets[0];
+  const uri = asset.uri;
+  const mime =
+    asset.mimeType && asset.mimeType.startsWith("image/")
+      ? asset.mimeType
+      : uri.toLowerCase().includes(".gif")
+        ? "image/gif"
+        : "image/jpeg";
+
+  const info = await FileSystem.getInfoAsync(uri);
+  if (!info.exists || info.isDirectory) return null;
+
+  const data = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const byteLength =
+    typeof info.size === "number" ? info.size : approxBytesFromBase64(data);
+  if (byteLength > NUDGE_CAPS.gifBytes) return null;
+
+  return {
+    encoding: "base64",
+    mime,
+    byteLength,
+    data,
+  };
 }

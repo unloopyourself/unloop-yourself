@@ -28,6 +28,7 @@ import {
 import {
   captureCompressedPhoto,
   pickCompressedPhoto,
+  pickGifUnderCap,
 } from "../buddyMediaEncode";
 import {
   SOUND_PRESET_I18N_KEYS,
@@ -53,6 +54,7 @@ export function BuddyComposeScreen({
   const [staged, setStaged] = useState<StagedNudge[]>([]);
   const [live, setLive] = useState("");
   const [photo, setPhoto] = useState<NudgeMediaInline | null>(null);
+  const [gif, setGif] = useState<NudgeMediaInline | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -139,6 +141,7 @@ export function BuddyComposeScreen({
         setStatus(t("buddy.compose_photo_cancel"));
         return;
       }
+      setGif(null);
       setPhoto(media);
       setStatus(t("buddy.compose_photo_ready"));
     } finally {
@@ -155,8 +158,47 @@ export function BuddyComposeScreen({
         setStatus(t("buddy.compose_photo_cancel"));
         return;
       }
+      setGif(null);
       setPhoto(media);
       setStatus(t("buddy.compose_photo_ready"));
+    } finally {
+      setBusy(false);
+    }
+  }, [t]);
+
+  const uploadGif = useCallback(async () => {
+    if (!gif) {
+      setStatus(t("buddy.compose_gif_needed"));
+      return;
+    }
+    const caption = live.trim() || undefined;
+    try {
+      await putCipher(
+        encodeNudgeEnvelope({
+          v: 1,
+          kind: "gif",
+          atMs: Date.now(),
+          ...(caption ? { text: caption } : {}),
+          media: gif,
+        }),
+      );
+    } catch {
+      setStatus(t("buddy.compose_gif_too_big"));
+    }
+  }, [gif, live, putCipher, t]);
+
+  const onPickGif = useCallback(async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const media = await pickGifUnderCap();
+      if (!media) {
+        setStatus(t("buddy.compose_gif_cancel"));
+        return;
+      }
+      setPhoto(null);
+      setGif(media);
+      setStatus(t("buddy.compose_gif_ready"));
     } finally {
       setBusy(false);
     }
@@ -251,6 +293,36 @@ export function BuddyComposeScreen({
           source={{ uri: `data:${photo.mime};base64,${photo.data}` }}
           style={styles.preview}
           accessibilityLabel={t("buddy.compose_photo")}
+        />
+      ) : null}
+
+      <Text style={styles.section}>{t("buddy.compose_gif")}</Text>
+      <Text style={styles.meta}>{t("buddy.compose_gif_lead")}</Text>
+      <View style={styles.row}>
+        <Pressable
+          style={[styles.btn, busy && styles.disabled]}
+          disabled={busy}
+          onPress={() => void onPickGif()}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_gif_pick")}</Text>
+        </Pressable>
+        {gif ? (
+          <Pressable
+            style={[styles.btnPrimary, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void uploadGif()}
+          >
+            <Text style={styles.btnPrimaryLabel}>
+              {t("buddy.compose_gif_send")}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {gif ? (
+        <Image
+          source={{ uri: `data:${gif.mime};base64,${gif.data}` }}
+          style={styles.preview}
+          accessibilityLabel={t("buddy.compose_gif")}
         />
       ) : null}
 
