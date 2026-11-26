@@ -43,7 +43,7 @@ Get-Content credentials/firebase-service-account.json -Raw | npx wrangler secret
 | Method | Path | Body | Notes |
 |--------|------|------|-------|
 | GET | `/health` | — | Liveness |
-| PUT | `/v1/mailbox/:mailboxId/:eventId` | `{ ciphertext, ttlSec? }` | Opaque blob |
+| PUT | `/v1/mailbox/:mailboxId/:eventId` | `{ ciphertext, ttlSec? }` | Opaque blob; **413** if UTF-8 size &gt; 8 MiB (Phase 3.5 media cap) |
 | GET | `/v1/mailbox/:mailboxId/:eventId` | — | 404 if missing/expired |
 | DELETE | `/v1/mailbox/:mailboxId/:eventId` | — | Cancel |
 | PUT | `/v1/push-token/:mailboxId` | `{ token }` | FCM token register |

@@ -50,6 +50,23 @@ export {
   resolveInterruptCascade,
 } from "./nudge.js";
 
+export type {
+  NudgeEnvelopeParse,
+  NudgeEnvelopeV1,
+  NudgeMediaInline,
+  SoundPresetId,
+} from "./nudgeEnvelope.js";
+export {
+  NUDGE_CAPS,
+  NUDGE_ENVELOPE_V,
+  SOUND_PRESET_IDS,
+  decodeNudgeEnvelope,
+  encodeNudgeEnvelope,
+  soundPresetNudgeEnvelope,
+  textNudgeEnvelope,
+  validateNudgeEnvelope,
+} from "./nudgeEnvelope.js";
+
 export type { NudgeBusClock, NudgeLiveSession } from "./nudgeBus.js";
 export { NudgeBus, createNudgeEventId } from "./nudgeBus.js";
 

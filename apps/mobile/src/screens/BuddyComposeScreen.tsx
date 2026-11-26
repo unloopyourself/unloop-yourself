@@ -11,12 +11,21 @@ import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
 import { statusBarTopInset } from "../layout";
 import {
+  encodeNudgeEnvelope,
+  soundPresetNudgeEnvelope,
+  SOUND_PRESET_IDS,
+  type SoundPresetId,
+} from "@unloop/core";
+import {
   addStagedNudge,
   encodeNudgeBlob,
   loadStagedNudges,
   type PendingApproach,
   type StagedNudge,
 } from "../buddyNudgeStore";
+import {
+  SOUND_PRESET_I18N_KEYS,
+} from "../buddySoundPresets";
 import { HttpRelayPort } from "../push/httpRelayPort";
 import { getRelayBaseUrl } from "../push/expoPushPort";
 
@@ -44,13 +53,8 @@ export function BuddyComposeScreen({
     void loadStagedNudges().then(setStaged);
   }, []);
 
-  const upload = useCallback(
-    async (body: string) => {
-      const trimmed = body.trim();
-      if (!trimmed) {
-        setStatus(t("buddy.compose_empty"));
-        return;
-      }
+  const putCipher = useCallback(
+    async (ciphertext: string) => {
       const relayUrl = getRelayBaseUrl();
       if (!relayUrl) {
         setStatus(t("buddy.compose_no_relay"));
@@ -62,7 +66,7 @@ export function BuddyComposeScreen({
         await relay.putMailbox(
           pending.mailboxId,
           pending.eventId,
-          encodeNudgeBlob(trimmed),
+          ciphertext,
           180,
         );
         setStatus(t("buddy.compose_sent"));
@@ -74,6 +78,28 @@ export function BuddyComposeScreen({
       }
     },
     [onDone, pending.eventId, pending.mailboxId, t],
+  );
+
+  const upload = useCallback(
+    async (body: string) => {
+      const trimmed = body.trim();
+      if (!trimmed) {
+        setStatus(t("buddy.compose_empty"));
+        return;
+      }
+      await putCipher(encodeNudgeBlob(trimmed));
+    },
+    [putCipher, t],
+  );
+
+  const uploadPreset = useCallback(
+    async (presetId: SoundPresetId) => {
+      const caption = live.trim() || undefined;
+      await putCipher(
+        encodeNudgeEnvelope(soundPresetNudgeEnvelope(presetId, caption)),
+      );
+    },
+    [live, putCipher],
   );
 
   return (
@@ -130,6 +156,22 @@ export function BuddyComposeScreen({
           </Pressable>
         ))
       )}
+
+      <Text style={styles.section}>{t("buddy.compose_presets")}</Text>
+      <Text style={styles.meta}>{t("buddy.compose_presets_lead")}</Text>
+      <View style={styles.row}>
+        {SOUND_PRESET_IDS.map((id) => (
+          <Pressable
+            key={id}
+            style={[styles.btn, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void uploadPreset(id)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.btnLabel}>{t(SOUND_PRESET_I18N_KEYS[id])}</Text>
+          </Pressable>
+        ))}
+      </View>
 
       <Text style={styles.section}>{t("buddy.compose_live")}</Text>
       <TextInput

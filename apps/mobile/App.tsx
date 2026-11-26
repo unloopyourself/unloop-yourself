@@ -54,6 +54,8 @@ import {
   setPendingApproach,
   type PendingApproach,
 } from "./src/buddyNudgeStore";
+import { isSoundPresetId } from "./src/buddySoundPresets";
+import type { SoundPresetId } from "@unloop/core";
 import { isInQuietHours } from "./src/buddySettings";
 import {
   ExpoPushPort,
@@ -131,6 +133,8 @@ export default function App() {
   const [pendingApproach, setPendingApproachState] =
     useState<PendingApproach | null>(null);
   const [buddyNudgeText, setBuddyNudgeText] = useState<string | null>(null);
+  const [buddyNudgePresetId, setBuddyNudgePresetId] =
+    useState<SoundPresetId | null>(null);
   const [buddyNudgeDismissed, setBuddyNudgeDismissed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const nudgeBusRef = useRef<NudgeBus | null>(null);
@@ -235,7 +239,13 @@ export default function App() {
             void nudgeBusRef.current?.fetchNudge().then((blob) => {
               if (!blob) return;
               const decoded = decodeNudgeBlob(blob);
-              if (decoded?.body) setBuddyNudgeText(decoded.body);
+              if (!decoded) return;
+              if (decoded.body) setBuddyNudgeText(decoded.body);
+              setBuddyNudgePresetId(
+                decoded.presetId && isSoundPresetId(decoded.presetId)
+                  ? decoded.presetId
+                  : null,
+              );
             });
             if (Platform.OS === "android") {
               UnloopUsage.stopChallengeTone();
@@ -476,8 +486,13 @@ export default function App() {
           void nb.fetchNudge().then((blob) => {
             if (!blob) return;
             const decoded = decodeNudgeBlob(blob);
-            if (decoded?.body) {
-              setBuddyNudgeText(decoded.body);
+            if (decoded) {
+              if (decoded.body) setBuddyNudgeText(decoded.body);
+              setBuddyNudgePresetId(
+                decoded.presetId && isSoundPresetId(decoded.presetId)
+                  ? decoded.presetId
+                  : null,
+              );
               setBuddyNudgeDismissed(false);
             }
             void audit.append({
@@ -722,6 +737,7 @@ export default function App() {
     // Progressive Buddy live path (P3-05/07): gated by Settings.
     nudgeBusRef.current = null;
     setBuddyNudgeText(null);
+    setBuddyNudgePresetId(null);
     setBuddyNudgeDismissed(false);
     if (settings.buddyEnabled) {
       try {
@@ -858,6 +874,7 @@ export default function App() {
             <BuddyNudgeView
               t={t}
               body={buddyNudgeText}
+              presetId={buddyNudgePresetId ?? undefined}
               onContinue={() => setBuddyNudgeDismissed(true)}
             />
           ) : (

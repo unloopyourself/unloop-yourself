@@ -36,6 +36,13 @@ function defaultTtl(env: Env): number {
   return Number.isFinite(n) && n > 0 ? Math.min(n, 600) : 120;
 }
 
+/** Max mailbox ciphertext UTF-8 bytes (Phase 3.5 media caps). */
+export const MAILBOX_CIPHERTEXT_MAX_BYTES = 8 * 1024 * 1024;
+
+function utf8ByteLength(s: string): number {
+  return new TextEncoder().encode(s).length;
+}
+
 function mailboxKey(mailboxId: string, eventId: string): string {
   return `mb:${mailboxId}:${eventId}`;
 }
@@ -81,6 +88,9 @@ export default {
       const body = await readJson(request);
       if (!body || typeof body.ciphertext !== "string" || !body.ciphertext) {
         return bad("ciphertext required");
+      }
+      if (utf8ByteLength(body.ciphertext) > MAILBOX_CIPHERTEXT_MAX_BYTES) {
+        return bad("ciphertext too large", 413);
       }
       const ttl =
         typeof body.ttlSec === "number" && body.ttlSec > 0

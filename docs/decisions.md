@@ -244,6 +244,8 @@ Phase 3 adds a human Buddy nudge path without turning Unloop into a social netwo
 
 4. **Out of Phase 3 scope:** benefactor provider, real AI companion behaviour, iOS PushPort, paid custom domain, in-app WhatsApp/Telegram SDKs.
 
+5. **Phase 3.5 media nudges** (accepted 2026-11-26): same RelayPort postman; envelope v1 may carry short-TTL media (photo/GIF/voice/video) or a bundled `sound_preset` id, optionally composed with text. Hard caps — no 4K raw uploads; encode on device. Preset SFX must be original or clearly free/CC0.
+
 ### Alternatives
 1. **Buddy as hard dependency of interrupt** — fails manifesto (not a punisher) and breaks offline/cheap devices.
 2. **Firebase/Supabase as Buddy backend** — contradicts ADR-006 (profiles, retention, GDPR surface).

@@ -6,7 +6,14 @@ import type { Capability } from "./challenge.js";
  */
 export type NudgeProviderId = "human_buddy" | "ai_companion" | "embedded_challenges";
 
-export type NudgeKind = "text" | "voice" | "photo" | "opaque";
+export type NudgeKind =
+  | "text"
+  | "voice"
+  | "photo"
+  | "gif"
+  | "video"
+  | "sound_preset"
+  | "opaque";
 
 /** Opaque or stub nudge shown instead of (or before) a local challenge. */
 export interface NudgePayload {

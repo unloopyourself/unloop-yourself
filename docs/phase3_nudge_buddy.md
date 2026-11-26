@@ -189,7 +189,7 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 
 * Warn lead default (2 min?) vs configurable only.
 * Max buddies per U; max concurrent `eventId` mailbox size.
-* Media caps (duration/size) for live voice.
+* ~~Media caps (duration/size) for live voice.~~ → **Phase 3.5** (BACKLOG): voice ≤30s/≤1 MiB; video ≤10s/≤8 MiB (~720p, no 4K raw); photo/GIF ≤2 MiB; sound presets bundled; composed text+pic / text+GIF.
 * Whether default nudge lives only on B and fires on push, or may be pre-uploaded.
 * Fingerprint UX copy (how non-technical teens confirm “this is Marco”).
 
@@ -200,3 +200,4 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 | Date | Change |
 |------|--------|
 | 2026-11-25 | Initial living plan from product discussion (cascade, live warn window, pairing, domain options). |
+| 2026-11-26 | Phase 3.5 media nudges approved (presets, photo/GIF+text, voice 30s, video 10s compressed). |

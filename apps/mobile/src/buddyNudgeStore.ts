@@ -1,4 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  decodeNudgeEnvelope,
+  encodeNudgeEnvelope,
+  textNudgeEnvelope,
+} from "@unloop/core";
 
 const STAGED_KEY = "unloop.buddy.staged.v1";
 const PENDING_KEY = "unloop.buddy.pendingApproach.v1";
@@ -91,28 +96,25 @@ export async function loadPendingApproach(): Promise<PendingApproach | null> {
   }
 }
 
-/** Opaque-ish mailbox payload (Phase 3 text; E2EE later). */
+/** Mailbox payload via Core envelope v1 (legacy v0 text still decodes). */
 export function encodeNudgeBlob(text: string): string {
-  return JSON.stringify({
-    v: 0,
-    kind: "text",
-    body: text.slice(0, 500),
-    atMs: Date.now(),
-  });
+  return encodeNudgeEnvelope(textNudgeEnvelope(text));
 }
 
 export function decodeNudgeBlob(
   raw: string,
-): { kind: string; body: string } | null {
-  try {
-    const o = JSON.parse(raw) as { kind?: string; body?: string };
-    if (typeof o.body !== "string" || !o.body) return null;
-    return { kind: typeof o.kind === "string" ? o.kind : "text", body: o.body };
-  } catch {
-    // Plain text fallback
-    if (raw.trim()) return { kind: "text", body: raw.trim().slice(0, 500) };
-    return null;
-  }
+): { kind: string; body: string; presetId?: string } | null {
+  const parsed = decodeNudgeEnvelope(raw);
+  if (!parsed.ok) return null;
+  const e = parsed.envelope;
+  const body = (e.text ?? "").trim();
+  // Text-only path requires body; media/preset may rely on kind (+ optional caption).
+  if (e.kind === "text" && !body) return null;
+  return {
+    kind: e.kind,
+    body: body || e.presetId || e.kind,
+    ...(e.presetId ? { presetId: e.presetId } : {}),
+  };
 }
 
 const PUSH_LOG_KEY = "unloop.buddy.pushLog.v1";

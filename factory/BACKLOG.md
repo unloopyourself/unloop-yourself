@@ -324,3 +324,75 @@ Living plan: [`docs/phase3_nudge_buddy.md`](../docs/phase3_nudge_buddy.md). Sing
 - **Tests:** Human device acceptance.
 - **Escalate if:** Always — milestone.
 - **Notes (2026-11-26):** Live smoke on Samsung + Nokia — pair, approaching FCM, mailbox nudge, interrupt shows “DAL TUO BUDDY / Nokia nudge: take a breath.” Human signed off without re-checking cancel/leave-early.
+
+---
+
+## Phase 3.5 — Buddy media nudges
+
+Human-approved 2026-11-26. Still one app / same relay postman (ADR-010). No analytics. Media is short-TTL opaque blobs (or preset ids); **no 4K raw** — encode + hard size caps. Royalty-free / original SFX only.
+
+Caps (initial): text ≤500 chars; photo/GIF ≤2 MiB each; voice ≤30 s / ≤1 MiB; video ≤10 s / ≤8 MiB (target 720p); mailbox envelope ≤8 MiB serialized; compose = text | text+photo | text+GIF | voice | video | sound preset.
+
+### P3.5-00 — Envelope v1 + kinds + caps (Core)
+- **Status:** done
+- **Deps:** P3-10
+- **AC:** Core defines `NudgeKind` including `gif` | `video` | `sound_preset` | composed fields; encode/decode/validate envelope v1; backward-compatible with Phase 3 text blobs; unit tests for caps and round-trip.
+- **Tests:** `npm test --workspace=@unloop/core`; `scripts/check-boundaries.sh`.
+- **Escalate if:** —
+
+### P3.5-01 — Relay rejects oversized mailbox blobs
+- **Status:** done
+- **Deps:** P3.5-00
+- **AC:** Worker PUT `/v1/mailbox/...` rejects ciphertext over cap with 413; README notes limits; deploy when human CF token available (same project).
+- **Tests:** Local unit/handler test or wrangler smoke; no secrets committed.
+- **Escalate if:** Need R2 (only if KV/body limits block video cap).
+- **Notes:** Deployed to unloop-relay 2026-11-26.
+
+### P3.5-02 — Sound presets (compose + interrupt play)
+- **Status:** done
+- **Deps:** P3.5-00
+- **AC:** ≥3 original/CC0 presets (e.g. ship horn, truck horn, cheer); compose picks preset id (optional text); interrupt plays once; i18n EN/IT; no network for preset audio (bundled).
+- **Tests:** Unit for envelope with `sound_preset`; device/AVD smoke optional.
+- **Escalate if:** —
+
+### P3.5-03 — Photo + text+photo
+- **Status:** ready
+- **Deps:** P3.5-00, P3.5-01
+- **AC:** Compose: pick/capture image, optional caption; compress to cap; upload envelope; interrupt shows image (+ text); permissions copy non-punitive.
+- **Tests:** Encode size clamp unit; manual device smoke when ADB available.
+- **Escalate if:** —
+
+### P3.5-04 — GIF + text+GIF
+- **Status:** ready
+- **Deps:** P3.5-03
+- **AC:** Pick GIF (or short animated) under cap; same composed render path as photo.
+- **Tests:** Envelope kind `gif`; manual smoke.
+- **Escalate if:** —
+
+### P3.5-05 — Voice note ≤30s
+- **Status:** ready
+- **Deps:** P3.5-00, P3.5-01
+- **AC:** Record/stop with hard 30s; encode ≤1 MiB; upload; interrupt plays audio + optional text; mic permission rationale.
+- **Tests:** Duration clamp unit; device smoke.
+- **Escalate if:** —
+
+### P3.5-06 — Video ≤10s (compressed)
+- **Status:** ready
+- **Deps:** P3.5-00, P3.5-01
+- **AC:** Capture/trim ≤10s; compress toward ≤8 MiB / ~720p (never upload 4K raw); interrupt plays inline; optional text.
+- **Tests:** Cap enforcement; device smoke.
+- **Escalate if:** Expo/FFmpeg tooling forces paid SaaS — stop and propose local-only path.
+
+### P3.5-07 — Privacy + Play notes for media
+- **Status:** ready
+- **Deps:** P3.5-03
+- **AC:** Privacy page notes short-TTL media via relay (no long-term store); Play Data safety / permissions for mic/camera if needed.
+- **Tests:** — (docs).
+- **Escalate if:** Policy wording ambiguity.
+
+### P3.5-08 — Two-device media acceptance (human)
+- **Status:** ready
+- **Deps:** P3.5-02, P3.5-03, P3.5-05 (video optional if 06 done)
+- **AC:** Preset + photo/composed + voice path verified on two devices; documented in STATUS.
+- **Tests:** Human device acceptance.
+- **Escalate if:** Always — milestone.

@@ -1,19 +1,72 @@
+import { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Audio } from "expo-av";
+import type { SoundPresetId } from "@unloop/core";
 import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
+import {
+  SOUND_PRESET_ASSETS,
+  SOUND_PRESET_I18N_KEYS,
+} from "../buddySoundPresets";
 
 type Props = {
   t: Translate;
   body: string;
+  presetId?: SoundPresetId;
   onContinue: () => void;
 };
 
-/** Interrupt surface for a buddy text nudge (before / instead of challenge UI). */
-export function BuddyNudgeView({ t, body, onContinue }: Props) {
+/** Interrupt surface for a buddy nudge (text and/or sound preset). */
+export function BuddyNudgeView({ t, body, presetId, onContinue }: Props) {
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function play() {
+      if (!presetId) return;
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+        });
+        const { sound } = await Audio.Sound.createAsync(
+          SOUND_PRESET_ASSETS[presetId],
+          { shouldPlay: true, volume: 1 },
+        );
+        if (cancelled) {
+          await sound.unloadAsync();
+          return;
+        }
+        soundRef.current = sound;
+      } catch {
+        /* best-effort playback */
+      }
+    }
+    void play();
+    return () => {
+      cancelled = true;
+      const s = soundRef.current;
+      soundRef.current = null;
+      if (s) void s.unloadAsync();
+    };
+  }, [presetId]);
+
+  const caption =
+    body &&
+    !(presetId && body === presetId) &&
+    !(presetId && body === "sound_preset")
+      ? body
+      : presetId
+        ? t(SOUND_PRESET_I18N_KEYS[presetId])
+        : body;
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.eyebrow}>{t("buddy.nudge_from")}</Text>
-      <Text style={styles.body}>{body}</Text>
+      {presetId ? (
+        <Text style={styles.preset}>{t("buddy.nudge_playing_sound")}</Text>
+      ) : null}
+      <Text style={styles.body}>{caption}</Text>
       <Pressable
         style={styles.btn}
         onPress={onContinue}
@@ -38,6 +91,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
     color: "rgba(242,245,248,0.7)",
+  },
+  preset: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "rgba(242,245,248,0.55)",
   },
   body: {
     fontSize: typography.bodySize + 2,
