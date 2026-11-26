@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { Audio } from "expo-av";
+import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import type { SoundPresetId } from "@unloop/core";
 import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
@@ -17,6 +17,30 @@ type Props = {
   onContinue: () => void;
 };
 
+function PresetPlayer({ presetId }: { presetId: SoundPresetId }) {
+  const player = useAudioPlayer(SOUND_PRESET_ASSETS[presetId]);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+        });
+        if (!cancelled) {
+          player.seekTo(0);
+          player.play();
+        }
+      } catch {
+        /* best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [player, presetId]);
+  return null;
+}
+
 /** Interrupt surface for a buddy nudge (text, photo, and/or sound preset). */
 export function BuddyNudgeView({
   t,
@@ -25,39 +49,6 @@ export function BuddyNudgeView({
   mediaUri,
   onContinue,
 }: Props) {
-  const soundRef = useRef<Audio.Sound | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function play() {
-      if (!presetId) return;
-      try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          shouldDuckAndroid: true,
-        });
-        const { sound } = await Audio.Sound.createAsync(
-          SOUND_PRESET_ASSETS[presetId],
-          { shouldPlay: true, volume: 1 },
-        );
-        if (cancelled) {
-          await sound.unloadAsync();
-          return;
-        }
-        soundRef.current = sound;
-      } catch {
-        /* best-effort playback */
-      }
-    }
-    void play();
-    return () => {
-      cancelled = true;
-      const s = soundRef.current;
-      soundRef.current = null;
-      if (s) void s.unloadAsync();
-    };
-  }, [presetId]);
-
   const caption =
     body &&
     !(presetId && body === presetId) &&
@@ -73,6 +64,7 @@ export function BuddyNudgeView({
 
   return (
     <View style={styles.wrap}>
+      {presetId ? <PresetPlayer presetId={presetId} /> : null}
       <Text style={styles.eyebrow}>{t("buddy.nudge_from")}</Text>
       {presetId ? (
         <Text style={styles.preset}>{t("buddy.nudge_playing_sound")}</Text>

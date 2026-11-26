@@ -42,7 +42,8 @@
         }
       ],
       "./plugins/withUnloopAndroidRelease.js",
-      "expo-asset"
+      "expo-asset",
+      "expo-audio"
     ]
   }
 }
