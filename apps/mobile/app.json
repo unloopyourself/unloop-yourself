@@ -41,7 +41,8 @@
           "cameraPermission": "Unloop needs the camera so you can send a short buddy nudge picture for this interrupt only."
         }
       ],
-      "./plugins/withUnloopAndroidRelease.js"
+      "./plugins/withUnloopAndroidRelease.js",
+      "expo-asset"
     ]
   }
 }
