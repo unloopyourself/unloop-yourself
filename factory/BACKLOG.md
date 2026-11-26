@@ -370,7 +370,7 @@ Caps (initial): text ≤500 chars; photo/GIF ≤2 MiB each; voice ≤30 s / 
 - **Escalate if:** —
 
 ### P3.5-05 — Voice note ≤30s
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3.5-00, P3.5-01
 - **AC:** Record/stop with hard 30s; encode ≤1 MiB; upload; interrupt plays audio + optional text; mic permission rationale.
 - **Tests:** Duration clamp unit; device smoke.

@@ -43,7 +43,15 @@
       ],
       "./plugins/withUnloopAndroidRelease.js",
       "expo-asset",
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Unloop needs the mic so you can send a short buddy voice nudge (max 30 seconds). Audio is not kept on a server — only a short-lived relay blob for this interrupt.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
+      ]
     ]
   }
 }

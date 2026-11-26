@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import type { SoundPresetId } from "@unloop/core";
@@ -8,12 +8,18 @@ import {
   SOUND_PRESET_ASSETS,
   SOUND_PRESET_I18N_KEYS,
 } from "../buddySoundPresets";
+import { writeVoiceCacheFile } from "../buddyVoice";
+
+export type BuddyNudgeMedia = {
+  readonly mime: string;
+  readonly data: string;
+};
 
 type Props = {
   t: Translate;
   body: string;
   presetId?: SoundPresetId;
-  mediaUri?: string;
+  media?: BuddyNudgeMedia;
   onContinue: () => void;
 };
 
@@ -23,9 +29,7 @@ function PresetPlayer({ presetId }: { presetId: SoundPresetId }) {
     let cancelled = false;
     void (async () => {
       try {
-        await setAudioModeAsync({
-          playsInSilentMode: true,
-        });
+        await setAudioModeAsync({ playsInSilentMode: true });
         if (!cancelled) {
           player.seekTo(0);
           player.play();
@@ -41,37 +45,99 @@ function PresetPlayer({ presetId }: { presetId: SoundPresetId }) {
   return null;
 }
 
-/** Interrupt surface for a buddy nudge (text, photo, and/or sound preset). */
+function VoicePlayer({ uri }: { uri: string }) {
+  const player = useAudioPlayer({ uri });
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        await setAudioModeAsync({ playsInSilentMode: true });
+        if (!cancelled) {
+          player.seekTo(0);
+          player.play();
+        }
+      } catch {
+        /* best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [player, uri]);
+  return null;
+}
+
+function isImageMime(mime: string): boolean {
+  return mime.startsWith("image/");
+}
+
+function isAudioMime(mime: string): boolean {
+  return mime.startsWith("audio/");
+}
+
+/** Interrupt surface for a buddy nudge (text, photo/GIF, voice, sound preset). */
 export function BuddyNudgeView({
   t,
   body,
   presetId,
-  mediaUri,
+  media,
   onContinue,
 }: Props) {
+  const [voiceUri, setVoiceUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!media || !isAudioMime(media.mime)) {
+      setVoiceUri(null);
+      return;
+    }
+    void writeVoiceCacheFile(media.mime, media.data)
+      .then((path) => {
+        if (!cancelled) setVoiceUri(path);
+      })
+      .catch(() => {
+        if (!cancelled) setVoiceUri(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [media]);
+
+  const imageUri =
+    media && isImageMime(media.mime)
+      ? `data:${media.mime};base64,${media.data}`
+      : null;
+
   const caption =
     body &&
     !(presetId && body === presetId) &&
     !(presetId && body === "sound_preset") &&
     body !== "photo" &&
-    body !== "gif"
+    body !== "gif" &&
+    body !== "voice"
       ? body
       : presetId
         ? t(SOUND_PRESET_I18N_KEYS[presetId])
-        : mediaUri
-          ? t("buddy.nudge_photo")
-          : body;
+        : voiceUri
+          ? t("buddy.nudge_voice")
+          : imageUri
+            ? t("buddy.nudge_photo")
+            : body;
 
   return (
     <View style={styles.wrap}>
       {presetId ? <PresetPlayer presetId={presetId} /> : null}
+      {voiceUri ? <VoicePlayer uri={voiceUri} /> : null}
       <Text style={styles.eyebrow}>{t("buddy.nudge_from")}</Text>
       {presetId ? (
         <Text style={styles.preset}>{t("buddy.nudge_playing_sound")}</Text>
       ) : null}
-      {mediaUri ? (
+      {voiceUri ? (
+        <Text style={styles.preset}>{t("buddy.nudge_playing_voice")}</Text>
+      ) : null}
+      {imageUri ? (
         <Image
-          source={{ uri: mediaUri }}
+          source={{ uri: imageUri }}
           style={styles.photo}
           accessibilityLabel={t("buddy.nudge_photo")}
         />

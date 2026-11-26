@@ -135,9 +135,10 @@ export default function App() {
   const [buddyNudgeText, setBuddyNudgeText] = useState<string | null>(null);
   const [buddyNudgePresetId, setBuddyNudgePresetId] =
     useState<SoundPresetId | null>(null);
-  const [buddyNudgeMediaUri, setBuddyNudgeMediaUri] = useState<string | null>(
-    null,
-  );
+  const [buddyNudgeMedia, setBuddyNudgeMedia] = useState<{
+    mime: string;
+    data: string;
+  } | null>(null);
   const [buddyNudgeDismissed, setBuddyNudgeDismissed] = useState(false);
 
   const applyDecodedBuddyNudge = useCallback(
@@ -148,11 +149,7 @@ export default function App() {
           ? decoded.presetId
           : null,
       );
-      setBuddyNudgeMediaUri(
-        decoded.media
-          ? `data:${decoded.media.mime};base64,${decoded.media.data}`
-          : null,
-      );
+      setBuddyNudgeMedia(decoded.media ?? null);
       setBuddyNudgeDismissed(false);
     },
     [],
@@ -745,7 +742,7 @@ export default function App() {
     nudgeBusRef.current = null;
     setBuddyNudgeText(null);
     setBuddyNudgePresetId(null);
-    setBuddyNudgeMediaUri(null);
+    setBuddyNudgeMedia(null);
     setBuddyNudgeDismissed(false);
     if (settings.buddyEnabled) {
       try {
@@ -883,7 +880,7 @@ export default function App() {
               t={t}
               body={buddyNudgeText}
               presetId={buddyNudgePresetId ?? undefined}
-              mediaUri={buddyNudgeMediaUri ?? undefined}
+              media={buddyNudgeMedia ?? undefined}
               onContinue={() => setBuddyNudgeDismissed(true)}
             />
           ) : (

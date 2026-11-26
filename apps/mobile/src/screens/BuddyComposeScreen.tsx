@@ -33,6 +33,7 @@ import {
 import {
   SOUND_PRESET_I18N_KEYS,
 } from "../buddySoundPresets";
+import { BuddyVoiceRecorder } from "./BuddyVoiceRecorder";
 import { HttpRelayPort } from "../push/httpRelayPort";
 import { getRelayBaseUrl } from "../push/expoPushPort";
 
@@ -55,6 +56,10 @@ export function BuddyComposeScreen({
   const [live, setLive] = useState("");
   const [photo, setPhoto] = useState<NudgeMediaInline | null>(null);
   const [gif, setGif] = useState<NudgeMediaInline | null>(null);
+  const [voice, setVoice] = useState<{
+    media: NudgeMediaInline;
+    durationMs: number;
+  } | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -186,6 +191,28 @@ export function BuddyComposeScreen({
       setStatus(t("buddy.compose_gif_too_big"));
     }
   }, [gif, live, putCipher, t]);
+
+  const uploadVoice = useCallback(async () => {
+    if (!voice) {
+      setStatus(t("buddy.compose_voice_needed"));
+      return;
+    }
+    const caption = live.trim() || undefined;
+    try {
+      await putCipher(
+        encodeNudgeEnvelope({
+          v: 1,
+          kind: "voice",
+          atMs: Date.now(),
+          durationMs: voice.durationMs,
+          ...(caption ? { text: caption } : {}),
+          media: voice.media,
+        }),
+      );
+    } catch {
+      setStatus(t("buddy.compose_voice_too_big"));
+    }
+  }, [live, putCipher, t, voice]);
 
   const onPickGif = useCallback(async () => {
     setBusy(true);
@@ -324,6 +351,29 @@ export function BuddyComposeScreen({
           style={styles.preview}
           accessibilityLabel={t("buddy.compose_gif")}
         />
+      ) : null}
+
+      <Text style={styles.section}>{t("buddy.compose_voice")}</Text>
+      <BuddyVoiceRecorder
+        t={t}
+        busy={busy}
+        onStatus={setStatus}
+        onReady={(media, durationMs) => {
+          setPhoto(null);
+          setGif(null);
+          setVoice({ media, durationMs });
+        }}
+      />
+      {voice ? (
+        <Pressable
+          style={[styles.btnPrimary, busy && styles.disabled]}
+          disabled={busy}
+          onPress={() => void uploadVoice()}
+        >
+          <Text style={styles.btnPrimaryLabel}>
+            {t("buddy.compose_voice_send")}
+          </Text>
+        </Pressable>
       ) : null}
 
       <Text style={styles.section}>{t("buddy.compose_presets")}</Text>
