@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import {
   encodeNudgeEnvelope,
   soundPresetNudgeEnvelope,
   SOUND_PRESET_IDS,
+  type NudgeMediaInline,
   type SoundPresetId,
 } from "@unloop/core";
 import {
@@ -23,6 +25,10 @@ import {
   type PendingApproach,
   type StagedNudge,
 } from "../buddyNudgeStore";
+import {
+  captureCompressedPhoto,
+  pickCompressedPhoto,
+} from "../buddyMediaEncode";
 import {
   SOUND_PRESET_I18N_KEYS,
 } from "../buddySoundPresets";
@@ -46,6 +52,7 @@ export function BuddyComposeScreen({
 }: Props) {
   const [staged, setStaged] = useState<StagedNudge[]>([]);
   const [live, setLive] = useState("");
+  const [photo, setPhoto] = useState<NudgeMediaInline | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -102,6 +109,59 @@ export function BuddyComposeScreen({
     [live, putCipher],
   );
 
+  const uploadPhoto = useCallback(async () => {
+    if (!photo) {
+      setStatus(t("buddy.compose_photo_needed"));
+      return;
+    }
+    const caption = live.trim() || undefined;
+    try {
+      await putCipher(
+        encodeNudgeEnvelope({
+          v: 1,
+          kind: "photo",
+          atMs: Date.now(),
+          ...(caption ? { text: caption } : {}),
+          media: photo,
+        }),
+      );
+    } catch {
+      setStatus(t("buddy.compose_photo_too_big"));
+    }
+  }, [live, photo, putCipher, t]);
+
+  const onPickPhoto = useCallback(async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const media = await pickCompressedPhoto();
+      if (!media) {
+        setStatus(t("buddy.compose_photo_cancel"));
+        return;
+      }
+      setPhoto(media);
+      setStatus(t("buddy.compose_photo_ready"));
+    } finally {
+      setBusy(false);
+    }
+  }, [t]);
+
+  const onCapturePhoto = useCallback(async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const media = await captureCompressedPhoto();
+      if (!media) {
+        setStatus(t("buddy.compose_photo_cancel"));
+        return;
+      }
+      setPhoto(media);
+      setStatus(t("buddy.compose_photo_ready"));
+    } finally {
+      setBusy(false);
+    }
+  }, [t]);
+
   return (
     <ScrollView
       contentContainerStyle={[
@@ -156,6 +216,43 @@ export function BuddyComposeScreen({
           </Pressable>
         ))
       )}
+
+      <Text style={styles.section}>{t("buddy.compose_photo")}</Text>
+      <Text style={styles.meta}>{t("buddy.compose_photo_lead")}</Text>
+      <View style={styles.row}>
+        <Pressable
+          style={[styles.btn, busy && styles.disabled]}
+          disabled={busy}
+          onPress={() => void onPickPhoto()}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_photo_pick")}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, busy && styles.disabled]}
+          disabled={busy}
+          onPress={() => void onCapturePhoto()}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_photo_camera")}</Text>
+        </Pressable>
+        {photo ? (
+          <Pressable
+            style={[styles.btnPrimary, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void uploadPhoto()}
+          >
+            <Text style={styles.btnPrimaryLabel}>
+              {t("buddy.compose_photo_send")}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {photo ? (
+        <Image
+          source={{ uri: `data:${photo.mime};base64,${photo.data}` }}
+          style={styles.preview}
+          accessibilityLabel={t("buddy.compose_photo")}
+        />
+      ) : null}
 
       <Text style={styles.section}>{t("buddy.compose_presets")}</Text>
       <Text style={styles.meta}>{t("buddy.compose_presets_lead")}</Text>
@@ -268,5 +365,12 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  preview: {
+    width: "100%",
+    height: 180,
+    borderRadius: 12,
+    backgroundColor: colors.chipOff,
+    resizeMode: "cover",
+  },
   status: { fontSize: 14, color: colors.teal, fontWeight: "600" },
 });

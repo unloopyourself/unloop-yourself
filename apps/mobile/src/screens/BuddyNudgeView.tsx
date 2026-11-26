@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Audio } from "expo-av";
 import type { SoundPresetId } from "@unloop/core";
 import type { Translate } from "../i18n";
@@ -13,11 +13,18 @@ type Props = {
   t: Translate;
   body: string;
   presetId?: SoundPresetId;
+  mediaUri?: string;
   onContinue: () => void;
 };
 
-/** Interrupt surface for a buddy nudge (text and/or sound preset). */
-export function BuddyNudgeView({ t, body, presetId, onContinue }: Props) {
+/** Interrupt surface for a buddy nudge (text, photo, and/or sound preset). */
+export function BuddyNudgeView({
+  t,
+  body,
+  presetId,
+  mediaUri,
+  onContinue,
+}: Props) {
   const soundRef = useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
@@ -54,17 +61,27 @@ export function BuddyNudgeView({ t, body, presetId, onContinue }: Props) {
   const caption =
     body &&
     !(presetId && body === presetId) &&
-    !(presetId && body === "sound_preset")
+    !(presetId && body === "sound_preset") &&
+    body !== "photo"
       ? body
       : presetId
         ? t(SOUND_PRESET_I18N_KEYS[presetId])
-        : body;
+        : mediaUri
+          ? t("buddy.nudge_photo")
+          : body;
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.eyebrow}>{t("buddy.nudge_from")}</Text>
       {presetId ? (
         <Text style={styles.preset}>{t("buddy.nudge_playing_sound")}</Text>
+      ) : null}
+      {mediaUri ? (
+        <Image
+          source={{ uri: mediaUri }}
+          style={styles.photo}
+          accessibilityLabel={t("buddy.nudge_photo")}
+        />
       ) : null}
       <Text style={styles.body}>{caption}</Text>
       <Pressable
@@ -96,6 +113,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "rgba(242,245,248,0.55)",
+  },
+  photo: {
+    width: "100%",
+    maxWidth: 320,
+    height: 220,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    resizeMode: "cover",
   },
   body: {
     fontSize: typography.bodySize + 2,

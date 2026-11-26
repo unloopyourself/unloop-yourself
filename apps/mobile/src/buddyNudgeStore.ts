@@ -101,9 +101,12 @@ export function encodeNudgeBlob(text: string): string {
   return encodeNudgeEnvelope(textNudgeEnvelope(text));
 }
 
-export function decodeNudgeBlob(
-  raw: string,
-): { kind: string; body: string; presetId?: string } | null {
+export function decodeNudgeBlob(raw: string): {
+  kind: string;
+  body: string;
+  presetId?: string;
+  media?: { mime: string; data: string };
+} | null {
   const parsed = decodeNudgeEnvelope(raw);
   if (!parsed.ok) return null;
   const e = parsed.envelope;
@@ -114,6 +117,9 @@ export function decodeNudgeBlob(
     kind: e.kind,
     body: body || e.presetId || e.kind,
     ...(e.presetId ? { presetId: e.presetId } : {}),
+    ...(e.media
+      ? { media: { mime: e.media.mime, data: e.media.data } }
+      : {}),
   };
 }
 

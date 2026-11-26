@@ -135,7 +135,28 @@ export default function App() {
   const [buddyNudgeText, setBuddyNudgeText] = useState<string | null>(null);
   const [buddyNudgePresetId, setBuddyNudgePresetId] =
     useState<SoundPresetId | null>(null);
+  const [buddyNudgeMediaUri, setBuddyNudgeMediaUri] = useState<string | null>(
+    null,
+  );
   const [buddyNudgeDismissed, setBuddyNudgeDismissed] = useState(false);
+
+  const applyDecodedBuddyNudge = useCallback(
+    (decoded: NonNullable<ReturnType<typeof decodeNudgeBlob>>) => {
+      if (decoded.body) setBuddyNudgeText(decoded.body);
+      setBuddyNudgePresetId(
+        decoded.presetId && isSoundPresetId(decoded.presetId)
+          ? decoded.presetId
+          : null,
+      );
+      setBuddyNudgeMediaUri(
+        decoded.media
+          ? `data:${decoded.media.mime};base64,${decoded.media.data}`
+          : null,
+      );
+      setBuddyNudgeDismissed(false);
+    },
+    [],
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const nudgeBusRef = useRef<NudgeBus | null>(null);
   /** Remount ChallengeHost when the user taps Open (fresh sensors + timeout). */
@@ -239,13 +260,7 @@ export default function App() {
             void nudgeBusRef.current?.fetchNudge().then((blob) => {
               if (!blob) return;
               const decoded = decodeNudgeBlob(blob);
-              if (!decoded) return;
-              if (decoded.body) setBuddyNudgeText(decoded.body);
-              setBuddyNudgePresetId(
-                decoded.presetId && isSoundPresetId(decoded.presetId)
-                  ? decoded.presetId
-                  : null,
-              );
+              if (decoded) applyDecodedBuddyNudge(decoded);
             });
             if (Platform.OS === "android") {
               UnloopUsage.stopChallengeTone();
@@ -307,7 +322,7 @@ export default function App() {
         }
       }
     },
-    [bus, engine, t],
+    [applyDecodedBuddyNudge, bus, engine, t],
   );
 
   useEffect(() => {
@@ -486,15 +501,7 @@ export default function App() {
           void nb.fetchNudge().then((blob) => {
             if (!blob) return;
             const decoded = decodeNudgeBlob(blob);
-            if (decoded) {
-              if (decoded.body) setBuddyNudgeText(decoded.body);
-              setBuddyNudgePresetId(
-                decoded.presetId && isSoundPresetId(decoded.presetId)
-                  ? decoded.presetId
-                  : null,
-              );
-              setBuddyNudgeDismissed(false);
-            }
+            if (decoded) applyDecodedBuddyNudge(decoded);
             void audit.append({
               type: "BUDDY_NUDGE_FETCHED",
               atMs: Date.now(),
@@ -738,6 +745,7 @@ export default function App() {
     nudgeBusRef.current = null;
     setBuddyNudgeText(null);
     setBuddyNudgePresetId(null);
+    setBuddyNudgeMediaUri(null);
     setBuddyNudgeDismissed(false);
     if (settings.buddyEnabled) {
       try {
@@ -875,6 +883,7 @@ export default function App() {
               t={t}
               body={buddyNudgeText}
               presetId={buddyNudgePresetId ?? undefined}
+              mediaUri={buddyNudgeMediaUri ?? undefined}
               onContinue={() => setBuddyNudgeDismissed(true)}
             />
           ) : (

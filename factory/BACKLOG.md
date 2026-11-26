@@ -356,7 +356,7 @@ Caps (initial): text ≤500 chars; photo/GIF ≤2 MiB each; voice ≤30 s / 
 - **Escalate if:** —
 
 ### P3.5-03 — Photo + text+photo
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3.5-00, P3.5-01
 - **AC:** Compose: pick/capture image, optional caption; compress to cap; upload envelope; interrupt shows image (+ text); permissions copy non-punitive.
 - **Tests:** Encode size clamp unit; manual device smoke when ADB available.
