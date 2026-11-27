@@ -419,18 +419,60 @@ export function decodeNudgeBlob(raw: string): {
 
 const PUSH_LOG_KEY = "unloop.buddy.pushLog.v1";
 
-/** Returns true if under the hourly cap (and records this attempt). */
+type PushLogEntry = { readonly atMs: number; readonly eventId?: string };
+
+function parsePushLog(raw: string | null): PushLogEntry[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((x): PushLogEntry | null => {
+        if (typeof x === "number" && Number.isFinite(x)) {
+          return { atMs: x };
+        }
+        if (
+          x &&
+          typeof x === "object" &&
+          typeof (x as PushLogEntry).atMs === "number"
+        ) {
+          const eventId = (x as PushLogEntry).eventId;
+          return {
+            atMs: (x as PushLogEntry).atMs,
+            ...(typeof eventId === "string" ? { eventId } : {}),
+          };
+        }
+        return null;
+      })
+      .filter((x): x is PushLogEntry => x != null);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Buddy-side hourly cap (how often this phone will surface approaching
+ * nudges). Dedupes by `eventId` so FCM redeliveries do not burn the quota.
+ * Returns false when over cap for a new event.
+ */
 export async function allowApproachingPush(
   maxPerHour: number,
   nowMs: number = Date.now(),
+  eventId?: string,
 ): Promise<boolean> {
   try {
-    const raw = await AsyncStorage.getItem(PUSH_LOG_KEY);
-    const prev: number[] = raw ? (JSON.parse(raw) as number[]) : [];
+    const prev = parsePushLog(await AsyncStorage.getItem(PUSH_LOG_KEY));
     const windowStart = nowMs - 60 * 60 * 1000;
-    const recent = prev.filter((t) => t >= windowStart);
+    const recent = prev.filter((e) => e.atMs >= windowStart);
+    if (eventId && recent.some((e) => e.eventId === eventId)) {
+      // Same approaching event — allow UI reopen without consuming another slot.
+      return true;
+    }
     if (recent.length >= maxPerHour) return false;
-    recent.push(nowMs);
+    recent.push({
+      atMs: nowMs,
+      ...(eventId ? { eventId } : {}),
+    });
     await AsyncStorage.setItem(PUSH_LOG_KEY, JSON.stringify(recent.slice(-40)));
     return true;
   } catch {

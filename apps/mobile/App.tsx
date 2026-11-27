@@ -409,6 +409,7 @@ export default function App() {
 
   const openApproachCompose = useCallback(async (pending: PendingApproach) => {
     const s = settingsRef.current;
+    // Quiet hours + hourly cap are Buddy (receiver) choices.
     if (s?.buddyQuietHoursEnabled) {
       const hour = new Date().getHours();
       if (
@@ -417,8 +418,14 @@ export default function App() {
         return;
       }
     }
-    // Dedupe only — hourly cap is enforced on the seeker when sending notify.
+    // In-memory dedupe before touching the hourly log (FCM can fan out twice).
     if (lastApproachEventIdRef.current === pending.eventId) {
+      return;
+    }
+    if (
+      s &&
+      !(await allowApproachingPush(s.buddyMaxPushPerHour, Date.now(), pending.eventId))
+    ) {
       return;
     }
     lastApproachEventIdRef.current = pending.eventId;
@@ -531,12 +538,6 @@ export default function App() {
           void (async () => {
             const s = settingsRef.current;
             if (!s?.buddyEnabled) return;
-            if (!(await allowApproachingPush(s.buddyMaxPushPerHour))) {
-              if (Platform.OS === "android") {
-                UnloopUsage.logHarness("buddy_approaching_rate_limited");
-              }
-              return;
-            }
             const relayUrl = getRelayBaseUrl();
             if (!relayUrl) return;
             const buddies = await loadBuddies();
