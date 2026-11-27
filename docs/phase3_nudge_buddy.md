@@ -208,3 +208,4 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 | 2026-11-27 | Locked Buddy cascade: quiet hours mute UI; optional auto-send staged (RR); active hours live until ~T−30s lockout then staged fallback if flag on. |
 | 2026-11-27 | P3.5-09 implemented: settings toggles, FCM `interruptAtMs`, silent quiet autosend, lockout dismiss + empty-mailbox staged PUT. |
 | 2026-11-27 | Per-buddy seeker prefs: `notifyApproaching` (default off) + `acceptNudges` (default on, suspend without revoke). Samsung video: soft-clamp OEM over-duration under size cap. |
+| 2026-11-27 | Approaching notify runs in native UsageMonitorService (JS timers pause in BG). FCM tray notification for `approaching`. |

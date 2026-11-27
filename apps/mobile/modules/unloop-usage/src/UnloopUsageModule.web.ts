@@ -52,6 +52,25 @@ const UnloopUsageModule = {
       inTargetFeed: false,
     };
   },
+  syncBuddyApproachingConfig(
+    _enabled: boolean,
+    _warnLeadMs: number,
+    _relayUrl: string,
+    _seekerMailboxId: string,
+    _notifyMailboxesCsv: string,
+  ): void {
+    /* no-op */
+  },
+  getBuddyApproachingState() {
+    return {
+      enabled: false,
+      warnLeadMs: 0,
+      eventId: "",
+      approachingSent: false,
+      seekerMailboxId: "",
+      notifyCount: 0,
+    };
+  },
   getHarnessForceChallengeId(): string {
     return "";
   },

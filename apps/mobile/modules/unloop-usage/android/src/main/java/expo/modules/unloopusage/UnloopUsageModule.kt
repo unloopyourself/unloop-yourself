@@ -82,7 +82,28 @@ class UnloopUsageModule : Module() {
     }
 
     Function("getMonitorSnapshot") {
-      UsageMonitorService.monitorSnapshot()
+      UsageMonitorService.monitorSnapshot(context)
+    }
+
+    Function("syncBuddyApproachingConfig") {
+        enabled: Boolean,
+        warnLeadMs: Double,
+        relayUrl: String,
+        seekerMailboxId: String,
+        notifyMailboxesCsv: String,
+      ->
+      BuddyApproachingPrefs.sync(
+        context,
+        enabled,
+        warnLeadMs.toLong(),
+        relayUrl,
+        seekerMailboxId,
+        notifyMailboxesCsv,
+      )
+    }
+
+    Function("getBuddyApproachingState") {
+      BuddyApproachingPrefs.snapshot(context)
     }
 
     Function("getHarnessForceChallengeId") {

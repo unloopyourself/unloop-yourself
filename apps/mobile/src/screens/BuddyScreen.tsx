@@ -24,6 +24,8 @@ import {
   shortFingerprint,
   updateBuddyPrefs,
 } from "../buddyStore";
+import { syncBuddyApproachingNative } from "../buddyApproachingNative";
+import { loadSettings } from "../settings";
 import {
   addStagedMedia,
   addStagedNudge,
@@ -252,6 +254,7 @@ export function BuddyScreen({
         );
         setPaste("");
         setBuddies(await loadBuddies());
+        void syncBuddyApproachingNative(await loadSettings());
       } finally {
         setBusy(false);
       }
@@ -394,7 +397,10 @@ export function BuddyScreen({
                   </View>
                   <Pressable
                     onPress={() => {
-                      void revokeBuddy(b.buddyId).then(setBuddies);
+                      void revokeBuddy(b.buddyId).then(async (list) => {
+                        setBuddies(list);
+                        void syncBuddyApproachingNative(await loadSettings());
+                      });
                     }}
                     style={styles.revoke}
                     accessibilityRole="button"
@@ -409,7 +415,10 @@ export function BuddyScreen({
                   onValueChange={(next) => {
                     void updateBuddyPrefs(b.buddyId, {
                       notifyApproaching: next,
-                    }).then(setBuddies);
+                    }).then(async (list) => {
+                      setBuddies(list);
+                      void syncBuddyApproachingNative(await loadSettings());
+                    });
                   }}
                 />
                 <ToggleRow
@@ -419,7 +428,10 @@ export function BuddyScreen({
                   onValueChange={(next) => {
                     void updateBuddyPrefs(b.buddyId, {
                       acceptNudges: next,
-                    }).then(setBuddies);
+                    }).then(async (list) => {
+                      setBuddies(list);
+                      void syncBuddyApproachingNative(await loadSettings());
+                    });
                   }}
                 />
               </View>

@@ -75,25 +75,44 @@ export async function getGoogleAccessToken(sa: ServiceAccount): Promise<string> 
   return json.access_token;
 }
 
+export type FcmNotification = {
+  title: string;
+  body: string;
+};
+
+/**
+ * Send FCM. Always includes `data` for in-app handlers.
+ * When `notification` is set, Android also shows a tray entry while the app
+ * is backgrounded (data-only messages are otherwise silent).
+ */
 export async function sendFcmDataMessage(
   sa: ServiceAccount,
   deviceToken: string,
   data: Record<string, string>,
+  notification?: FcmNotification,
 ): Promise<{ ok: boolean; status: number; body: string }> {
   const access = await getGoogleAccessToken(sa);
   const url = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
+  const message: Record<string, unknown> = {
+    token: deviceToken,
+    data,
+    android: {
+      priority: "HIGH",
+    },
+  };
+  if (notification) {
+    message.notification = {
+      title: notification.title,
+      body: notification.body,
+    };
+  }
   const res = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${access}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      message: {
-        token: deviceToken,
-        data,
-      },
-    }),
+    body: JSON.stringify({ message }),
   });
   const text = await res.text();
   return { ok: res.ok, status: res.status, body: text.slice(0, 500) };

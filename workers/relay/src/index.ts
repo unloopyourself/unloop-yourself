@@ -162,7 +162,14 @@ export default {
         data[k] = typeof v === "string" ? v : JSON.stringify(v);
       }
       try {
-        const result = await sendFcmDataMessage(sa, token, data);
+        const notifyTray =
+          data.type === "approaching"
+            ? {
+                title: "Unloop Buddy",
+                body: "Your buddy is about to interrupt — send a nudge?",
+              }
+            : undefined;
+        const result = await sendFcmDataMessage(sa, token, data, notifyTray);
         return json({
           ok: result.ok,
           status: result.status,

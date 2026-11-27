@@ -52,6 +52,7 @@ class UsageMonitorService : Service() {
           Log.i(TAG, "cooldown elapsed — re-arming accumulator")
           fired = false
           accumulatedMs = 0L
+          BuddyApproachingPrefs.beginBout(this@UsageMonitorService)
         }
         if (cooling && !wasInCooldown) {
           Log.i(TAG, "cooldown started — clearing shield + accumulator")
@@ -71,6 +72,7 @@ class UsageMonitorService : Service() {
           Log.i(TAG, "target returned to use — resetting fired latch")
           fired = false
           accumulatedMs = 0L
+          BuddyApproachingPrefs.beginBout(this@UsageMonitorService)
         }
         wasMatching = matching
 
@@ -87,6 +89,14 @@ class UsageMonitorService : Service() {
             "acc=${accumulatedMs / 1000}s / ${thresholdMs / 1000}s"
         Log.i(TAG, msg)
         updateNotification(friendlyStatus(matching, matchedPackage))
+
+        if (matching && !fired) {
+          BuddyApproachingNotifier.maybeNotify(
+            this@UsageMonitorService,
+            accumulatedMs,
+            thresholdMs,
+          )
+        }
 
         if (!fired && accumulatedMs >= thresholdMs) {
           fired = true
@@ -188,6 +198,7 @@ class UsageMonitorService : Service() {
     wasMatching = false
     wasInCooldown = false
     armCooldownUntil(0L)
+    BuddyApproachingPrefs.beginBout(this)
     Log.i(TAG, "START monitoring $packageTargets thr=${thresholdMs}ms")
     startForeground(NOTIFICATION_ID, buildNotification("Watching for autopilot…"))
     handler.removeCallbacks(tick)
@@ -402,18 +413,24 @@ class UsageMonitorService : Service() {
       Log.i(TAG, "armCooldownUntil=$epochMs (inCooldown=${inCooldown()})")
     }
 
-    fun monitorSnapshot(): Map<String, Any> = mapOf(
-      "monitoring" to serviceRunning,
-      "challengeOutstanding" to InterruptOverlay.challengeOutstanding,
-      "overlayShowing" to InterruptOverlay.isShowing(),
-      "inCooldown" to inCooldown(),
-      "cooldownUntilMs" to cooldownUntilEpochMs.toDouble(),
-      "packagesCsv" to packagesCsv,
-      "lastAppId" to lastInterruptAppId,
-      "lastDeltaU" to lastInterruptDeltaU.toDouble(),
-      "accumulatedMs" to liveAccumulatedMs.toDouble(),
-      "inTargetFeed" to liveInTargetFeed,
-    )
+    fun monitorSnapshot(context: Context? = null): Map<String, Any> {
+      val base = mutableMapOf<String, Any>(
+        "monitoring" to serviceRunning,
+        "challengeOutstanding" to InterruptOverlay.challengeOutstanding,
+        "overlayShowing" to InterruptOverlay.isShowing(),
+        "inCooldown" to inCooldown(),
+        "cooldownUntilMs" to cooldownUntilEpochMs.toDouble(),
+        "packagesCsv" to packagesCsv,
+        "lastAppId" to lastInterruptAppId,
+        "lastDeltaU" to lastInterruptDeltaU.toDouble(),
+        "accumulatedMs" to liveAccumulatedMs.toDouble(),
+        "inTargetFeed" to liveInTargetFeed,
+      )
+      if (context != null) {
+        base.putAll(BuddyApproachingPrefs.snapshot(context))
+      }
+      return base
+    }
 
     fun start(context: Context, packagesCsv: String, thresholdMs: Long) {
       val intent = Intent(context, UsageMonitorService::class.java).apply {

@@ -72,6 +72,10 @@ import {
   registerPushTokenWithRelay,
 } from "./src/push/expoPushPort";
 import { HttpRelayPort } from "./src/push/httpRelayPort";
+import {
+  readNativeBuddyEventId,
+  syncBuddyApproachingNative,
+} from "./src/buddyApproachingNative";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -241,6 +245,7 @@ export default function App() {
       engine.setChallengeOptions(next.enabledChallengeIds, deviceCaps);
       setSettings(next);
       void saveSettings(next);
+      void syncBuddyApproachingNative(next);
     },
     [deviceCaps, engine],
   );
@@ -250,6 +255,7 @@ export default function App() {
     nudgeBusRef.current = null;
     if (!s?.buddyEnabled) return;
     try {
+      await syncBuddyApproachingNative(s);
       const identity = await loadOrCreateIdentity();
       const buddies = await loadBuddies();
       const relayUrl = getRelayBaseUrl();
@@ -257,12 +263,24 @@ export default function App() {
       const relay = new HttpRelayPort(relayUrl);
       const busLive = new NudgeBus(relay, { now: () => Date.now() });
       const now = Date.now();
+      // Prefer native bout eventId so mailbox put (Buddy) matches seeker fetch.
+      const nativeEventId = readNativeBuddyEventId();
       busLive.begin({
         mailboxId: identity.mailboxId,
         // Soft wall-clock fallback only; approaching is usage-driven.
         interruptAtMs: now + s.thresholdMs,
         warnLeadMs: Math.min(s.buddyWarnLeadMs, s.thresholdMs),
+        ...(nativeEventId ? { eventId: nativeEventId } : {}),
       });
+      const nativeState =
+        Platform.OS === "android"
+          ? UnloopUsage.getBuddyApproachingState()
+          : null;
+      const sess = busLive.active;
+      if (nativeState?.approachingSent && sess) {
+        // Native already POSTed notify while JS was paused — do not re-fire.
+        sess.approachingSent = true;
+      }
       nudgeBusRef.current = busLive;
     } catch {
       nudgeBusRef.current = null;
@@ -378,6 +396,7 @@ export default function App() {
     void loadSettings().then((s) => {
       setSettings(s);
       settingsRef.current = s;
+      void syncBuddyApproachingNative(s);
     });
   }, []);
 
@@ -602,6 +621,24 @@ export default function App() {
       const nb = nudgeBusRef.current;
       if (!nb) return;
       const sTick = settingsRef.current;
+      // Native FGS owns approaching HTTP (JS timers pause in background). Keep
+      // NudgeBus eventId aligned with the native bout for mailbox fetch.
+      if (Platform.OS === "android" && sTick?.buddyEnabled) {
+        try {
+          const nativeId = readNativeBuddyEventId();
+          const sess = nb.active;
+          if (nativeId && sess && sess.eventId !== nativeId) {
+            void rearmBuddyNudgeBus();
+            return;
+          }
+          const nativeState = UnloopUsage.getBuddyApproachingState();
+          if (nativeState.approachingSent && sess && !sess.approachingSent) {
+            sess.approachingSent = true;
+          }
+        } catch {
+          /* optional */
+        }
+      }
       let intents = nb.tick();
       if (Platform.OS === "android" && sTick?.buddyEnabled) {
         try {
@@ -621,6 +658,7 @@ export default function App() {
       }
       for (const intent of intents) {
         if (intent.type === "approaching") {
+          // Native UsageMonitorService POSTs /v1/notify; JS only logs + latch.
           console.log(
             `buddy_approaching:${intent.eventId}:${intent.mailboxId}`,
           );
@@ -629,50 +667,6 @@ export default function App() {
               `buddy_approaching:${intent.eventId}:${intent.mailboxId}`,
             );
           }
-          void (async () => {
-            const s = settingsRef.current;
-            if (!s?.buddyEnabled) return;
-            const relayUrl = getRelayBaseUrl();
-            if (!relayUrl) return;
-            const buddies = await loadBuddies();
-            // Opt-in only: do not ping buddies unless the seeker enabled notify.
-            const notifyList = buddies.filter(
-              (b) => b.notifyApproaching === true && b.acceptNudges !== false,
-            );
-            if (notifyList.length === 0) return;
-            await Promise.all(
-              notifyList.map(async (b) => {
-                try {
-                  const res = await fetch(
-                    `${relayUrl.replace(/\/+$/, "")}/v1/notify/${encodeURIComponent(b.mailboxId)}`,
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        data: {
-                          type: "approaching",
-                          eventId: intent.eventId,
-                          mailboxId: intent.mailboxId,
-                          interruptAtMs: String(
-                            intent.type === "approaching"
-                              ? intent.interruptAtMs
-                              : Date.now(),
-                          ),
-                        },
-                      }),
-                    },
-                  );
-                  if (Platform.OS === "android") {
-                    UnloopUsage.logHarness(
-                      `buddy_notify:${b.mailboxId.slice(0, 12)}:${res.status}`,
-                    );
-                  }
-                } catch {
-                  /* best-effort */
-                }
-              }),
-            );
-          })();
         }
         if (intent.type === "interrupt_fetch") {
           void (async () => {
@@ -692,7 +686,7 @@ export default function App() {
       }
     }, 500);
     return () => clearInterval(id);
-  }, [applyEffects, audit, engine]);
+  }, [applyEffects, audit, engine, rearmBuddyNudgeBus]);
 
   const onThreshold = useCallback(
     (event: UsageThresholdEvent) => {
@@ -715,8 +709,36 @@ export default function App() {
         detail: event.appId,
       });
       applyEffects(effects);
+      // Don't wait for the 500ms JS tick — align bout id + fetch Buddy mailbox.
+      void (async () => {
+        try {
+          const buddies = await loadBuddies();
+          if (!anyBuddyAcceptsNudges(buddies)) return;
+          await rearmBuddyNudgeBus();
+          const blob = await nudgeBusRef.current?.fetchNudge();
+          if (!blob) {
+            // Fallback: native bout id + seeker mailbox (JS bus may be cold).
+            const relayUrl = getRelayBaseUrl();
+            const nativeId = readNativeBuddyEventId();
+            if (!relayUrl || !nativeId) return;
+            const identity = await loadOrCreateIdentity();
+            const direct = await new HttpRelayPort(relayUrl).getMailbox(
+              identity.mailboxId,
+              nativeId,
+            );
+            if (!direct) return;
+            const decodedDirect = decodeNudgeBlob(direct);
+            if (decodedDirect) applyDecodedBuddyNudge(decodedDirect);
+            return;
+          }
+          const decoded = decodeNudgeBlob(blob);
+          if (decoded) applyDecodedBuddyNudge(decoded);
+        } catch {
+          /* best-effort */
+        }
+      })();
     },
-    [applyEffects, audit, deviceCaps, engine],
+    [applyDecodedBuddyNudge, applyEffects, audit, deviceCaps, engine, rearmBuddyNudgeBus],
   );
 
   const detector = useMemo(

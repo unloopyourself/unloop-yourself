@@ -13,13 +13,13 @@ Last updated: 2026-11-27
 - **Hotfix (2026-11-27):** Samsung video over-duration — soft-clamp OEM clips under size cap (hard reject >20s); camera quality 0.2.
 - **Hotfix (2026-11-27):** Per-buddy seeker prefs — `notifyApproaching` default **off** (no live tracking ping); `acceptNudges` default on (suspend without revoke). Approaching FCM only to opted-in buddies.
 - **Hotfix (2026-11-27):** Nokia video reclaim + P3.5-09 autosend/lockout + Settings/Buddy collapsible UI.
+- **Hotfix (2026-11-27):** Approaching notify moved into native UsageMonitorService (JS timers die when Unloop is backgrounded). Relay FCM adds tray `notification` for `type=approaching`.
 
 ## Human decisions / inputs pending
 
 | Need | Why | Status |
 |------|-----|--------|
 | **P3.5-08** two-device media acceptance | milestone — preset + photo + voice (± video) on both phones | **waiting on human** |
-| GitHub push auth | `git push` 403 as `federicozanco` | **blocked** — local commits on `main` |
 | Republish privacy HTML if hosted | pages mirror | when publishing |
 | Play Console Data safety paste | mic/camera/photos | human Console |
 

@@ -20,6 +20,19 @@ export type MonitorSnapshot = {
   accumulatedMs?: number;
   /** True while a watched feed is foreground / playing. */
   inTargetFeed?: boolean;
+  /** Native Buddy approaching bout (when monitoring). */
+  eventId?: string;
+  approachingSent?: boolean;
+  enabled?: boolean;
+};
+
+export type BuddyApproachingState = {
+  enabled: boolean;
+  warnLeadMs: number;
+  eventId: string;
+  approachingSent: boolean;
+  seekerMailboxId: string;
+  notifyCount: number;
 };
 
 type UnloopUsageNativeModule = {
@@ -38,6 +51,15 @@ type UnloopUsageNativeModule = {
   updateMonitoredPackages(packagesCsv: string): void;
   stopNativeMonitoring(): void;
   getMonitorSnapshot(): MonitorSnapshot;
+  /** Persist Buddy notify targets for the native FGS (JS timers pause in BG). */
+  syncBuddyApproachingConfig(
+    enabled: boolean,
+    warnLeadMs: number,
+    relayUrl: string,
+    seekerMailboxId: string,
+    notifyMailboxesCsv: string,
+  ): void;
+  getBuddyApproachingState(): BuddyApproachingState;
   /** Debug/AVD: forced challenge id from DebugHarnessReceiver, or "". */
   getHarnessForceChallengeId(): string;
   /** Debug/AVD: clear forceChallenge + capabilities override. */
