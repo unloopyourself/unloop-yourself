@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AppState,
   Pressable,
   ScrollView,
   Share,
@@ -36,11 +37,19 @@ import {
   pickCompressedPhoto,
   pickGifUnderCap,
   pickVideoUnderCap,
+  recoverPendingCameraVideo,
   videoPickFailureI18nKey,
 } from "../buddyMediaEncode";
 import { SOUND_PRESET_I18N_KEYS } from "../buddySoundPresets";
 import { BuddyVoiceRecorder } from "./BuddyVoiceRecorder";
 import { StagedNudgeRow } from "./StagedNudgePreview";
+import {
+  CollapsibleSection,
+  MIN_TOUCH,
+  Section,
+} from "./SectionKit";
+
+type StatusScope = "invite" | "pair" | "prepare" | "staged";
 
 type Props = {
   t: Translate;
@@ -62,8 +71,24 @@ export function BuddyScreen({
   const [staged, setStaged] = useState<StagedNudge[]>([]);
   const [paste, setPaste] = useState("");
   const [stageText, setStageText] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
+  /** Status is scoped so feedback renders next to the action that produced it. */
+  const [statusNote, setStatusNote] = useState<{
+    scope: StatusScope;
+    text: string;
+  } | null>(null);
+  const setStatus = useCallback(
+    (scope: StatusScope, text: string | null) =>
+      setStatusNote(text ? { scope, text } : null),
+    [],
+  );
+  const statusFor = (...scopes: StatusScope[]) =>
+    statusNote && scopes.includes(statusNote.scope) ? statusNote.text : null;
   const [busy, setBusy] = useState(false);
+  // Session-only disclosure state. Prepare tools are open only while the
+  // saved library is empty (decided once, after the first load).
+  const [pairingOpen, setPairingOpen] = useState(true);
+  const [prepareOpen, setPrepareOpen] = useState(false);
+  const disclosureInit = useRef(false);
 
   const refresh = useCallback(async () => {
     const [{ link: inviteLink, invite }, list, stagedList] = await Promise.all([
@@ -75,28 +100,64 @@ export function BuddyScreen({
     setMyFp(shortFingerprint(invite.pub));
     setBuddies(list);
     setStaged(stagedList);
+    if (!disclosureInit.current) {
+      disclosureInit.current = true;
+      setPrepareOpen(stagedList.length === 0);
+    }
   }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
+  /** Reclaim video after Android kills MainActivity during OEM camera. */
+  useEffect(() => {
+    let alive = true;
+    const reclaim = async () => {
+      const recovered = await recoverPendingCameraVideo();
+      if (!alive || !recovered) return;
+      // Compose draft is owned by BuddyComposeScreen; stage here as safe landing.
+      const next = await addStagedMedia({
+        kind: "video",
+        media: {
+          encoding: recovered.media.encoding,
+          mime: recovered.media.mime,
+          byteLength: recovered.media.byteLength,
+          data: recovered.media.data,
+        },
+        durationMs: recovered.media.durationMs,
+        caption: recovered.intent.caption,
+      });
+      if (!alive) return;
+      setStaged(next);
+      setStatus("staged", t("buddy.compose_staged_saved"));
+    };
+    void reclaim();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void reclaim();
+    });
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, [t]);
+
   const saveStagedText = useCallback(async () => {
     const next = await addStagedNudge(stageText);
     setStaged(next);
     setStageText("");
-    setStatus(t("buddy.compose_staged_saved"));
+    setStatus("prepare", t("buddy.compose_staged_saved"));
   }, [stageText, t]);
 
   const stagePhoto = useCallback(async (fromCamera: boolean) => {
     setBusy(true);
-    setStatus(null);
+    setStatus("prepare", null);
     try {
       const media = fromCamera
         ? await captureCompressedPhoto()
         : await pickCompressedPhoto();
       if (!media) {
-        setStatus(t("buddy.compose_photo_cancel"));
+        setStatus("prepare", t("buddy.compose_photo_cancel"));
         return;
       }
       setStaged(
@@ -106,7 +167,7 @@ export function BuddyScreen({
           caption: stageText.trim() || undefined,
         }),
       );
-      setStatus(t("buddy.compose_staged_saved"));
+      setStatus("prepare", t("buddy.compose_staged_saved"));
     } finally {
       setBusy(false);
     }
@@ -114,11 +175,11 @@ export function BuddyScreen({
 
   const stageGif = useCallback(async () => {
     setBusy(true);
-    setStatus(null);
+    setStatus("prepare", null);
     try {
       const media = await pickGifUnderCap();
       if (!media) {
-        setStatus(t("buddy.compose_gif_cancel"));
+        setStatus("prepare", t("buddy.compose_gif_cancel"));
         return;
       }
       setStaged(
@@ -128,7 +189,7 @@ export function BuddyScreen({
           caption: stageText.trim() || undefined,
         }),
       );
-      setStatus(t("buddy.compose_staged_saved"));
+      setStatus("prepare", t("buddy.compose_staged_saved"));
     } finally {
       setBusy(false);
     }
@@ -136,13 +197,14 @@ export function BuddyScreen({
 
   const stageVideo = useCallback(async (fromCamera: boolean) => {
     setBusy(true);
-    setStatus(null);
+    setStatus("prepare", null);
     try {
+      const caption = stageText.trim() || undefined;
       const picked = fromCamera
-        ? await captureVideoUnderCap()
+        ? await captureVideoUnderCap({ mode: "stage", caption })
         : await pickVideoUnderCap();
       if (!picked.ok) {
-        setStatus(t(videoPickFailureI18nKey(picked.reason)));
+        setStatus("prepare", t(videoPickFailureI18nKey(picked.reason)));
         return;
       }
       setStaged(
@@ -155,12 +217,12 @@ export function BuddyScreen({
             data: picked.media.data,
           },
           durationMs: picked.media.durationMs,
-          caption: stageText.trim() || undefined,
+          caption,
         }),
       );
-      setStatus(t("buddy.compose_staged_saved"));
+      setStatus("prepare", t("buddy.compose_staged_saved"));
     } catch {
-      setStatus(t("buddy.compose_video_cancel"));
+      setStatus("prepare", t("buddy.compose_video_cancel"));
     } finally {
       setBusy(false);
     }
@@ -171,14 +233,16 @@ export function BuddyScreen({
       const trimmed = raw.trim();
       if (!trimmed) return;
       setBusy(true);
+      // Result text renders inside Pairing; make sure it is visible.
+      setPairingOpen(true);
       try {
         const result = await acceptInviteLink(trimmed);
         if (!result.ok) {
-          setStatus(t(`buddy.accept_${result.reason}`));
+          setStatus("pair", t(`buddy.accept_${result.reason}`));
           return;
         }
         const fp = shortFingerprint(result.buddy.pub);
-        setStatus(
+        setStatus("pair", 
           t(result.alreadyPaired ? "buddy.accept_already" : "buddy.accept_ok", {
             fp,
           }),
@@ -200,6 +264,14 @@ export function BuddyScreen({
     })();
   }, [pendingInvite, applyInvite, onPendingInviteConsumed]);
 
+  const setPrepareStatus = useCallback(
+    (msg: string | null) => setStatus("prepare", msg),
+    [setStatus],
+  );
+  const collapseHint = (open: boolean) =>
+    t(open ? "section.collapse_hint" : "section.expand_hint");
+  const mediaCaption = stageText.trim() || undefined;
+
   return (
     <ScrollView
       contentContainerStyle={[
@@ -220,197 +292,292 @@ export function BuddyScreen({
       <Text style={styles.title}>{t("buddy.title")}</Text>
       <Text style={styles.lead}>{t("buddy.lead")}</Text>
 
-      <Text style={styles.section}>{t("buddy.your_invite")}</Text>
-      <Text style={styles.meta}>{t("buddy.fingerprint", { fp: myFp || "…" })}</Text>
-      <Text style={styles.hint}>{t("buddy.scan_hint")}</Text>
-
-      {link ? (
-        <View style={styles.qrWrap} accessibilityLabel="Buddy invite QR code">
-          <QRCode value={link} size={200} backgroundColor={colors.white} color={colors.ink} />
-        </View>
-      ) : null}
-
-      <View style={styles.row}>
-        <Pressable
-          style={styles.btn}
-          onPress={() => {
-            void Clipboard.setStringAsync(link).then(() =>
-              setStatus(t("buddy.copied")),
-            );
-          }}
-          accessibilityRole="button"
-        >
-          <Text style={styles.btnLabel}>{t("buddy.copy_link")}</Text>
-        </Pressable>
-        <Pressable
-          style={styles.btn}
-          onPress={() => {
-            void Share.share({ message: link });
-          }}
-          accessibilityRole="button"
-        >
-          <Text style={styles.btnLabel}>{t("buddy.share_link")}</Text>
-        </Pressable>
-      </View>
-
-      <Text style={styles.section}>{t("buddy.paste_label")}</Text>
-      <TextInput
-        style={styles.input}
-        value={paste}
-        onChangeText={setPaste}
-        placeholder={t("buddy.paste_placeholder")}
-        placeholderTextColor={colors.textMuted}
-        autoCapitalize="none"
-        autoCorrect={false}
-        multiline
-      />
-      <Pressable
-        style={[styles.btnPrimary, busy && styles.btnDisabled]}
-        disabled={busy}
-        onPress={() => void applyInvite(paste)}
-        accessibilityRole="button"
+      {/* 1. Pairing: open by default; invite + paste live together. */}
+      <CollapsibleSection
+        title={t("buddy.pairing_section")}
+        hint={collapseHint(pairingOpen)}
+        expanded={pairingOpen}
+        onToggle={() => setPairingOpen((v) => !v)}
       >
-        <Text style={styles.btnPrimaryLabel}>{t("buddy.accept")}</Text>
-      </Pressable>
-
-      {status ? <Text style={styles.status}>{status}</Text> : null}
-
-      <Text style={styles.section}>{t("buddy.paired_list")}</Text>
-      {buddies.length === 0 ? (
-        <Text style={styles.meta}>{t("buddy.empty")}</Text>
-      ) : (
-        buddies.map((b) => (
-          <View key={b.buddyId} style={styles.buddyRow}>
-            <View style={styles.buddyMain}>
-              <Text style={styles.buddyTitle}>
-                {b.displayLabel ?? shortFingerprint(b.pub)}
-              </Text>
-              <Text style={styles.meta}>
-                {b.role === "buddy" ? t("buddy.role_buddy") : t("buddy.role_seeker")}
-              </Text>
+        <View style={styles.block}>
+          <Text style={styles.subhead}>{t("buddy.your_invite")}</Text>
+          <Text style={styles.meta}>
+            {t("buddy.fingerprint", { fp: myFp || "…" })}
+          </Text>
+          {link ? (
+            <View
+              style={styles.qrWrap}
+              accessibilityLabel="Buddy invite QR code"
+            >
+              <QRCode
+                value={link}
+                size={200}
+                backgroundColor={colors.white}
+                color={colors.ink}
+              />
             </View>
+          ) : null}
+          <Text style={styles.hint}>{t("buddy.scan_hint")}</Text>
+          <View style={styles.row}>
             <Pressable
+              style={[styles.btn, styles.btnGrow]}
               onPress={() => {
-                void revokeBuddy(b.buddyId).then(setBuddies);
+                void Clipboard.setStringAsync(link).then(() =>
+                  setStatus("invite", t("buddy.copied")),
+                );
               }}
-              style={styles.revoke}
               accessibilityRole="button"
             >
-              <Text style={styles.revokeLabel}>{t("buddy.revoke")}</Text>
+              <Text style={styles.btnLabel}>{t("buddy.copy_link")}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btn, styles.btnGrow]}
+              onPress={() => {
+                void Share.share({ message: link });
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.btnLabel}>{t("buddy.share_link")}</Text>
             </Pressable>
           </View>
-        ))
-      )}
+          <StatusLine text={statusFor("invite")} />
+        </View>
 
-      <Text style={styles.section}>{t("buddy.prepare_title")}</Text>
-      <Text style={styles.meta}>{t("buddy.prepare_lead")}</Text>
-      <TextInput
-        style={styles.input}
-        value={stageText}
-        onChangeText={setStageText}
-        placeholder={t("buddy.prepare_caption_placeholder")}
-        placeholderTextColor={colors.textMuted}
-        multiline
-      />
-      <View style={styles.row}>
-        <Pressable
-          style={[styles.btnPrimary, busy && styles.btnDisabled]}
-          disabled={busy}
-          onPress={() => void saveStagedText()}
-        >
-          <Text style={styles.btnPrimaryLabel}>{t("buddy.prepare_save_text")}</Text>
-        </Pressable>
-      </View>
-      <View style={styles.row}>
-        <Pressable
-          style={[styles.btn, busy && styles.btnDisabled]}
-          disabled={busy}
-          onPress={() => void stagePhoto(false)}
-        >
-          <Text style={styles.btnLabel}>{t("buddy.compose_photo_pick")}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.btn, busy && styles.btnDisabled]}
-          disabled={busy}
-          onPress={() => void stagePhoto(true)}
-        >
-          <Text style={styles.btnLabel}>{t("buddy.compose_photo_camera")}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.btn, busy && styles.btnDisabled]}
-          disabled={busy}
-          onPress={() => void stageGif()}
-        >
-          <Text style={styles.btnLabel}>{t("buddy.compose_gif_pick")}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.btn, busy && styles.btnDisabled]}
-          disabled={busy}
-          onPress={() => void stageVideo(false)}
-        >
-          <Text style={styles.btnLabel}>{t("buddy.compose_video_pick")}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.btn, busy && styles.btnDisabled]}
-          disabled={busy}
-          onPress={() => void stageVideo(true)}
-        >
-          <Text style={styles.btnLabel}>{t("buddy.compose_video_camera")}</Text>
-        </Pressable>
-      </View>
-      <BuddyVoiceRecorder
-        t={t}
-        busy={busy}
-        onStatus={setStatus}
-        onReady={(media, durationMs) => {
-          void addStagedMedia({
-            kind: "voice",
-            media,
-            durationMs,
-            caption: stageText.trim() || undefined,
-          }).then((next) => {
-            setStaged(next);
-            setStatus(t("buddy.compose_staged_saved"));
-          });
-        }}
-      />
-      <View style={styles.row}>
-        {SOUND_PRESET_IDS.map((id) => (
+        <View style={styles.block}>
+          <Text style={styles.subhead}>{t("buddy.paste_label")}</Text>
+          <TextInput
+            style={styles.input}
+            value={paste}
+            onChangeText={setPaste}
+            placeholder={t("buddy.paste_placeholder")}
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            multiline
+          />
           <Pressable
-            key={id}
-            style={[styles.btn, busy && styles.btnDisabled]}
+            style={[styles.btnPrimary, busy && styles.btnDisabled]}
             disabled={busy}
-            onPress={() => {
-              void addStagedPreset(id, stageText.trim() || undefined).then(
-                (next) => {
-                  setStaged(next);
-                  setStatus(t("buddy.compose_staged_saved"));
-                },
-              );
-            }}
+            onPress={() => void applyInvite(paste)}
+            accessibilityRole="button"
           >
-            <Text style={styles.btnLabel}>{t(SOUND_PRESET_I18N_KEYS[id])}</Text>
+            <Text style={styles.btnPrimaryLabel}>{t("buddy.accept")}</Text>
           </Pressable>
-        ))}
-      </View>
+          <StatusLine text={statusFor("pair")} />
+        </View>
+      </CollapsibleSection>
 
-      <Text style={styles.section}>{t("buddy.compose_staged")}</Text>
-      {staged.length === 0 ? (
-        <Text style={styles.meta}>{t("buddy.compose_staged_empty")}</Text>
-      ) : (
-        staged.map((n) => (
-          <StagedNudgeRow
-            key={n.id}
+      {/* 2. Buddies list: always visible. */}
+      <Section title={t("buddy.paired_count", { n: buddies.length })}>
+        {buddies.length === 0 ? (
+          <Text style={styles.meta}>{t("buddy.empty")}</Text>
+        ) : (
+          <View>
+            {buddies.map((b) => (
+              <View key={b.buddyId} style={styles.buddyRow}>
+                <View style={styles.buddyMain}>
+                  <Text style={styles.buddyTitle}>
+                    {b.displayLabel ?? shortFingerprint(b.pub)}
+                  </Text>
+                  <Text style={styles.meta}>
+                    {b.role === "buddy"
+                      ? t("buddy.role_buddy")
+                      : t("buddy.role_seeker")}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    void revokeBuddy(b.buddyId).then(setBuddies);
+                  }}
+                  style={styles.revoke}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.revokeLabel}>{t("buddy.revoke")}</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
+      </Section>
+
+      {/* 3. Staged library: the nudges ready to send. */}
+      <Section
+        title={t("buddy.compose_staged")}
+        subtitle={t("buddy.staged_library_lead")}
+      >
+        {staged.length === 0 ? (
+          <Text style={styles.meta}>{t("buddy.compose_staged_empty")}</Text>
+        ) : (
+          staged.map((n) => (
+            <StagedNudgeRow
+              key={n.id}
+              t={t}
+              nudge={n}
+              busy={busy}
+              onDelete={() => {
+                void removeStagedNudge(n.id).then(setStaged);
+              }}
+            />
+          ))
+        )}
+        <StatusLine text={statusFor("staged")} />
+      </Section>
+
+      {/* 4. Prepare tools: open while the library is empty, else one tap away. */}
+      <CollapsibleSection
+        title={t("buddy.prepare_title")}
+        summary={t("buddy.prepare_summary")}
+        hint={collapseHint(prepareOpen)}
+        expanded={prepareOpen}
+        onToggle={() => setPrepareOpen((v) => !v)}
+      >
+        <Text style={styles.hint}>{t("buddy.prepare_lead")}</Text>
+
+        <View style={styles.block}>
+          <Text style={styles.subhead}>{t("buddy.prepare_text_group")}</Text>
+          <TextInput
+            style={styles.input}
+            value={stageText}
+            onChangeText={setStageText}
+            placeholder={t("buddy.prepare_caption_placeholder")}
+            placeholderTextColor={colors.textMuted}
+            multiline
+          />
+          <Pressable
+            style={[styles.btnPrimary, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => void saveStagedText()}
+            accessibilityRole="button"
+          >
+            <Text style={styles.btnPrimaryLabel}>
+              {t("buddy.prepare_save_text")}
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.block}>
+          <Text style={styles.subhead}>{t("buddy.compose_photo")}</Text>
+          <View style={styles.row}>
+            <Pressable
+              style={[styles.btn, styles.btnGrow, busy && styles.btnDisabled]}
+              disabled={busy}
+              onPress={() => void stagePhoto(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.btnLabel}>
+                {t("buddy.compose_photo_pick")}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btn, styles.btnGrow, busy && styles.btnDisabled]}
+              disabled={busy}
+              onPress={() => void stagePhoto(true)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.btnLabel}>
+                {t("buddy.compose_photo_camera")}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.block}>
+          <Text style={styles.subhead}>{t("buddy.compose_gif")}</Text>
+          <View style={styles.row}>
+            <Pressable
+              style={[styles.btn, styles.btnGrow, busy && styles.btnDisabled]}
+              disabled={busy}
+              onPress={() => void stageGif()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.btnLabel}>{t("buddy.compose_gif_pick")}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.block}>
+          <Text style={styles.subhead}>{t("buddy.compose_video")}</Text>
+          <View style={styles.row}>
+            <Pressable
+              style={[styles.btn, styles.btnGrow, busy && styles.btnDisabled]}
+              disabled={busy}
+              onPress={() => void stageVideo(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.btnLabel}>
+                {t("buddy.compose_video_pick")}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btn, styles.btnGrow, busy && styles.btnDisabled]}
+              disabled={busy}
+              onPress={() => void stageVideo(true)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.btnLabel}>
+                {t("buddy.compose_video_camera")}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.block}>
+          <Text style={styles.subhead}>{t("buddy.compose_voice")}</Text>
+          <BuddyVoiceRecorder
             t={t}
-            nudge={n}
             busy={busy}
-            onDelete={() => {
-              void removeStagedNudge(n.id).then(setStaged);
+            onStatus={setPrepareStatus}
+            onReady={(media, durationMs) => {
+              void addStagedMedia({
+                kind: "voice",
+                media,
+                durationMs,
+                caption: mediaCaption,
+              }).then((next) => {
+                setStaged(next);
+                setStatus("prepare", t("buddy.compose_staged_saved"));
+              });
             }}
           />
-        ))
-      )}
+        </View>
+
+        <View style={styles.block}>
+          <Text style={styles.subhead}>{t("buddy.prepare_sounds")}</Text>
+          <View style={styles.row}>
+            {SOUND_PRESET_IDS.map((id) => (
+              <Pressable
+                key={id}
+                style={[styles.btn, busy && styles.btnDisabled]}
+                disabled={busy}
+                onPress={() => {
+                  void addStagedPreset(id, mediaCaption).then((next) => {
+                    setStaged(next);
+                    setStatus("prepare", t("buddy.compose_staged_saved"));
+                  });
+                }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.btnLabel}>
+                  {t(SOUND_PRESET_I18N_KEYS[id])}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <StatusLine text={statusFor("prepare")} />
+      </CollapsibleSection>
     </ScrollView>
+  );
+}
+
+/** Inline feedback; announced politely by screen readers. */
+function StatusLine({ text }: { text: string | null }) {
+  if (!text) return null;
+  return (
+    <Text style={styles.status} accessibilityLiveRegion="polite">
+      {text}
+    </Text>
   );
 }
 
@@ -419,9 +586,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 28,
     paddingBottom: 48,
-    gap: 12,
+    gap: 10,
   },
-  back: { alignSelf: "flex-start", paddingVertical: 8 },
+  back: {
+    alignSelf: "flex-start",
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
+  },
   backLabel: { fontSize: 15, fontWeight: "700", color: colors.teal },
   title: {
     fontSize: typography.titleSize,
@@ -432,15 +603,11 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySize,
     lineHeight: 22,
     color: colors.textMuted,
+    marginBottom: 6,
   },
-  section: {
-    marginTop: 10,
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
+  /** One task cluster inside a section (label + controls). */
+  block: { gap: 10 },
+  subhead: { fontSize: 15, fontWeight: "700", color: colors.ink },
   meta: { fontSize: typography.metaSize, color: colors.textMuted },
   hint: { fontSize: 13, lineHeight: 18, color: colors.textMuted },
   qrWrap: {
@@ -451,16 +618,20 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   btn: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
     borderRadius: 999,
     backgroundColor: colors.chipOff,
   },
+  btnGrow: { flexGrow: 1, flexBasis: 140 },
   btnLabel: { fontWeight: "700", color: colors.ink },
   btnPrimary: {
     alignSelf: "flex-start",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
+    paddingHorizontal: 20,
     borderRadius: 999,
     backgroundColor: colors.chipOn,
   },
@@ -480,13 +651,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: colors.chipOff,
+    minHeight: 56,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(10,37,64,0.12)",
   },
   buddyMain: { flex: 1, gap: 2 },
   buddyTitle: { fontWeight: "700", color: colors.ink, fontSize: 15 },
-  revoke: { paddingVertical: 8, paddingHorizontal: 10 },
-  revokeLabel: { fontWeight: "700", color: colors.ember, fontSize: 13 },
+  revoke: {
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  revokeLabel: { fontWeight: "700", color: colors.ember, fontSize: 14 },
 });

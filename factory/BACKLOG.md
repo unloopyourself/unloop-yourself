@@ -399,7 +399,7 @@ Caps (initial): text ≤500 chars; photo/GIF ≤2 MiB each; voice ≤30 s / 
 - **Escalate if:** Always — milestone.
 
 ### P3.5-09 — Auto-send staged + lockout window
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3.5-03, P3.5-05 (staged media library)
 - **AC:**
   - Buddy setting **auto-send staged** (default off).
@@ -410,3 +410,4 @@ Caps (initial): text ≤500 chars; photo/GIF ≤2 MiB each; voice ≤30 s / 
   - U cancel still purges mailbox / stops compose.
 - **Tests:** Unit for RR + lockout timing; two-device smoke quiet vs active.
 - **Escalate if:** Need seeker to push lockout clock to B (event payload must carry `interruptAtMs` / lockAtMs).
+- **Notes:** Approaching FCM data includes `interruptAtMs` (usage-remaining estimate). Core `buddyLockout` + RR helpers tested. Device quiet/active smoke left for human (P3.5-08 adjacent).

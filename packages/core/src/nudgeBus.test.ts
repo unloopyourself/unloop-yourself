@@ -40,6 +40,10 @@ describe("NudgeBus", () => {
     });
     expect(warn).toHaveLength(1);
     expect(warn[0]?.type).toBe("approaching");
+    if (warn[0]?.type === "approaching") {
+      // now=9000, remaining usage 2s → interruptAtMs ≈ 11000
+      expect(warn[0].interruptAtMs).toBe(1_000 + 8_000 + 2_000);
+    }
     expect(
       bus.observeUsage({
         accumulatedMs: 9_000,

@@ -10,6 +10,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import {
+  isPastLockout,
   NudgeBus,
   SessionEngine,
   TypedEventEmitter,
@@ -51,6 +52,8 @@ import { MenuSheet } from "./src/screens/MenuSheet";
 import { loadBuddies, loadOrCreateIdentity } from "./src/buddyStore";
 import {
   allowApproachingPush,
+  buildAutoSendCipher,
+  claimAutoSendEvent,
   decodeNudgeBlob,
   loadPendingApproach,
   setPendingApproach,
@@ -407,14 +410,51 @@ export default function App() {
 
   const lastApproachEventIdRef = useRef<string | null>(null);
 
+  const silentAutoSendStaged = useCallback(
+    async (pending: PendingApproach, opts?: { requireEmptyMailbox?: boolean }) => {
+      const s = settingsRef.current;
+      if (!s?.buddyAutoSendStaged) return;
+      const relayUrl = getRelayBaseUrl();
+      if (!relayUrl) return;
+      const relay = new HttpRelayPort(relayUrl);
+      try {
+        if (opts?.requireEmptyMailbox !== false) {
+          const existing = await relay.getMailbox(
+            pending.mailboxId,
+            pending.eventId,
+          );
+          if (existing) return;
+        }
+        if (!(await claimAutoSendEvent(pending.eventId))) return;
+        const cipher = await buildAutoSendCipher(s.buddyDefaultNudge);
+        if (!cipher) return;
+        await relay.putMailbox(
+          pending.mailboxId,
+          pending.eventId,
+          cipher,
+          180,
+        );
+        if (Platform.OS === "android") {
+          UnloopUsage.logHarness(`buddy_autosend:${pending.eventId}`);
+        }
+      } catch {
+        /* best-effort — do not surface UI in quiet hours */
+      }
+    },
+    [],
+  );
+
   const openApproachCompose = useCallback(async (pending: PendingApproach) => {
     const s = settingsRef.current;
-    // Quiet hours + hourly cap are Buddy (receiver) choices.
+    // Quiet hours: mute UI; optional silent staged auto-send (no notify cap).
     if (s?.buddyQuietHoursEnabled) {
       const hour = new Date().getHours();
       if (
         isInQuietHours(hour, s.buddyQuietStartHour, s.buddyQuietEndHour)
       ) {
+        if (s.buddyAutoSendStaged) {
+          void silentAutoSendStaged(pending, { requireEmptyMailbox: true });
+        }
         return;
       }
     }
@@ -442,6 +482,9 @@ export default function App() {
             type: "approaching",
             eventId: pending.eventId,
             mailboxId: pending.mailboxId,
+            ...(pending.interruptAtMs != null
+              ? { interruptAtMs: String(pending.interruptAtMs) }
+              : {}),
           },
         },
         trigger: null,
@@ -449,7 +492,7 @@ export default function App() {
     } catch {
       /* banner optional */
     }
-  }, [t]);
+  }, [silentAutoSendStaged, t]);
 
   // FCM / local notification → Buddy compose (approaching).
   useEffect(() => {
@@ -466,10 +509,18 @@ export default function App() {
       const eventId = String(data.eventId ?? "");
       const mailboxId = String(data.mailboxId ?? "");
       if (!eventId || !mailboxId) return;
+      const interruptRaw = data.interruptAtMs;
+      const interruptAtMs =
+        typeof interruptRaw === "number"
+          ? interruptRaw
+          : typeof interruptRaw === "string"
+            ? Number(interruptRaw)
+            : NaN;
       void openApproachCompose({
         eventId,
         mailboxId,
         receivedAtMs: Date.now(),
+        ...(Number.isFinite(interruptAtMs) ? { interruptAtMs } : {}),
       });
     };
 
@@ -486,6 +537,42 @@ export default function App() {
       subResp.remove();
     };
   }, [openApproachCompose]);
+
+  // P3.5-09: lockout ~T−lockoutLead — dismiss live compose; optional staged PUT.
+  useEffect(() => {
+    if (!pendingApproach) return;
+    const s0 = settingsRef.current;
+    const interruptAtMs =
+      pendingApproach.interruptAtMs ??
+      pendingApproach.receivedAtMs + (s0?.buddyWarnLeadMs ?? 120_000);
+    const eventId = pendingApproach.eventId;
+    const mailboxId = pendingApproach.mailboxId;
+    let fired = false;
+    const id = setInterval(() => {
+      const s = settingsRef.current;
+      const lead = s?.buddyLockoutLeadMs ?? 30_000;
+      if (!isPastLockout(Date.now(), interruptAtMs, lead)) return;
+      if (fired) return;
+      fired = true;
+      void (async () => {
+        await setPendingApproach(null);
+        setPendingApproachState(null);
+        setScreen((prev) => (prev === "buddyCompose" ? "home" : prev));
+        try {
+          await Notifications.dismissAllNotificationsAsync();
+        } catch {
+          /* optional */
+        }
+        if (s?.buddyAutoSendStaged) {
+          await silentAutoSendStaged(
+            { eventId, mailboxId, receivedAtMs: Date.now(), interruptAtMs },
+            { requireEmptyMailbox: true },
+          );
+        }
+      })();
+    }, 500);
+    return () => clearInterval(id);
+  }, [pendingApproach, silentAutoSendStaged]);
 
   useEffect(() => {
     return bus.on("CHALLENGE_COMPLETED", (payload) => {
@@ -555,6 +642,11 @@ export default function App() {
                           type: "approaching",
                           eventId: intent.eventId,
                           mailboxId: intent.mailboxId,
+                          interruptAtMs: String(
+                            intent.type === "approaching"
+                              ? intent.interruptAtMs
+                              : Date.now(),
+                          ),
                         },
                       }),
                     },

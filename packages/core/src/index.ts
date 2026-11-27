@@ -72,6 +72,13 @@ export { NudgeBus, createNudgeEventId } from "./nudgeBus.js";
 
 export { isInQuietHours } from "./quietHours.js";
 
+export {
+  DEFAULT_BUDDY_LOCKOUT_LEAD_MS,
+  isPastLockout,
+  lockoutAtMs,
+  nextRoundRobinIndex,
+} from "./buddyLockout.js";
+
 export type { BuddyRecord, PairInviteV0, PairRole } from "./pairing.js";
 export {
   PAIR_HOST,

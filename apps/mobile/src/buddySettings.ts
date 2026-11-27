@@ -1,11 +1,16 @@
-/** Buddy progressive-path settings helpers (P3-07). */
+/** Buddy progressive-path settings helpers (P3-07 / P3.5-09). */
 
-import { isInQuietHours } from "@unloop/core";
+import {
+  DEFAULT_BUDDY_LOCKOUT_LEAD_MS,
+  isInQuietHours,
+} from "@unloop/core";
 
 export { isInQuietHours };
 
 export const BUDDY_WARN_LEAD_MINUTE_OPTIONS = [1, 2, 3, 5] as const;
 export const BUDDY_MAX_PUSH_OPTIONS = [1, 2, 3, 6, 12] as const;
+/** Lockout lead seconds before U interrupt (P3.5-09). */
+export const BUDDY_LOCKOUT_LEAD_SECOND_OPTIONS = [15, 30, 45, 60] as const;
 
 export type BuddySettingsSlice = {
   /** Master gate for approaching / mailbox / push to buddies. Default off. */
@@ -20,6 +25,13 @@ export type BuddySettingsSlice = {
   buddyDefaultNudge: string;
   buddyMaxPushPerHour: number;
   buddyNotifyOnLeave: boolean;
+  /**
+   * When on: quiet hours → silent staged PUT; active hours → staged PUT at
+   * lockout if mailbox still empty. Default off.
+   */
+  buddyAutoSendStaged: boolean;
+  /** Close live compose this many ms before estimated interrupt. */
+  buddyLockoutLeadMs: number;
 };
 
 export const BUDDY_SETTINGS_DEFAULTS: BuddySettingsSlice = {
@@ -31,6 +43,8 @@ export const BUDDY_SETTINGS_DEFAULTS: BuddySettingsSlice = {
   buddyDefaultNudge: "",
   buddyMaxPushPerHour: 3,
   buddyNotifyOnLeave: true,
+  buddyAutoSendStaged: false,
+  buddyLockoutLeadMs: DEFAULT_BUDDY_LOCKOUT_LEAD_MS,
 };
 
 export function clampHour(value: unknown, fallback: number): number {
@@ -62,6 +76,18 @@ export function normalizeBuddySettings(
     maxPush = 3;
   }
 
+  const lockSec = Math.round(
+    (typeof parsed.buddyLockoutLeadMs === "number"
+      ? parsed.buddyLockoutLeadMs
+      : BUDDY_SETTINGS_DEFAULTS.buddyLockoutLeadMs) / 1000,
+  );
+  const snappedLock =
+    BUDDY_LOCKOUT_LEAD_SECOND_OPTIONS.includes(
+      lockSec as (typeof BUDDY_LOCKOUT_LEAD_SECOND_OPTIONS)[number],
+    )
+      ? lockSec
+      : 30;
+
   return {
     buddyEnabled: Boolean(parsed.buddyEnabled),
     buddyWarnLeadMs: snappedWarn * 60_000,
@@ -83,5 +109,7 @@ export function normalizeBuddySettings(
       parsed.buddyNotifyOnLeave === undefined
         ? BUDDY_SETTINGS_DEFAULTS.buddyNotifyOnLeave
         : Boolean(parsed.buddyNotifyOnLeave),
+    buddyAutoSendStaged: Boolean(parsed.buddyAutoSendStaged),
+    buddyLockoutLeadMs: snappedLock * 1000,
   };
 }

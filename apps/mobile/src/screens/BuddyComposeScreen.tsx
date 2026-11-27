@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  AppState,
   Image,
   Pressable,
   ScrollView,
@@ -35,6 +36,7 @@ import {
   pickCompressedPhoto,
   pickGifUnderCap,
   pickVideoUnderCap,
+  recoverPendingCameraVideo,
   videoPickFailureI18nKey,
   type VideoNudgeMedia,
 } from "../buddyMediaEncode";
@@ -76,6 +78,33 @@ export function BuddyComposeScreen({
   useEffect(() => {
     void loadStagedNudges().then(setStaged);
   }, []);
+
+  /** Reclaim video after Android kills MainActivity during OEM camera. */
+  useEffect(() => {
+    let alive = true;
+    const reclaim = async () => {
+      const recovered = await recoverPendingCameraVideo();
+      if (!alive || !recovered) return;
+      if (recovered.intent.mode === "compose") {
+        setPhoto(null);
+        setGif(null);
+        setVoice(null);
+        setVideo(recovered.media);
+        setStatus(t("buddy.compose_video_ready"));
+        return;
+      }
+      // Staged from Buddy home while compose is open — refresh list.
+      setStaged(await loadStagedNudges());
+    };
+    void reclaim();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void reclaim();
+    });
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, [t]);
 
   const putCipher = useCallback(
     async (ciphertext: string) => {
@@ -350,7 +379,10 @@ export function BuddyComposeScreen({
     setBusy(true);
     setStatus(null);
     try {
-      const picked = await captureVideoUnderCap();
+      const picked = await captureVideoUnderCap({
+        mode: "compose",
+        caption: live.trim() || undefined,
+      });
       if (!picked.ok) {
         setStatus(t(videoPickFailureI18nKey(picked.reason)));
         return;
@@ -363,7 +395,7 @@ export function BuddyComposeScreen({
     } finally {
       setBusy(false);
     }
-  }, [t]);
+  }, [live, t]);
 
   const uploadVoice = useCallback(async () => {
     if (!voice) {

@@ -13,7 +13,8 @@ export type NudgeLiveSession = {
   readonly mailboxId: string;
   /** Wall-clock hint only (legacy); approaching is usage-driven. */
   readonly warnAtMs: number;
-  readonly interruptAtMs: number;
+  /** Updated when approaching fires from remaining usage (Buddy lockout). */
+  interruptAtMs: number;
   cancelled: boolean;
   approachingSent: boolean;
   interruptFetchSent: boolean;
@@ -89,11 +90,16 @@ export class NudgeBus {
     const out: NudgeBusIntent[] = [];
     if (!s.approachingSent && input.accumulatedMs >= warnAfter) {
       s.approachingSent = true;
+      const now = this.clock.now();
+      // Re-estimate interrupt wall-clock from remaining usage (Buddy lockout).
+      s.interruptAtMs =
+        now + Math.max(0, threshold - Math.max(0, input.accumulatedMs));
       out.push({
         type: "approaching",
         eventId: s.eventId,
         mailboxId: s.mailboxId,
-        warnAtMs: this.clock.now(),
+        warnAtMs: now,
+        interruptAtMs: s.interruptAtMs,
       });
     }
     if (

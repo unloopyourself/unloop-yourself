@@ -20,9 +20,18 @@ import { SETTINGS_CHALLENGE_CATALOG, type ChallengeId } from "../challenges/regi
 import type { UnloopSettings } from "../settings";
 import { statusBarTopInset } from "../layout";
 import {
+  BUDDY_LOCKOUT_LEAD_SECOND_OPTIONS,
   BUDDY_MAX_PUSH_OPTIONS,
   BUDDY_WARN_LEAD_MINUTE_OPTIONS,
 } from "../buddySettings";
+import {
+  CollapsibleSection,
+  MIN_TOUCH,
+  NavRow,
+  SECTION_DIVIDER,
+  Section,
+  ToggleRow,
+} from "./SectionKit";
 
 type Props = {
   t: Translate;
@@ -56,10 +65,20 @@ export function SettingsScreen({
 }: Props) {
   const [expandedChallengeId, setExpandedChallengeId] =
     useState<ChallengeId | null>(null);
+  // Session-only disclosure state. Secondary groups start collapsed.
+  const [challengesOpen, setChallengesOpen] = useState(false);
+  const [buddyOptionsOpen, setBuddyOptionsOpen] = useState(false);
 
   const toggleExpand = (id: ChallengeId) => {
     setExpandedChallengeId((prev) => (prev === id ? null : id));
   };
+
+  const enabledChallengeCount = SETTINGS_CHALLENGE_CATALOG.filter((c) =>
+    settings.enabledChallengeIds.includes(c.id),
+  ).length;
+
+  const hint = (open: boolean) =>
+    t(open ? "section.collapse_hint" : "section.expand_hint");
 
   return (
     <ScrollView
@@ -80,248 +99,254 @@ export function SettingsScreen({
 
       <Text style={styles.title}>{t("nav.settings")}</Text>
 
-      <Text style={styles.section}>{t("app.feeds_section")}</Text>
-      <View style={styles.chips}>
-        {WATCH_TARGETS.map((app) => {
-          const on = settings.enabledLabels.includes(app.label);
-          return (
-            <Pressable
-              key={app.label}
-              onPress={() => onToggleLabel(app.label)}
-              style={[styles.chip, on && styles.chipOn]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
-            >
-              <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>
-                {app.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <Text style={styles.section}>{t("app.challenges_section")}</Text>
-      <View style={styles.challengeList}>
-        {SETTINGS_CHALLENGE_CATALOG.map((c) => {
-          const on = settings.enabledChallengeIds.includes(c.id);
-          const expanded = expandedChallengeId === c.id;
-          const hardwareOk = [...c.requires].every((cap) =>
-            deviceCaps.has(cap),
-          );
-          return (
-            <View
-              key={c.id}
-              style={[
-                styles.challengeRow,
-                on && styles.challengeRowOn,
-                !hardwareOk && styles.challengeRowUnavailable,
-              ]}
-            >
+      {/* Feeds: primary choice, always visible. */}
+      <Section title={t("app.feeds_section")}>
+        <View style={styles.chips}>
+          {WATCH_TARGETS.map((app) => {
+            const on = settings.enabledLabels.includes(app.label);
+            return (
               <Pressable
-                onPress={() => toggleExpand(c.id)}
-                style={styles.challengeMain}
+                key={app.label}
+                onPress={() => onToggleLabel(app.label)}
+                style={[styles.chip, on && styles.chipOn]}
                 accessibilityRole="button"
-                accessibilityState={{ expanded }}
-                accessibilityHint={
-                  hardwareOk ? undefined : "Not available on this device"
-                }
+                accessibilityState={{ selected: on }}
               >
-                <Text
-                  style={[
-                    styles.challengeTitle,
-                    on && styles.challengeTitleOn,
-                  ]}
-                >
-                  {t(c.titleKey)}
-                </Text>
-                {expanded ? (
-                  <Text
-                    style={[
-                      styles.challengeBody,
-                      on && styles.challengeBodyOn,
-                    ]}
-                  >
-                    {t(c.bodyKey)}
-                  </Text>
-                ) : null}
-              </Pressable>
-              <Pressable
-                onPress={() => onToggleChallenge(c.id)}
-                style={[styles.enableHit, on && styles.enableHitOn]}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: on, disabled: !hardwareOk }}
-                accessibilityLabel={t(c.titleKey)}
-              >
-                <Text style={[styles.enableMark, on && styles.enableMarkOn]}>
-                  {on ? "✓" : ""}
+                <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>
+                  {app.label}
                 </Text>
               </Pressable>
-            </View>
-          );
+            );
+          })}
+        </View>
+      </Section>
+
+      {/* Timing: three short pickers, always visible. */}
+      <Section title={t("app.timings_section")}>
+        <TimingPicker
+          label={t("app.threshold")}
+          minutes={Math.round(settings.thresholdMs / 60_000)}
+          options={TIMING_MINUTE_OPTIONS}
+          unitLabel={t("app.minutes_unit")}
+          onSelect={(m) => onSetTiming("thresholdMs", m)}
+        />
+        <TimingPicker
+          label={t("app.cooldown")}
+          minutes={Math.round(settings.cooldownMs / 60_000)}
+          options={TIMING_MINUTE_OPTIONS}
+          unitLabel={t("app.minutes_unit")}
+          onSelect={(m) => onSetTiming("cooldownMs", m)}
+        />
+        <TimingPicker
+          label={t("app.soft_timeout")}
+          minutes={Math.round(settings.challengeTimeoutMs / 60_000)}
+          options={SOFT_UNLOCK_MINUTE_OPTIONS}
+          unitLabel={t("app.minutes_unit")}
+          onSelect={(m) => onSetTiming("challengeTimeoutMs", m)}
+        />
+      </Section>
+
+      {/* Challenges: long list, collapsed with a count summary. */}
+      <CollapsibleSection
+        title={t("app.challenges_section")}
+        summary={t("app.challenges_summary", {
+          on: enabledChallengeCount,
+          total: SETTINGS_CHALLENGE_CATALOG.length,
         })}
-      </View>
-
-      <Text style={styles.section}>{t("buddy.section")}</Text>
-      <Pressable
-        onPress={() =>
-          onPatchSettings({ buddyEnabled: !settings.buddyEnabled })
-        }
-        style={[styles.buddyLink, settings.buddyEnabled && styles.buddyLinkOn]}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: settings.buddyEnabled }}
+        hint={hint(challengesOpen)}
+        expanded={challengesOpen}
+        onToggle={() => setChallengesOpen((v) => !v)}
       >
-        <Text
-          style={[
-            styles.buddyLinkLabel,
-            settings.buddyEnabled && styles.buddyLinkLabelOn,
-          ]}
-        >
-          {settings.buddyEnabled ? "✓ " : ""}
-          {t("buddy.enable")}
-        </Text>
-      </Pressable>
-      <Pressable
-        onPress={onOpenBuddy}
-        style={styles.buddyLink}
-        accessibilityRole="button"
-      >
-        <Text style={styles.buddyLinkLabel}>{t("buddy.open")}</Text>
-      </Pressable>
-      {settings.buddyEnabled ? (
-        <>
-          <TimingPicker
-            label={t("buddy.warn_lead")}
-            minutes={Math.round(settings.buddyWarnLeadMs / 60_000)}
-            options={BUDDY_WARN_LEAD_MINUTE_OPTIONS}
-            unitLabel={t("app.minutes_unit")}
-            onSelect={(m) =>
-              onPatchSettings({ buddyWarnLeadMs: m * 60_000 })
-            }
-          />
-          <Pressable
-            onPress={() =>
-              onPatchSettings({
-                buddyQuietHoursEnabled: !settings.buddyQuietHoursEnabled,
-              })
-            }
-            style={[
-              styles.buddyLink,
-              settings.buddyQuietHoursEnabled && styles.buddyLinkOn,
-            ]}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: settings.buddyQuietHoursEnabled }}
-          >
-            <Text
-              style={[
-                styles.buddyLinkLabel,
-                settings.buddyQuietHoursEnabled && styles.buddyLinkLabelOn,
-              ]}
-            >
-              {settings.buddyQuietHoursEnabled ? "✓ " : ""}
-              {t("buddy.quiet_on")}
-            </Text>
-          </Pressable>
-          {settings.buddyQuietHoursEnabled ? (
-            <>
-              <TimingPicker
-                label={t("buddy.quiet_start")}
-                minutes={settings.buddyQuietStartHour}
-                options={[0, 6, 8, 20, 21, 22, 23]}
-                unitLabel="h"
-                onSelect={(h) => onPatchSettings({ buddyQuietStartHour: h })}
-              />
-              <TimingPicker
-                label={t("buddy.quiet_end")}
-                minutes={settings.buddyQuietEndHour}
-                options={[6, 7, 8, 9, 10, 12]}
-                unitLabel="h"
-                onSelect={(h) => onPatchSettings({ buddyQuietEndHour: h })}
-              />
-            </>
-          ) : null}
-          <TimingPicker
-            label={t("buddy.max_push")}
-            minutes={settings.buddyMaxPushPerHour}
-            options={BUDDY_MAX_PUSH_OPTIONS}
-            unitLabel="/h"
-            onSelect={(n) => onPatchSettings({ buddyMaxPushPerHour: n })}
-          />
-          <Pressable
-            onPress={() =>
-              onPatchSettings({
-                buddyNotifyOnLeave: !settings.buddyNotifyOnLeave,
-              })
-            }
-            style={[
-              styles.buddyLink,
-              settings.buddyNotifyOnLeave && styles.buddyLinkOn,
-            ]}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: settings.buddyNotifyOnLeave }}
-          >
-            <Text
-              style={[
-                styles.buddyLinkLabel,
-                settings.buddyNotifyOnLeave && styles.buddyLinkLabelOn,
-              ]}
-            >
-              {settings.buddyNotifyOnLeave ? "✓ " : ""}
-              {t("buddy.notify_leave")}
-            </Text>
-          </Pressable>
-          <Text style={styles.timingLabel}>{t("buddy.default_nudge")}</Text>
-          <TextInput
-            style={styles.buddyInput}
-            value={settings.buddyDefaultNudge}
-            onChangeText={(text) =>
-              onPatchSettings({ buddyDefaultNudge: text.slice(0, 280) })
-            }
-            placeholder={t("buddy.default_nudge_placeholder")}
-            placeholderTextColor={colors.textMuted}
-            multiline
-          />
-        </>
-      ) : null}
+        <View style={styles.challengeList}>
+          {SETTINGS_CHALLENGE_CATALOG.map((c) => {
+            const on = settings.enabledChallengeIds.includes(c.id);
+            const expanded = expandedChallengeId === c.id;
+            const hardwareOk = [...c.requires].every((cap) =>
+              deviceCaps.has(cap),
+            );
+            return (
+              <View
+                key={c.id}
+                style={[
+                  styles.challengeRow,
+                  !hardwareOk && styles.challengeRowUnavailable,
+                ]}
+              >
+                <Pressable
+                  onPress={() => toggleExpand(c.id)}
+                  style={styles.challengeMain}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
+                  accessibilityHint={
+                    hardwareOk ? undefined : t("app.challenge_unavailable")
+                  }
+                >
+                  <Text style={styles.challengeTitle}>{t(c.titleKey)}</Text>
+                  {!hardwareOk ? (
+                    <Text style={styles.challengeBody}>
+                      {t("app.challenge_unavailable")}
+                    </Text>
+                  ) : null}
+                  {expanded ? (
+                    <Text style={styles.challengeBody}>{t(c.bodyKey)}</Text>
+                  ) : null}
+                </Pressable>
+                <Pressable
+                  onPress={() => onToggleChallenge(c.id)}
+                  style={styles.enableTouch}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on, disabled: !hardwareOk }}
+                  accessibilityLabel={t(c.titleKey)}
+                >
+                  <View style={[styles.enableHit, on && styles.enableHitOn]}>
+                    <Text style={[styles.enableMark, on && styles.enableMarkOn]}>
+                      {on ? "✓" : ""}
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      </CollapsibleSection>
 
-      <Text style={styles.section}>{t("app.timings_section")}</Text>
-      <TimingPicker
-        label={t("app.threshold")}
-        minutes={Math.round(settings.thresholdMs / 60_000)}
-        options={TIMING_MINUTE_OPTIONS}
-        unitLabel={t("app.minutes_unit")}
-        onSelect={(m) => onSetTiming("thresholdMs", m)}
-      />
-      <TimingPicker
-        label={t("app.cooldown")}
-        minutes={Math.round(settings.cooldownMs / 60_000)}
-        options={TIMING_MINUTE_OPTIONS}
-        unitLabel={t("app.minutes_unit")}
-        onSelect={(m) => onSetTiming("cooldownMs", m)}
-      />
-      <TimingPicker
-        label={t("app.soft_timeout")}
-        minutes={Math.round(settings.challengeTimeoutMs / 60_000)}
-        options={SOFT_UNLOCK_MINUTE_OPTIONS}
-        unitLabel={t("app.minutes_unit")}
-        onSelect={(m) => onSetTiming("challengeTimeoutMs", m)}
-      />
+      {/* Buddy: Enable + Open stay visible; the rest lives behind "Buddy options". */}
+      <Section title={t("buddy.section")}>
+        <View>
+          <ToggleRow
+            label={t("buddy.enable")}
+            value={settings.buddyEnabled}
+            onValueChange={(next) => onPatchSettings({ buddyEnabled: next })}
+          />
+          <NavRow label={t("buddy.open")} onPress={onOpenBuddy} />
+        </View>
+
+        {settings.buddyEnabled ? (
+          <CollapsibleSection
+            variant="inline"
+            title={t("buddy.options_title")}
+            summary={t("buddy.options_summary", {
+              lead: Math.round(settings.buddyWarnLeadMs / 60_000),
+              max: settings.buddyMaxPushPerHour,
+            })}
+            hint={hint(buddyOptionsOpen)}
+            expanded={buddyOptionsOpen}
+            onToggle={() => setBuddyOptionsOpen((v) => !v)}
+          >
+            <TimingPicker
+              label={t("buddy.warn_lead")}
+              minutes={Math.round(settings.buddyWarnLeadMs / 60_000)}
+              options={BUDDY_WARN_LEAD_MINUTE_OPTIONS}
+              unitLabel={t("app.minutes_unit")}
+              onSelect={(m) =>
+                onPatchSettings({ buddyWarnLeadMs: m * 60_000 })
+              }
+            />
+
+            <View>
+              <ToggleRow
+                label={t("buddy.quiet_on")}
+                description={t("buddy.quiet")}
+                value={settings.buddyQuietHoursEnabled}
+                onValueChange={(next) =>
+                  onPatchSettings({ buddyQuietHoursEnabled: next })
+                }
+              />
+              {settings.buddyQuietHoursEnabled ? (
+                <View style={styles.nested}>
+                  <TimingPicker
+                    label={t("buddy.quiet_start")}
+                    minutes={settings.buddyQuietStartHour}
+                    options={[0, 6, 8, 20, 21, 22, 23]}
+                    unitLabel="h"
+                    unitSuffix="h"
+                    onSelect={(h) =>
+                      onPatchSettings({ buddyQuietStartHour: h })
+                    }
+                  />
+                  <TimingPicker
+                    label={t("buddy.quiet_end")}
+                    minutes={settings.buddyQuietEndHour}
+                    options={[6, 7, 8, 9, 10, 12]}
+                    unitLabel="h"
+                    unitSuffix="h"
+                    onSelect={(h) => onPatchSettings({ buddyQuietEndHour: h })}
+                  />
+                </View>
+              ) : null}
+            </View>
+
+            <TimingPicker
+              label={t("buddy.max_push")}
+              minutes={settings.buddyMaxPushPerHour}
+              options={BUDDY_MAX_PUSH_OPTIONS}
+              unitLabel="/h"
+              unitSuffix="/h"
+              onSelect={(n) => onPatchSettings({ buddyMaxPushPerHour: n })}
+            />
+
+            <ToggleRow
+              label={t("buddy.notify_leave")}
+              value={settings.buddyNotifyOnLeave}
+              onValueChange={(next) =>
+                onPatchSettings({ buddyNotifyOnLeave: next })
+              }
+            />
+
+            <ToggleRow
+              label={t("buddy.auto_send_staged")}
+              description={t("buddy.auto_send_staged_lead")}
+              value={settings.buddyAutoSendStaged}
+              onValueChange={(next) =>
+                onPatchSettings({ buddyAutoSendStaged: next })
+              }
+            />
+            <TimingPicker
+              label={t("buddy.lockout_lead")}
+              minutes={Math.round(settings.buddyLockoutLeadMs / 1000)}
+              options={BUDDY_LOCKOUT_LEAD_SECOND_OPTIONS}
+              unitLabel={t("buddy.seconds_unit")}
+              unitSuffix={t("buddy.seconds_unit")}
+              onSelect={(sec) =>
+                onPatchSettings({ buddyLockoutLeadMs: sec * 1000 })
+              }
+            />
+
+            <View style={styles.field}>
+              <Text style={styles.timingLabel}>{t("buddy.default_nudge")}</Text>
+              <TextInput
+                style={styles.buddyInput}
+                value={settings.buddyDefaultNudge}
+                onChangeText={(text) =>
+                  onPatchSettings({ buddyDefaultNudge: text.slice(0, 280) })
+                }
+                placeholder={t("buddy.default_nudge_placeholder")}
+                placeholderTextColor={colors.textMuted}
+                multiline
+              />
+            </View>
+          </CollapsibleSection>
+        ) : null}
+      </Section>
 
       {Platform.OS === "android" && (
-        <Text style={styles.meta}>
-          {t("app.usage")}:{" "}
-          {permission == null
-            ? "…"
-            : permission
-              ? t("app.ok")
-              : t("app.needed")}
-          {" · "}
-          {t("app.overlay")}:{" "}
-          {overlayPermission == null
-            ? "…"
-            : overlayPermission
-              ? t("app.ok")
-              : t("app.needed")}
-        </Text>
+        <Section title={t("app.permissions_section")}>
+          <Text style={styles.meta}>
+            {t("app.usage")}:{" "}
+            {permission == null
+              ? "…"
+              : permission
+                ? t("app.ok")
+                : t("app.needed")}
+            {" · "}
+            {t("app.overlay")}:{" "}
+            {overlayPermission == null
+              ? "…"
+              : overlayPermission
+                ? t("app.ok")
+                : t("app.needed")}
+          </Text>
+        </Section>
       )}
     </ScrollView>
   );
@@ -332,17 +357,27 @@ function TimingPicker({
   minutes,
   options,
   unitLabel,
+  unitSuffix,
   onSelect,
 }: {
   label: string;
   minutes: number;
   options: readonly number[];
+  /** Spoken unit for accessibility labels. */
   unitLabel: string;
+  /** Optional compact suffix shown after the current value in the label row. */
+  unitSuffix?: string;
   onSelect: (minutes: number) => void;
 }) {
   return (
     <View style={styles.timingBlock}>
-      <Text style={styles.timingLabel}>{label}</Text>
+      <View style={styles.timingHeader}>
+        <Text style={styles.timingLabel}>{label}</Text>
+        <Text style={styles.timingValue}>
+          {minutes}
+          {unitSuffix ?? ` ${unitLabel}`}
+        </Text>
+      </View>
       <View style={styles.chips}>
         {options.map((m) => {
           const on = m === minutes;
@@ -371,9 +406,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 28,
     paddingBottom: 48,
-    gap: 14,
+    gap: 10,
   },
-  back: { alignSelf: "flex-start", paddingVertical: 8 },
+  back: {
+    alignSelf: "flex-start",
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
+  },
   backLabel: {
     fontSize: 15,
     fontWeight: "700",
@@ -383,16 +422,7 @@ const styles = StyleSheet.create({
     fontSize: typography.titleSize,
     fontWeight: "800",
     color: colors.ink,
-    marginBottom: 4,
-  },
-  section: {
-    marginTop: 8,
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textMuted,
-    alignSelf: "flex-start",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    marginBottom: 6,
   },
   chips: {
     flexDirection: "row",
@@ -400,8 +430,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 16,
     borderRadius: 999,
     backgroundColor: colors.chipOff,
   },
@@ -410,46 +441,48 @@ const styles = StyleSheet.create({
   chipLabelOn: { color: colors.white },
   challengeList: {
     width: "100%",
-    gap: 8,
   },
   challengeRow: {
     width: "100%",
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: colors.chipOff,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: SECTION_DIVIDER,
   },
-  challengeRowOn: { backgroundColor: colors.chipOn },
-  challengeRowUnavailable: { opacity: 0.45 },
+  challengeRowUnavailable: { opacity: 0.5 },
   challengeMain: {
     flex: 1,
-    gap: 6,
-    paddingVertical: 2,
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 10,
   },
   challengeTitle: {
     fontWeight: "700",
     color: colors.ink,
     fontSize: 15,
   },
-  challengeTitleOn: { color: colors.white },
   challengeBody: {
     fontSize: 13,
     lineHeight: 18,
     color: colors.textMuted,
   },
-  challengeBodyOn: { color: "rgba(242,245,248,0.85)" },
+  /** 48dp touch area around the 32dp visual checkbox. */
+  enableTouch: {
+    width: MIN_TOUCH,
+    height: MIN_TOUCH,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   enableHit: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: 8,
     borderWidth: 2,
     borderColor: colors.ink,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 2,
     backgroundColor: colors.white,
   },
   enableHitOn: {
@@ -466,11 +499,19 @@ const styles = StyleSheet.create({
     width: "100%",
     gap: 8,
   },
-  timingLabel: { color: colors.textMuted, fontSize: 13 },
+  timingHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  timingLabel: { flex: 1, color: colors.textMuted, fontSize: 13 },
+  timingValue: { color: colors.ink, fontSize: 14, fontWeight: "700" },
   timingChip: {
-    minWidth: 44,
+    minWidth: 48,
+    minHeight: 44,
+    justifyContent: "center",
     paddingHorizontal: 12,
-    paddingVertical: 10,
     borderRadius: 999,
     backgroundColor: colors.chipOff,
     alignItems: "center",
@@ -479,20 +520,17 @@ const styles = StyleSheet.create({
   timingChipLabel: { fontWeight: "700", color: colors.ink, fontSize: 14 },
   timingChipLabelOn: { color: colors.white },
   meta: {
-    marginTop: 8,
     fontSize: typography.metaSize,
     color: colors.textMuted,
   },
-  buddyLink: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 999,
-    backgroundColor: colors.chipOff,
+  nested: {
+    gap: 14,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.chipOff,
+    marginBottom: 4,
   },
-  buddyLinkOn: { backgroundColor: colors.chipOn },
-  buddyLinkLabel: { fontWeight: "700", color: colors.ink, fontSize: 14 },
-  buddyLinkLabelOn: { color: colors.white },
+  field: { width: "100%", gap: 8 },
   buddyInput: {
     width: "100%",
     minHeight: 72,

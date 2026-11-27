@@ -129,6 +129,8 @@ export type NudgeBusIntent =
       readonly eventId: string;
       readonly mailboxId: string;
       readonly warnAtMs: number;
+      /** Estimated wall-clock interrupt for Buddy lockout (~T−lockoutLead). */
+      readonly interruptAtMs: number;
     }
   | {
       readonly type: "cancel";

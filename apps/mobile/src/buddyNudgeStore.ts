@@ -3,6 +3,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import {
   decodeNudgeEnvelope,
   encodeNudgeEnvelope,
+  nextRoundRobinIndex,
   NUDGE_CAPS,
   textNudgeEnvelope,
   type NudgeMediaInline,
@@ -13,6 +14,8 @@ import { isSoundPresetId } from "./buddySoundPresets";
 const STAGED_KEY_V1 = "unloop.buddy.staged.v1";
 const STAGED_KEY = "unloop.buddy.staged.v2";
 const PENDING_KEY = "unloop.buddy.pendingApproach.v1";
+const STAGED_RR_KEY = "unloop.buddy.stagedRr.v1";
+const AUTO_SENT_KEY = "unloop.buddy.autoSentEvents.v1";
 const MAX_STAGED = 12;
 const MAX_MEDIA_STAGED = 5;
 
@@ -44,6 +47,8 @@ export type PendingApproach = {
   /** Seeker's mailbox — where B uploads the nudge ciphertext/text. */
   readonly mailboxId: string;
   readonly receivedAtMs: number;
+  /** Estimated U interrupt (wall-clock) for lockout; optional on legacy pushes. */
+  readonly interruptAtMs?: number;
 };
 
 function isStagedKind(v: unknown): v is StagedNudgeKind {
@@ -422,9 +427,72 @@ export async function loadPendingApproach(): Promise<PendingApproach | null> {
       eventId: o.eventId,
       mailboxId: o.mailboxId,
       receivedAtMs: o.receivedAtMs,
+      ...(typeof o.interruptAtMs === "number"
+        ? { interruptAtMs: o.interruptAtMs }
+        : {}),
     };
   } catch {
     return null;
+  }
+}
+
+/** Round-robin next staged nudge (mutates RR cursor). */
+export async function pickNextStagedRoundRobin(): Promise<StagedNudge | null> {
+  const list = await loadStagedNudges();
+  if (list.length === 0) return null;
+  let lastId: string | null = null;
+  try {
+    lastId = await AsyncStorage.getItem(STAGED_RR_KEY);
+  } catch {
+    lastId = null;
+  }
+  const lastIndex = lastId ? list.findIndex((n) => n.id === lastId) : -1;
+  const nextIndex = nextRoundRobinIndex(list.length, lastIndex);
+  if (nextIndex < 0) return null;
+  const next = list[nextIndex]!;
+  try {
+    await AsyncStorage.setItem(STAGED_RR_KEY, next.id);
+  } catch {
+    /* best-effort */
+  }
+  return next;
+}
+
+/**
+ * Build ciphertext for auto-send: next staged (RR) or default text fallback.
+ * Returns null if library empty and default blank.
+ */
+export async function buildAutoSendCipher(
+  defaultNudge: string,
+): Promise<string | null> {
+  const staged = await pickNextStagedRoundRobin();
+  if (staged) {
+    try {
+      return await encodeStagedNudgeCipher(staged);
+    } catch {
+      /* fall through to default text */
+    }
+  }
+  const text = defaultNudge.trim();
+  if (!text) return null;
+  return encodeNudgeBlob(text);
+}
+
+/** Dedup silent/lockout auto-sends per eventId (process + storage). */
+export async function claimAutoSendEvent(eventId: string): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(AUTO_SENT_KEY);
+    const prev: string[] = raw ? (JSON.parse(raw) as string[]) : [];
+    const list = Array.isArray(prev) ? prev.filter((x) => typeof x === "string") : [];
+    if (list.includes(eventId)) return false;
+    list.push(eventId);
+    await AsyncStorage.setItem(
+      AUTO_SENT_KEY,
+      JSON.stringify(list.slice(-40)),
+    );
+    return true;
+  } catch {
+    return true;
   }
 }
 

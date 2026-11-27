@@ -206,3 +206,4 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 | 2026-11-26 | Phase 3.5 media nudges approved (presets, photo/GIF+text, voice 30s, video 10s compressed). |
 | 2026-11-26 | P3.5-00…07 done (video via `expo-video`, reject-oversize; privacy/Play notes). **P3.5-08** human media acceptance next. |
 | 2026-11-27 | Locked Buddy cascade: quiet hours mute UI; optional auto-send staged (RR); active hours live until ~T−30s lockout then staged fallback if flag on. |
+| 2026-11-27 | P3.5-09 implemented: settings toggles, FCM `interruptAtMs`, silent quiet autosend, lockout dismiss + empty-mailbox staged PUT. |
