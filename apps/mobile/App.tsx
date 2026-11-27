@@ -153,10 +153,23 @@ export default function App() {
     data: string;
   } | null>(null);
   const [buddyNudgeDismissed, setBuddyNudgeDismissed] = useState(false);
+  /** Buddy tapped the approaching tray — keep live compose open past lockout. */
+  const [liveComposeHold, setLiveComposeHold] = useState(false);
+  const buddyNudgeTextRef = useRef<string | null>(null);
 
   const applyDecodedBuddyNudge = useCallback(
     (decoded: NonNullable<ReturnType<typeof decodeNudgeBlob>>) => {
-      if (decoded.body) setBuddyNudgeText(decoded.body);
+      const body = decoded.body?.trim() ? decoded.body : null;
+      if (body) {
+        buddyNudgeTextRef.current = body;
+        setBuddyNudgeText(body);
+      } else if (decoded.presetId || decoded.media) {
+        // Media/preset-only: still mark presence for the dedicated nudge surface.
+        const fallback =
+          decoded.presetId || decoded.kind || decoded.media?.mime || "nudge";
+        buddyNudgeTextRef.current = fallback;
+        setBuddyNudgeText(fallback);
+      }
       setBuddyNudgePresetId(
         decoded.presetId && isSoundPresetId(decoded.presetId)
           ? decoded.presetId
@@ -476,10 +489,11 @@ export default function App() {
       opts?: { force?: boolean; fromUserTap?: boolean },
     ) => {
       const s = settingsRef.current;
-      const force = opts?.force === true || opts?.fromUserTap === true;
+      const fromTap = opts?.fromUserTap === true;
+      const force = opts?.force === true || fromTap;
       // Quiet hours: mute UI; optional silent staged auto-send (no notify cap).
       // Explicit notification tap still opens live compose so the buddy can act.
-      if (s?.buddyQuietHoursEnabled && !opts?.fromUserTap) {
+      if (s?.buddyQuietHoursEnabled && !fromTap) {
         const hour = new Date().getHours();
         if (
           isInQuietHours(hour, s.buddyQuietStartHour, s.buddyQuietEndHour)
@@ -507,12 +521,20 @@ export default function App() {
         return;
       }
       lastApproachEventIdRef.current = pending.eventId;
+      if (fromTap) {
+        setLiveComposeHold(true);
+      }
       await setPendingApproach(pending);
       setPendingApproachState(pending);
       setScreen("buddyCompose");
       setMenuOpen(false);
+      if (Platform.OS === "android") {
+        UnloopUsage.logHarness(
+          `buddy_compose_open:${pending.eventId}:${fromTap ? "tap" : "push"}`,
+        );
+      }
       // Local banner only for silent/background receive — not when user already tapped.
-      if (!opts?.fromUserTap) {
+      if (!fromTap) {
         try {
           await Notifications.scheduleNotificationAsync({
             content: {
@@ -542,12 +564,15 @@ export default function App() {
     if (Platform.OS !== "android") return;
 
     const pendingFromData = (
-      data: Record<string, unknown> | undefined,
+      data: Record<string, unknown> | undefined | null,
     ): PendingApproach | null => {
-      if (!data || data.type !== "approaching") return null;
+      if (!data || typeof data !== "object") return null;
+      const type = String(data.type ?? "");
       const eventId = String(data.eventId ?? "");
       const mailboxId = String(data.mailboxId ?? "");
+      // FCM data is stringly; require ids. type may be missing on some OEM taps.
       if (!eventId || !mailboxId) return null;
+      if (type && type !== "approaching") return null;
       const interruptRaw = data.interruptAtMs;
       const interruptAtMs =
         typeof interruptRaw === "number"
@@ -563,6 +588,24 @@ export default function App() {
       };
     };
 
+    const handledResponseIds = new Set<string>();
+    const openFromNotificationData = (
+      data: Record<string, unknown> | undefined | null,
+      fromUserTap: boolean,
+      responseKey?: string,
+    ) => {
+      if (responseKey) {
+        if (handledResponseIds.has(responseKey)) return;
+        handledResponseIds.add(responseKey);
+      }
+      const pending = pendingFromData(data);
+      if (!pending) return;
+      void openApproachCompose(pending, {
+        fromUserTap,
+        force: fromUserTap,
+      });
+    };
+
     void (async () => {
       const stored = await loadPendingApproach();
       if (stored) {
@@ -572,14 +615,14 @@ export default function App() {
       // Cold start: user tapped the tray notification while the app was killed.
       try {
         const last = await Notifications.getLastNotificationResponseAsync();
-        const fromTap = pendingFromData(
-          last?.notification.request.content.data as
-            | Record<string, unknown>
-            | undefined,
-        );
-        if (fromTap) {
-          await openApproachCompose(fromTap, { fromUserTap: true });
-          return;
+        if (last) {
+          openFromNotificationData(
+            last.notification.request.content.data as
+              | Record<string, unknown>
+              | undefined,
+            true,
+            `cold:${last.notification.request.identifier}`,
+          );
         }
       } catch {
         /* optional */
@@ -587,19 +630,18 @@ export default function App() {
     })();
 
     const subRecv = Notifications.addNotificationReceivedListener((n) => {
-      const pending = pendingFromData(
+      openFromNotificationData(
         n.request.content.data as Record<string, unknown>,
+        false,
       );
-      if (pending) void openApproachCompose(pending);
     });
     const subResp = Notifications.addNotificationResponseReceivedListener(
       (r) => {
-        const pending = pendingFromData(
+        openFromNotificationData(
           r.notification.request.content.data as Record<string, unknown>,
+          true,
+          `resp:${r.notification.request.identifier}`,
         );
-        if (pending) {
-          void openApproachCompose(pending, { fromUserTap: true });
-        }
       },
     );
     return () => {
@@ -609,6 +651,8 @@ export default function App() {
   }, [openApproachCompose]);
 
   // P3.5-09: lockout ~T−lockoutLead — dismiss live compose; optional staged PUT.
+  // If the buddy opened compose from a notification tap, keep the live mask
+  // open (still best-effort autosend into an empty mailbox).
   useEffect(() => {
     if (!pendingApproach) return;
     const s0 = settingsRef.current;
@@ -625,6 +669,15 @@ export default function App() {
       if (fired) return;
       fired = true;
       void (async () => {
+        if (s?.buddyAutoSendStaged) {
+          await silentAutoSendStaged(
+            { eventId, mailboxId, receivedAtMs: Date.now(), interruptAtMs },
+            { requireEmptyMailbox: true },
+          );
+        }
+        if (liveComposeHold) {
+          return;
+        }
         await setPendingApproach(null);
         setPendingApproachState(null);
         setScreen((prev) => (prev === "buddyCompose" ? "home" : prev));
@@ -633,16 +686,10 @@ export default function App() {
         } catch {
           /* optional */
         }
-        if (s?.buddyAutoSendStaged) {
-          await silentAutoSendStaged(
-            { eventId, mailboxId, receivedAtMs: Date.now(), interruptAtMs },
-            { requireEmptyMailbox: true },
-          );
-        }
       })();
     }, 500);
     return () => clearInterval(id);
-  }, [pendingApproach, silentAutoSendStaged]);
+  }, [pendingApproach, silentAutoSendStaged, liveComposeHold]);
 
   useEffect(() => {
     return bus.on("CHALLENGE_COMPLETED", (payload) => {
@@ -752,33 +799,43 @@ export default function App() {
         atMs: event.observedAtMs,
         detail: event.appId,
       });
-      applyEffects(effects);
-      // Don't wait for the 500ms JS tick — align bout id + fetch Buddy mailbox.
+      // Fetch Buddy mailbox BEFORE entering challenge UI so the nudge is the
+      // first surface (not under / after the challenge chrome).
       void (async () => {
         try {
           const buddies = await loadBuddies();
-          if (!anyBuddyAcceptsNudges(buddies)) return;
-          await rearmBuddyNudgeBus();
-          const blob = await nudgeBusRef.current?.fetchNudge();
-          if (!blob) {
-            // Fallback: native bout id + seeker mailbox (JS bus may be cold).
-            const relayUrl = getRelayBaseUrl();
-            const nativeId = readNativeBuddyEventId();
-            if (!relayUrl || !nativeId) return;
-            const identity = await loadOrCreateIdentity();
-            const direct = await new HttpRelayPort(relayUrl).getMailbox(
-              identity.mailboxId,
-              nativeId,
-            );
-            if (!direct) return;
-            const decodedDirect = decodeNudgeBlob(direct);
-            if (decodedDirect) applyDecodedBuddyNudge(decodedDirect);
-            return;
+          if (anyBuddyAcceptsNudges(buddies)) {
+            await rearmBuddyNudgeBus();
+            let blob = (await nudgeBusRef.current?.fetchNudge()) ?? null;
+            if (!blob) {
+              const relayUrl = getRelayBaseUrl();
+              const nativeId = readNativeBuddyEventId();
+              if (relayUrl && nativeId) {
+                const identity = await loadOrCreateIdentity();
+                blob = await new HttpRelayPort(relayUrl).getMailbox(
+                  identity.mailboxId,
+                  nativeId,
+                );
+              }
+            }
+            if (blob) {
+              const decoded = decodeNudgeBlob(blob);
+              if (decoded) applyDecodedBuddyNudge(decoded);
+            }
           }
-          const decoded = decodeNudgeBlob(blob);
-          if (decoded) applyDecodedBuddyNudge(decoded);
         } catch {
           /* best-effort */
+        }
+        applyEffects(effects);
+        if (buddyNudgeTextRef.current) {
+          // Drop the native "Start challenge" shield — show Buddy nudge only.
+          try {
+            UnloopUsage.hideInterruptOverlayForInApp();
+          } catch {
+            /* optional */
+          }
+          setChallengeOpened(true);
+          setChallengeMountKey((k) => k + 1);
         }
       })();
     },
@@ -989,6 +1046,7 @@ export default function App() {
     });
     // Progressive Buddy live path (P3-05/07): gated by Settings.
     setBuddyNudgeText(null);
+    buddyNudgeTextRef.current = null;
     setBuddyNudgePresetId(null);
     setBuddyNudgeMedia(null);
     setBuddyNudgeDismissed(false);
@@ -1078,6 +1136,11 @@ export default function App() {
   // Buddy nudge: skip the "Start challenge" gate — show the nudge immediately.
   useEffect(() => {
     if (!inChallenge || !hasBuddyNudge || challengeOpened) return;
+    try {
+      UnloopUsage.hideInterruptOverlayForInApp();
+    } catch {
+      /* optional */
+    }
     setChallengeOpened(true);
     setChallengeMountKey((k) => k + 1);
   }, [inChallenge, hasBuddyNudge, challengeOpened]);
@@ -1101,16 +1164,55 @@ export default function App() {
         }`
       : null;
 
+  const showLiveCompose =
+    Boolean(pendingApproach) &&
+    (liveComposeHold || screen === "buddyCompose");
+
   return (
     <LinearGradient
       colors={
-        inChallenge
+        inChallenge || showLiveCompose
           ? [colors.ink, colors.inkSoft]
           : [colors.mist, colors.mistEnd]
       }
       style={styles.gradient}
     >
-      {inChallenge && settings && challengeOpened ? (
+      {showLiveCompose && pendingApproach ? (
+        <BuddyComposeScreen
+          t={t}
+          pending={pendingApproach}
+          defaultNudge={settings?.buddyDefaultNudge ?? ""}
+          onBack={() => {
+            setLiveComposeHold(false);
+            void setPendingApproach(null);
+            setPendingApproachState(null);
+            setScreen("home");
+          }}
+          onDone={() => {
+            setLiveComposeHold(false);
+            void setPendingApproach(null);
+            setPendingApproachState(null);
+            setScreen("home");
+          }}
+        />
+      ) : inChallenge && settings && challengeOpened && hasBuddyNudge ? (
+        /* Dedicated Buddy nudge surface — no challenge chrome above it. */
+        <ScrollView
+          contentContainerStyle={styles.challengeContainer}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
+        >
+          <BuddyNudgeView
+            t={t}
+            body={buddyNudgeText ?? ""}
+            presetId={buddyNudgePresetId ?? undefined}
+            media={buddyNudgeMedia ?? undefined}
+            onContinue={() => setBuddyNudgeDismissed(true)}
+            onSkip={softFailChallenge}
+          />
+        </ScrollView>
+      ) : inChallenge && settings && challengeOpened ? (
         <ScrollView
           contentContainerStyle={styles.challengeContainer}
           keyboardShouldPersistTaps="handled"
@@ -1119,26 +1221,15 @@ export default function App() {
         >
           <Text style={styles.brandOnInk}>Unloop</Text>
           <Text style={styles.taglineOnInk}>{t("app.tagline")}</Text>
-          {buddyNudgeText && !buddyNudgeDismissed ? (
-            <BuddyNudgeView
-              t={t}
-              body={buddyNudgeText}
-              presetId={buddyNudgePresetId ?? undefined}
-              media={buddyNudgeMedia ?? undefined}
-              onContinue={() => setBuddyNudgeDismissed(true)}
-              onSkip={softFailChallenge}
-            />
-          ) : (
-            <ChallengeHost
-              key={`${activeChallengeId}-${challengeMountKey}`}
-              challengeId={activeChallengeId}
-              timeoutMs={settings.challengeTimeoutMs}
-              t={t}
-              onComplete={completeChallenge}
-              onSoftFail={softFailChallenge}
-              deviceCaps={deviceCaps}
-            />
-          )}
+          <ChallengeHost
+            key={`${activeChallengeId}-${challengeMountKey}`}
+            challengeId={activeChallengeId}
+            timeoutMs={settings.challengeTimeoutMs}
+            t={t}
+            onComplete={completeChallenge}
+            onSoftFail={softFailChallenge}
+            deviceCaps={deviceCaps}
+          />
         </ScrollView>
       ) : inChallenge && settings && !challengeOpened ? (
         <ScrollView contentContainerStyle={styles.challengeContainer}>
@@ -1185,18 +1276,6 @@ export default function App() {
           onOpenBuddy={() => {
             setBuddyReturnScreen("settings");
             setScreen("buddy");
-          }}
-        />
-      ) : screen === "buddyCompose" && pendingApproach ? (
-        <BuddyComposeScreen
-          t={t}
-          pending={pendingApproach}
-          defaultNudge={settings?.buddyDefaultNudge ?? ""}
-          onBack={() => setScreen("home")}
-          onDone={() => {
-            void setPendingApproach(null);
-            setPendingApproachState(null);
-            setScreen("home");
           }}
         />
       ) : screen === "buddy" ? (

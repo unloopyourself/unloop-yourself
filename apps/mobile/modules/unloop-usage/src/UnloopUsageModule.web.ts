@@ -23,6 +23,9 @@ const UnloopUsageModule = {
   dismissInterruptOverlay(): void {
     /* no-op */
   },
+  hideInterruptOverlayForInApp(): void {
+    /* no-op */
+  },
   setCooldownUntilMs(_epochMs: number): void {
     /* no-op */
   },

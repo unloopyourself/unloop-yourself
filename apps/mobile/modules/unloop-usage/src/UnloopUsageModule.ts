@@ -43,6 +43,8 @@ type UnloopUsageNativeModule = {
   getUsageMsForPackage(packageName: string, startMs: number, endMs: number): number;
   bringAppToForeground(): void;
   dismissInterruptOverlay(): void;
+  /** Hide shield without clearing outstanding (Buddy nudge / in-app challenge). */
+  hideInterruptOverlayForInApp(): void;
   setCooldownUntilMs(epochMs: number): void;
   clearCooldown(): void;
   /** Comma-separated Android package names. */

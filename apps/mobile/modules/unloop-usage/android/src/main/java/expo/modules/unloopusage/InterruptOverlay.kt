@@ -113,15 +113,17 @@ object InterruptOverlay {
         }
 
         val italian = isItalian(appContext)
+        // Neutral interrupt copy — Buddy nudge (if any) is shown in-app after Open,
+        // or immediately when JS hides this shield for a dedicated nudge surface.
         val copyText = if (italian) {
-          "Ti interrompo perché me l’hai chiesto tu.\nUna piccola challenge per sbloccare e continuare."
+          "Ti interrompo perché me l’hai chiesto tu.\nApri Unloop per il nudge del Buddy o la challenge."
         } else {
-          "I’m interrupting you because you asked me to.\nA short challenge unlocks the feed again."
+          "I’m interrupting you because you asked me to.\nOpen Unloop for your Buddy nudge or unlock challenge."
         }
         val buttonText = if (italian) {
-          "Inizia la challenge"
+          "Apri Unloop"
         } else {
-          "Start challenge"
+          "Open Unloop"
         }
 
         val icon = ImageView(appContext).apply {
@@ -220,6 +222,20 @@ object InterruptOverlay {
 
   fun dismiss(context: Context) {
     resolve(context)
+  }
+
+  /**
+   * Hide the TYPE_APPLICATION_OVERLAY shield while Unloop shows an in-app
+   * surface (Buddy nudge / challenge) — keep outstanding so soft-unlock still
+   * applies if the user leaves without finishing.
+   */
+  fun hideForInAppSurface(context: Context) {
+    suppressReshowUntilElapsed =
+      android.os.SystemClock.elapsedRealtime() + 60_000L
+    val appContext = context.applicationContext
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+      dismissLocked(appContext, clearOutstanding = false)
+    }
   }
 
   private fun dismissLocked(context: Context, clearOutstanding: Boolean) {

@@ -61,6 +61,10 @@ class UnloopUsageModule : Module() {
       InterruptOverlay.resolve(context)
     }
 
+    Function("hideInterruptOverlayForInApp") {
+      InterruptOverlay.hideForInAppSurface(context)
+    }
+
     Function("setCooldownUntilMs") { epochMs: Double ->
       UsageMonitorService.armCooldownUntil(epochMs.toLong())
     }
