@@ -79,33 +79,6 @@ export function BuddyComposeScreen({
     void loadStagedNudges().then(setStaged);
   }, []);
 
-  /** Reclaim video after Android kills MainActivity during OEM camera. */
-  useEffect(() => {
-    let alive = true;
-    const reclaim = async () => {
-      const recovered = await recoverPendingCameraVideo();
-      if (!alive || !recovered) return;
-      if (recovered.intent.mode === "compose") {
-        setPhoto(null);
-        setGif(null);
-        setVoice(null);
-        setVideo(recovered.media);
-        setStatus(t("buddy.compose_video_ready"));
-        return;
-      }
-      // Staged from Buddy home while compose is open — refresh list.
-      setStaged(await loadStagedNudges());
-    };
-    void reclaim();
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") void reclaim();
-    });
-    return () => {
-      alive = false;
-      sub.remove();
-    };
-  }, [t]);
-
   const putCipher = useCallback(
     async (ciphertext: string) => {
       const relayUrl = getRelayBaseUrl();
@@ -329,32 +302,40 @@ export function BuddyComposeScreen({
     }
   }, [gif, live, putCipher, t]);
 
+  const sendVideoMedia = useCallback(
+    async (media: VideoNudgeMedia) => {
+      const caption = live.trim() || undefined;
+      try {
+        await putCipher(
+          encodeNudgeEnvelope({
+            v: 1,
+            kind: "video",
+            atMs: Date.now(),
+            durationMs: media.durationMs,
+            ...(caption ? { text: caption } : {}),
+            media: {
+              encoding: media.encoding,
+              mime: media.mime,
+              byteLength: media.byteLength,
+              data: media.data,
+            },
+          }),
+        );
+      } catch {
+        setVideo(media);
+        setStatus(t("buddy.compose_video_too_big"));
+      }
+    },
+    [live, putCipher, t],
+  );
+
   const uploadVideo = useCallback(async () => {
     if (!video) {
       setStatus(t("buddy.compose_video_needed"));
       return;
     }
-    const caption = live.trim() || undefined;
-    try {
-      await putCipher(
-        encodeNudgeEnvelope({
-          v: 1,
-          kind: "video",
-          atMs: Date.now(),
-          durationMs: video.durationMs,
-          ...(caption ? { text: caption } : {}),
-          media: {
-            encoding: video.encoding,
-            mime: video.mime,
-            byteLength: video.byteLength,
-            data: video.data,
-          },
-        }),
-      );
-    } catch {
-      setStatus(t("buddy.compose_video_too_big"));
-    }
-  }, [live, putCipher, t, video]);
+    await sendVideoMedia(video);
+  }, [sendVideoMedia, t, video]);
 
   const onPickVideo = useCallback(async () => {
     setBusy(true);
@@ -368,34 +349,70 @@ export function BuddyComposeScreen({
       setPhoto(null);
       setGif(null);
       setVoice(null);
-      setVideo(picked.media);
-      setStatus(t("buddy.compose_video_ready"));
+      setVideo(null);
+      // Gallery pick: send immediately (same as in-app record).
+      await sendVideoMedia(picked.media);
     } finally {
       setBusy(false);
     }
-  }, [t]);
+  }, [sendVideoMedia, t]);
+
+  const sendVoiceMedia = useCallback(
+    async (media: NudgeMediaInline, durationMs: number) => {
+      const caption = live.trim() || undefined;
+      try {
+        await putCipher(
+          encodeNudgeEnvelope({
+            v: 1,
+            kind: "voice",
+            atMs: Date.now(),
+            durationMs,
+            ...(caption ? { text: caption } : {}),
+            media,
+          }),
+        );
+      } catch {
+        setVoice({ media, durationMs });
+        setStatus(t("buddy.compose_voice_too_big"));
+      }
+    },
+    [live, putCipher, t],
+  );
 
   const uploadVoice = useCallback(async () => {
     if (!voice) {
       setStatus(t("buddy.compose_voice_needed"));
       return;
     }
-    const caption = live.trim() || undefined;
-    try {
-      await putCipher(
-        encodeNudgeEnvelope({
-          v: 1,
-          kind: "voice",
-          atMs: Date.now(),
-          durationMs: voice.durationMs,
-          ...(caption ? { text: caption } : {}),
-          media: voice.media,
-        }),
-      );
-    } catch {
-      setStatus(t("buddy.compose_voice_too_big"));
-    }
-  }, [live, putCipher, t, voice]);
+    await sendVoiceMedia(voice.media, voice.durationMs);
+  }, [sendVoiceMedia, t, voice]);
+
+  /** Reclaim video after Android kills MainActivity during OEM camera. */
+  useEffect(() => {
+    let alive = true;
+    const reclaim = async () => {
+      const recovered = await recoverPendingCameraVideo();
+      if (!alive || !recovered) return;
+      if (recovered.intent.mode === "compose") {
+        setPhoto(null);
+        setGif(null);
+        setVoice(null);
+        setVideo(null);
+        await sendVideoMedia(recovered.media);
+        return;
+      }
+      // Staged from Buddy home while compose is open — refresh list.
+      setStaged(await loadStagedNudges());
+    };
+    void reclaim();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void reclaim();
+    });
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, [sendVideoMedia]);
 
   const onPickGif = useCallback(async () => {
     setBusy(true);
@@ -503,8 +520,9 @@ export function BuddyComposeScreen({
           setPhoto(null);
           setGif(null);
           setVoice(null);
-          setVideo(media);
-          setStatus(t("buddy.compose_video_ready"));
+          setVideo(null);
+          // Stop → send immediately (no extra Invia).
+          void sendVideoMedia(media);
         }}
       />
 
@@ -602,7 +620,9 @@ export function BuddyComposeScreen({
           setPhoto(null);
           setGif(null);
           setVideo(null);
-          setVoice({ media, durationMs });
+          setVoice(null);
+          // Stop → send immediately (no extra Invia).
+          void sendVoiceMedia(media, durationMs);
         }}
       />
       {voice ? (

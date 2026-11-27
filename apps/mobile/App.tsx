@@ -73,9 +73,11 @@ import {
 } from "./src/push/expoPushPort";
 import { HttpRelayPort } from "./src/push/httpRelayPort";
 import {
+  effectiveBuddyWarnLeadMs,
   readNativeBuddyEventId,
   syncBuddyApproachingNative,
 } from "./src/buddyApproachingNative";
+import { MIN_BUDDY_WARN_LEAD_MS } from "./src/buddySettings";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -247,18 +249,27 @@ export default function App() {
 
   const persist = useCallback(
     (next: UnloopSettings) => {
+      // Buddy approaching needs ≥2 min lead before threshold — bump threshold
+      // when Buddy is on and the limit is shorter than the warn lead.
+      let saved = next;
+      if (saved.buddyEnabled) {
+        const need = Math.max(MIN_BUDDY_WARN_LEAD_MS, saved.buddyWarnLeadMs);
+        if (saved.thresholdMs < need) {
+          saved = { ...saved, thresholdMs: need };
+        }
+      }
       // Sync ref + engine immediately so a threshold that fires while Settings
       // is open (or before React effects flush) sees the new challenge list /
       // timings — not the previous selection.
-      settingsRef.current = next;
+      settingsRef.current = saved;
       engine.setTimings({
-        cooldownMs: next.cooldownMs,
-        challengeTimeoutMs: next.challengeTimeoutMs,
+        cooldownMs: saved.cooldownMs,
+        challengeTimeoutMs: saved.challengeTimeoutMs,
       });
-      engine.setChallengeOptions(next.enabledChallengeIds, deviceCaps);
-      setSettings(next);
-      void saveSettings(next);
-      void syncBuddyApproachingNative(next);
+      engine.setChallengeOptions(saved.enabledChallengeIds, deviceCaps);
+      setSettings(saved);
+      void saveSettings(saved);
+      void syncBuddyApproachingNative(saved);
     },
     [deviceCaps, engine],
   );
@@ -282,7 +293,7 @@ export default function App() {
         mailboxId: identity.mailboxId,
         // Soft wall-clock fallback only; approaching is usage-driven.
         interruptAtMs: now + s.thresholdMs,
-        warnLeadMs: Math.min(s.buddyWarnLeadMs, s.thresholdMs),
+        warnLeadMs: effectiveBuddyWarnLeadMs(s),
         ...(nativeEventId ? { eventId: nativeEventId } : {}),
       });
       const nativeState =
@@ -407,9 +418,24 @@ export default function App() {
 
   useEffect(() => {
     void loadSettings().then((s) => {
-      setSettings(s);
-      settingsRef.current = s;
-      void syncBuddyApproachingNative(s);
+      let next = s;
+      if (next.buddyEnabled) {
+        const need = Math.max(MIN_BUDDY_WARN_LEAD_MS, next.buddyWarnLeadMs);
+        if (next.thresholdMs < need || next.buddyWarnLeadMs < MIN_BUDDY_WARN_LEAD_MS) {
+          next = {
+            ...next,
+            buddyWarnLeadMs: Math.max(
+              MIN_BUDDY_WARN_LEAD_MS,
+              next.buddyWarnLeadMs,
+            ),
+            thresholdMs: Math.max(need, next.thresholdMs),
+          };
+          void saveSettings(next);
+        }
+      }
+      setSettings(next);
+      settingsRef.current = next;
+      void syncBuddyApproachingNative(next);
     });
   }, []);
 
@@ -738,7 +764,7 @@ export default function App() {
             ...nb.observeUsage({
               accumulatedMs: snap.accumulatedMs ?? 0,
               thresholdMs: sTick.thresholdMs,
-              warnLeadMs: sTick.buddyWarnLeadMs,
+              warnLeadMs: effectiveBuddyWarnLeadMs(sTick),
               inTargetFeed: snap.inTargetFeed === true,
             }),
             ...intents,

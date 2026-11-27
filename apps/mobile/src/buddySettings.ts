@@ -7,7 +7,9 @@ import {
 
 export { isInQuietHours };
 
-export const BUDDY_WARN_LEAD_MINUTE_OPTIONS = [1, 2, 3, 5] as const;
+/** Minimum 2 minutes before seeker interrupt (product rule). */
+export const BUDDY_WARN_LEAD_MINUTE_OPTIONS = [2, 3, 5, 10] as const;
+export const MIN_BUDDY_WARN_LEAD_MS = 2 * 60_000;
 export const BUDDY_MAX_PUSH_OPTIONS = [1, 2, 3, 6, 12] as const;
 /** Lockout lead seconds before U interrupt (P3.5-09). */
 export const BUDDY_LOCKOUT_LEAD_SECOND_OPTIONS = [15, 30, 45, 60] as const;
