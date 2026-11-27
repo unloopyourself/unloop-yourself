@@ -44,11 +44,13 @@ Soft-unlock / timeout unchanged. Missing buddy hardware or empty mailbox ≠ app
 Defaults off until user enables Buddy features.
 
 1. **U** doomscrolls under monitoring (existing ΔU / threshold, e.g. 10 min).
-2. At **T−warn** (e.g. 8 min / 2 min before interrupt): U’s device posts opaque/encrypted `approaching{eventId}` to relay → **push** to paired buddies who opted in (respect quiet hours / max frequency on B).
-3. **B** may: ignore | send pre-registered nudge | record live (voice/photo/text/…) | rely on **default nudge** auto-fire if enabled (“Hey — B knows you’re deep in it”).
-4. Worker holds ciphertext in **mailbox(U, eventId)** with short TTL.
-5. At **T=0**: Unloop overlay; U fetches mailbox for `eventId` (short grace window for late uploads) → show buddy nudge(s); else cascade to AI stub → else local challenge.
-6. If U **leaves feed before T=0**: `cancel(eventId)` → purge mailbox; optional push to B “U left the tunnel”.
+2. At **T−warn** (usage-based): U’s device → relay → **data push** to paired buddies (B).
+3. **B (active hours):** notification + compose. B may ignore | send staged | record live. Hourly cap + quiet hours are **B’s** choices.
+4. **B (quiet hours):** no notification / no compose. If B enabled **auto-send staged**, B’s device still handles the data push silently and PUT one staged nudge (round-robin; fallback default text if library empty).
+5. **Lockout ~T−30s** (configurable soft default): live compose closes / notification cleared; no further live uploads for that `eventId`. If mailbox still empty and **auto-send staged** is on → PUT next staged (round-robin) even in active hours.
+6. Worker holds ciphertext in **mailbox(U, eventId)** with short TTL.
+7. At **T=0**: overlay; U fetches mailbox → buddy nudge; else cascade AI stub → local challenge.
+8. If U **leaves before T=0**: `cancel(eventId)` → purge mailbox; optional “left early” to B.
 
 ---
 
@@ -190,8 +192,9 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 * Warn lead default (2 min?) vs configurable only.
 * Max buddies per U; max concurrent `eventId` mailbox size.
 * ~~Media caps (duration/size) for live voice.~~ → **Phase 3.5** (BACKLOG): voice ≤30s/≤1 MiB; video ≤10s/≤8 MiB (~720p, no 4K raw); photo/GIF ≤2 MiB; sound presets bundled; composed text+pic / text+GIF.
-* Whether default nudge lives only on B and fires on push, or may be pre-uploaded.
+* ~~Whether default nudge lives only on B and fires on push, or may be pre-uploaded.~~ → Staged library on B + optional **auto-send staged** (quiet hours silent; active hours fallback at lockout). Default text = empty-library fallback.
 * Fingerprint UX copy (how non-technical teens confirm “this is Marco”).
+* Exact lockout lead (default **30s** before U interrupt) — confirm on device feel.
 
 ---
 
@@ -202,3 +205,4 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 | 2026-11-25 | Initial living plan from product discussion (cascade, live warn window, pairing, domain options). |
 | 2026-11-26 | Phase 3.5 media nudges approved (presets, photo/GIF+text, voice 30s, video 10s compressed). |
 | 2026-11-26 | P3.5-00…07 done (video via `expo-video`, reject-oversize; privacy/Play notes). **P3.5-08** human media acceptance next. |
+| 2026-11-27 | Locked Buddy cascade: quiet hours mute UI; optional auto-send staged (RR); active hours live until ~T−30s lockout then staged fallback if flag on. |

@@ -397,3 +397,16 @@ Caps (initial): text ≤500 chars; photo/GIF ≤2 MiB each; voice ≤30 s / 
 - **AC:** Preset + photo/composed + voice path verified on two devices; documented in STATUS.
 - **Tests:** Human device acceptance.
 - **Escalate if:** Always — milestone.
+
+### P3.5-09 — Auto-send staged + lockout window
+- **Status:** ready
+- **Deps:** P3.5-03, P3.5-05 (staged media library)
+- **AC:**
+  - Buddy setting **auto-send staged** (default off).
+  - **Quiet hours:** no notification/compose; if auto-send on, silent handle of approaching → PUT one staged nudge (round-robin; else default text).
+  - **Active hours:** notify + compose until **lockout** (~30s before U interrupt, configurable); then dismiss notification / block live send for that `eventId`.
+  - If mailbox empty at lockout and auto-send on → PUT next staged (RR) even in active hours.
+  - Hourly cap still Buddy-side for *surfaced* asks; silent auto-sends do not burn the notify cap.
+  - U cancel still purges mailbox / stops compose.
+- **Tests:** Unit for RR + lockout timing; two-device smoke quiet vs active.
+- **Escalate if:** Need seeker to push lockout clock to B (event payload must carry `interruptAtMs` / lockAtMs).
