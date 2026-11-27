@@ -265,9 +265,12 @@ describe("capability profiles × MVP catalog", () => {
     const effects = engine.onThresholdReached("feed.app", 12_000);
     expect(effects[0]?.type).toBe("enter_challenge");
     if (effects[0]?.type === "enter_challenge") {
-      expect(["breath_tap", "unlock_phrase", "nearest_multiple"]).toContain(
-        effects[0].challengeId,
-      );
+      // low_end → only soft (requires∅) defaults are eligible.
+      const softDefault = MVP_DEFAULT_ENABLED_IDS.filter((id) => {
+        const meta = MVP_CHALLENGES.find((c) => c.id === id);
+        return meta != null && meta.requires.size === 0;
+      });
+      expect(softDefault).toContain(effects[0].challengeId);
       expect(effects[0].challengeId).not.toBe("shake");
     }
     const done = engine.onChallengeCompleted();

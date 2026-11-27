@@ -32,12 +32,24 @@ export const MVP_CHALLENGES: readonly Challenge[] = [
   { id: "audio_silence_tap", requires: new Set<Capability>() },
 ];
 
-/** Default enabled set mirrors product defaults (excludes face_down until opted in). */
+/**
+ * Default enabled set — mix of soft + motion so unlock_phrase is not ~1/3 of
+ * every interrupt when the user never opens Settings.
+ * (face_down / air_write / coin_spin stay opt-in.)
+ */
 export const MVP_DEFAULT_ENABLED_IDS: readonly string[] = [
   "shake",
   "breath_tap",
   "unlock_phrase",
   "nearest_multiple",
+  "countdown_type",
+  "hold_still",
+  "intention_type",
+  "feeling_check",
+  "sip_water",
+  "rotate_phone",
+  "long_press",
+  "stand_up",
 ];
 
 /**
