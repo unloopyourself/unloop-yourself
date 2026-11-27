@@ -202,8 +202,8 @@ const en: Dict = {
   "buddy.prepare_summary": "Add text, photo, GIF, voice, video or a sound",
   "buddy.prepare_text_group": "Text",
   "buddy.prepare_sounds": "Sound presets",
-  "buddy.compose_title": "Buddy needs you",
-  "buddy.compose_lead": "They’re approaching an interrupt. Send a short nudge, pick a saved one, or ignore.",
+  "buddy.compose_title": "Buddy needs you — live",
+  "buddy.compose_lead": "They’re about to hit an interrupt. Record or write a live nudge now (or pick a saved one below).",
   "buddy.compose_event": "Event {id}…",
   "buddy.compose_ignore": "Ignore",
   "buddy.compose_send_default": "Send default nudge",
@@ -289,9 +289,11 @@ const en: Dict = {
   "buddy.nudge_video": "A video from your buddy",
   "buddy.nudge_playing_video": "Playing a video from your buddy",
   "buddy.nudge_from": "From your Buddy",
-  "buddy.nudge_continue": "Continue",
+  "buddy.nudge_continue": "Continue to challenge",
+  "buddy.nudge_interrupt": "Your Buddy sent a nudge — see it before the unlock challenge.",
+  "buddy.nudge_open": "See Buddy nudge",
   "buddy.approaching_title": "Unloop Buddy",
-  "buddy.approaching_body": "Someone you paired with is deep in a feed — open Unloop to nudge them.",
+  "buddy.approaching_body": "They’re deep in a feed — tap to write, record video, or send a live nudge now.",
 };
 
 const it: Dict = {
@@ -494,8 +496,8 @@ const it: Dict = {
   "buddy.prepare_summary": "Aggiungi testo, foto, GIF, vocale, video o un suono",
   "buddy.prepare_text_group": "Testo",
   "buddy.prepare_sounds": "Suoni predefiniti",
-  "buddy.compose_title": "Il Buddy ha bisogno di te",
-  "buddy.compose_lead": "Si avvicina un interrupt. Manda un nudge breve, scegline uno salvato, o ignora.",
+  "buddy.compose_title": "Il Buddy ha bisogno di te — live",
+  "buddy.compose_lead": "Sta per arrivare un interrupt. Registra o scrivi un nudge live ora (oppure scegline uno salvato sotto).",
   "buddy.compose_event": "Evento {id}…",
   "buddy.compose_ignore": "Ignora",
   "buddy.compose_send_default": "Invia nudge predefinito",
@@ -581,9 +583,11 @@ const it: Dict = {
   "buddy.nudge_video": "Un video dal tuo buddy",
   "buddy.nudge_playing_video": "In riproduzione un video dal tuo buddy",
   "buddy.nudge_from": "Dal tuo Buddy",
-  "buddy.nudge_continue": "Continua",
+  "buddy.nudge_continue": "Continua alla challenge",
+  "buddy.nudge_interrupt": "Il tuo Buddy ti ha mandato un nudge — guardalo prima della challenge di sblocco.",
+  "buddy.nudge_open": "Vedi il nudge del Buddy",
   "buddy.approaching_title": "Unloop Buddy",
-  "buddy.approaching_body": "Qualcuno con cui ti sei associato è nel feed — apri Unloop per un nudge.",
+  "buddy.approaching_body": "È nel feed — tocca per scrivere, registrare un video o mandare un nudge live ora.",
 };
 
 const catalogs: Record<LocaleCode, Dict> = { en, it };

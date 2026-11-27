@@ -433,46 +433,80 @@ export function BuddyComposeScreen({
         {t("buddy.compose_event", { id: pending.eventId.slice(0, 16) })}
       </Text>
 
-      <Pressable
-        style={[styles.btn, busy && styles.disabled]}
-        disabled={busy}
-        onPress={() => onDone()}
-        accessibilityRole="button"
-      >
-        <Text style={styles.btnLabel}>{t("buddy.compose_ignore")}</Text>
-      </Pressable>
-
-      {defaultNudge.trim() ? (
+      {/* Live first: notification tap should land on write / record immediately. */}
+      <Text style={styles.section}>{t("buddy.compose_live")}</Text>
+      <TextInput
+        style={styles.input}
+        value={live}
+        onChangeText={setLive}
+        placeholder={t("buddy.compose_live_placeholder")}
+        placeholderTextColor={colors.textMuted}
+        multiline
+        maxLength={280}
+        autoFocus
+      />
+      <View style={styles.row}>
         <Pressable
           style={[styles.btnPrimary, busy && styles.disabled]}
           disabled={busy}
-          onPress={() => void upload(defaultNudge)}
-          accessibilityRole="button"
+          onPress={() => void upload(live)}
         >
-          <Text style={styles.btnPrimaryLabel}>
-            {t("buddy.compose_send_default")}
-          </Text>
+          <Text style={styles.btnPrimaryLabel}>{t("buddy.compose_send_live")}</Text>
         </Pressable>
-      ) : null}
+        <Pressable
+          style={styles.btn}
+          disabled={busy}
+          onPress={() => {
+            void addStagedNudge(live).then(setStaged);
+          }}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_save_staged")}</Text>
+        </Pressable>
+      </View>
 
-      <Text style={styles.section}>{t("buddy.compose_staged")}</Text>
-      <Text style={styles.meta}>{t("buddy.compose_staged_lead")}</Text>
-      {staged.length === 0 ? (
-        <Text style={styles.meta}>{t("buddy.compose_staged_empty")}</Text>
-      ) : (
-        staged.map((n) => (
-          <StagedNudgeRow
-            key={n.id}
-            t={t}
-            nudge={n}
-            busy={busy}
-            onSend={() => void uploadStaged(n)}
-            onDelete={() => {
-              void removeStagedNudge(n.id).then(setStaged);
-            }}
-          />
-        ))
-      )}
+      <Text style={styles.section}>{t("buddy.compose_video")}</Text>
+      <Text style={styles.meta}>{t("buddy.compose_video_lead")}</Text>
+      <View style={styles.row}>
+        <Pressable
+          style={[styles.btn, busy && styles.disabled]}
+          disabled={busy}
+          onPress={() => void onPickVideo()}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_video_pick")}</Text>
+        </Pressable>
+        {video ? (
+          <Pressable
+            style={[styles.btnPrimary, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void uploadVideo()}
+          >
+            <Text style={styles.btnPrimaryLabel}>
+              {t("buddy.compose_video_send")}
+            </Text>
+          </Pressable>
+        ) : null}
+        {video ? (
+          <Pressable
+            style={[styles.btn, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void saveVideoStaged()}
+          >
+            <Text style={styles.btnLabel}>{t("buddy.compose_save_staged")}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <BuddyVideoRecorder
+        t={t}
+        busy={busy}
+        onStatus={setStatus}
+        onReady={(media) => {
+          setPhoto(null);
+          setGif(null);
+          setVoice(null);
+          setVideo(media);
+          setStatus(t("buddy.compose_video_ready"));
+        }}
+      />
 
       <Text style={styles.section}>{t("buddy.compose_photo")}</Text>
       <Text style={styles.meta}>{t("buddy.compose_photo_lead")}</Text>
@@ -592,50 +626,6 @@ export function BuddyComposeScreen({
         </View>
       ) : null}
 
-      <Text style={styles.section}>{t("buddy.compose_video")}</Text>
-      <Text style={styles.meta}>{t("buddy.compose_video_lead")}</Text>
-      <View style={styles.row}>
-        <Pressable
-          style={[styles.btn, busy && styles.disabled]}
-          disabled={busy}
-          onPress={() => void onPickVideo()}
-        >
-          <Text style={styles.btnLabel}>{t("buddy.compose_video_pick")}</Text>
-        </Pressable>
-        {video ? (
-          <Pressable
-            style={[styles.btnPrimary, busy && styles.disabled]}
-            disabled={busy}
-            onPress={() => void uploadVideo()}
-          >
-            <Text style={styles.btnPrimaryLabel}>
-              {t("buddy.compose_video_send")}
-            </Text>
-          </Pressable>
-        ) : null}
-        {video ? (
-          <Pressable
-            style={[styles.btn, busy && styles.disabled]}
-            disabled={busy}
-            onPress={() => void saveVideoStaged()}
-          >
-            <Text style={styles.btnLabel}>{t("buddy.compose_save_staged")}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-      <BuddyVideoRecorder
-        t={t}
-        busy={busy}
-        onStatus={setStatus}
-        onReady={(media) => {
-          setPhoto(null);
-          setGif(null);
-          setVoice(null);
-          setVideo(media);
-          setStatus(t("buddy.compose_video_ready"));
-        }}
-      />
-
       <Text style={styles.section}>{t("buddy.compose_presets")}</Text>
       <Text style={styles.meta}>{t("buddy.compose_presets_lead")}</Text>
       <View style={styles.row}>
@@ -662,34 +652,46 @@ export function BuddyComposeScreen({
         ))}
       </View>
 
-      <Text style={styles.section}>{t("buddy.compose_live")}</Text>
-      <TextInput
-        style={styles.input}
-        value={live}
-        onChangeText={setLive}
-        placeholder={t("buddy.compose_live_placeholder")}
-        placeholderTextColor={colors.textMuted}
-        multiline
-        maxLength={280}
-      />
-      <View style={styles.row}>
+      <Text style={styles.section}>{t("buddy.compose_staged")}</Text>
+      <Text style={styles.meta}>{t("buddy.compose_staged_lead")}</Text>
+      {staged.length === 0 ? (
+        <Text style={styles.meta}>{t("buddy.compose_staged_empty")}</Text>
+      ) : (
+        staged.map((n) => (
+          <StagedNudgeRow
+            key={n.id}
+            t={t}
+            nudge={n}
+            busy={busy}
+            onSend={() => void uploadStaged(n)}
+            onDelete={() => {
+              void removeStagedNudge(n.id).then(setStaged);
+            }}
+          />
+        ))
+      )}
+
+      {defaultNudge.trim() ? (
         <Pressable
           style={[styles.btnPrimary, busy && styles.disabled]}
           disabled={busy}
-          onPress={() => void upload(live)}
+          onPress={() => void upload(defaultNudge)}
+          accessibilityRole="button"
         >
-          <Text style={styles.btnPrimaryLabel}>{t("buddy.compose_send_live")}</Text>
+          <Text style={styles.btnPrimaryLabel}>
+            {t("buddy.compose_send_default")}
+          </Text>
         </Pressable>
-        <Pressable
-          style={styles.btn}
-          disabled={busy}
-          onPress={() => {
-            void addStagedNudge(live).then(setStaged);
-          }}
-        >
-          <Text style={styles.btnLabel}>{t("buddy.compose_save_staged")}</Text>
-        </Pressable>
-      </View>
+      ) : null}
+
+      <Pressable
+        style={[styles.btn, busy && styles.disabled]}
+        disabled={busy}
+        onPress={() => onDone()}
+        accessibilityRole="button"
+      >
+        <Text style={styles.btnLabel}>{t("buddy.compose_ignore")}</Text>
+      </Pressable>
 
       {status ? <Text style={styles.status}>{status}</Text> : null}
     </ScrollView>

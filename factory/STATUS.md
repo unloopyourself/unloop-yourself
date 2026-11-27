@@ -14,6 +14,7 @@ Last updated: 2026-11-27
 - **Hotfix (2026-11-27):** Per-buddy seeker prefs — `notifyApproaching` default **off** (no live tracking ping); `acceptNudges` default on (suspend without revoke). Approaching FCM only to opted-in buddies.
 - **Hotfix (2026-11-27):** Nokia video reclaim + P3.5-09 autosend/lockout + Settings/Buddy collapsible UI.
 - **Hotfix (2026-11-27):** Approaching notify moved into native UsageMonitorService (JS timers die when Unloop is backgrounded). Relay FCM adds tray `notification` for `type=approaching`.
+- **Hotfix (2026-11-27):** Seeker auto-opens Buddy nudge (distinct copy vs challenge gate). Notification tap force-opens live compose (text/video first); FCM `channelId` tray verified on Nokia.
 
 ## Human decisions / inputs pending
 

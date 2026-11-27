@@ -470,71 +470,84 @@ export default function App() {
     [],
   );
 
-  const openApproachCompose = useCallback(async (pending: PendingApproach) => {
-    const s = settingsRef.current;
-    // Quiet hours: mute UI; optional silent staged auto-send (no notify cap).
-    if (s?.buddyQuietHoursEnabled) {
-      const hour = new Date().getHours();
-      if (
-        isInQuietHours(hour, s.buddyQuietStartHour, s.buddyQuietEndHour)
-      ) {
-        if (s.buddyAutoSendStaged) {
-          void silentAutoSendStaged(pending, { requireEmptyMailbox: true });
+  const openApproachCompose = useCallback(
+    async (
+      pending: PendingApproach,
+      opts?: { force?: boolean; fromUserTap?: boolean },
+    ) => {
+      const s = settingsRef.current;
+      const force = opts?.force === true || opts?.fromUserTap === true;
+      // Quiet hours: mute UI; optional silent staged auto-send (no notify cap).
+      // Explicit notification tap still opens live compose so the buddy can act.
+      if (s?.buddyQuietHoursEnabled && !opts?.fromUserTap) {
+        const hour = new Date().getHours();
+        if (
+          isInQuietHours(hour, s.buddyQuietStartHour, s.buddyQuietEndHour)
+        ) {
+          if (s.buddyAutoSendStaged) {
+            void silentAutoSendStaged(pending, { requireEmptyMailbox: true });
+          }
+          return;
         }
+      }
+      // In-memory dedupe before touching the hourly log (FCM can fan out twice).
+      // User tap always re-opens the live compose mask.
+      if (!force && lastApproachEventIdRef.current === pending.eventId) {
         return;
       }
-    }
-    // In-memory dedupe before touching the hourly log (FCM can fan out twice).
-    if (lastApproachEventIdRef.current === pending.eventId) {
-      return;
-    }
-    if (
-      s &&
-      !(await allowApproachingPush(s.buddyMaxPushPerHour, Date.now(), pending.eventId))
-    ) {
-      return;
-    }
-    lastApproachEventIdRef.current = pending.eventId;
-    await setPendingApproach(pending);
-    setPendingApproachState(pending);
-    setScreen("buddyCompose");
-    setMenuOpen(false);
-    try {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: t("buddy.approaching_title"),
-          body: t("buddy.approaching_body"),
-          data: {
-            type: "approaching",
-            eventId: pending.eventId,
-            mailboxId: pending.mailboxId,
-            ...(pending.interruptAtMs != null
-              ? { interruptAtMs: String(pending.interruptAtMs) }
-              : {}),
-          },
-        },
-        trigger: null,
-      });
-    } catch {
-      /* banner optional */
-    }
-  }, [silentAutoSendStaged, t]);
+      if (
+        !force &&
+        s &&
+        !(await allowApproachingPush(
+          s.buddyMaxPushPerHour,
+          Date.now(),
+          pending.eventId,
+        ))
+      ) {
+        return;
+      }
+      lastApproachEventIdRef.current = pending.eventId;
+      await setPendingApproach(pending);
+      setPendingApproachState(pending);
+      setScreen("buddyCompose");
+      setMenuOpen(false);
+      // Local banner only for silent/background receive — not when user already tapped.
+      if (!opts?.fromUserTap) {
+        try {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: t("buddy.approaching_title"),
+              body: t("buddy.approaching_body"),
+              data: {
+                type: "approaching",
+                eventId: pending.eventId,
+                mailboxId: pending.mailboxId,
+                ...(pending.interruptAtMs != null
+                  ? { interruptAtMs: String(pending.interruptAtMs) }
+                  : {}),
+              },
+            },
+            trigger: null,
+          });
+        } catch {
+          /* banner optional */
+        }
+      }
+    },
+    [silentAutoSendStaged, t],
+  );
 
   // FCM / local notification → Buddy compose (approaching).
   useEffect(() => {
     if (Platform.OS !== "android") return;
-    void loadPendingApproach().then((p) => {
-      if (p) {
-        lastApproachEventIdRef.current = p.eventId;
-        setPendingApproachState(p);
-      }
-    });
 
-    const handleData = (data: Record<string, unknown> | undefined) => {
-      if (!data || data.type !== "approaching") return;
+    const pendingFromData = (
+      data: Record<string, unknown> | undefined,
+    ): PendingApproach | null => {
+      if (!data || data.type !== "approaching") return null;
       const eventId = String(data.eventId ?? "");
       const mailboxId = String(data.mailboxId ?? "");
-      if (!eventId || !mailboxId) return;
+      if (!eventId || !mailboxId) return null;
       const interruptRaw = data.interruptAtMs;
       const interruptAtMs =
         typeof interruptRaw === "number"
@@ -542,20 +555,51 @@ export default function App() {
           : typeof interruptRaw === "string"
             ? Number(interruptRaw)
             : NaN;
-      void openApproachCompose({
+      return {
         eventId,
         mailboxId,
         receivedAtMs: Date.now(),
         ...(Number.isFinite(interruptAtMs) ? { interruptAtMs } : {}),
-      });
+      };
     };
 
+    void (async () => {
+      const stored = await loadPendingApproach();
+      if (stored) {
+        lastApproachEventIdRef.current = stored.eventId;
+        setPendingApproachState(stored);
+      }
+      // Cold start: user tapped the tray notification while the app was killed.
+      try {
+        const last = await Notifications.getLastNotificationResponseAsync();
+        const fromTap = pendingFromData(
+          last?.notification.request.content.data as
+            | Record<string, unknown>
+            | undefined,
+        );
+        if (fromTap) {
+          await openApproachCompose(fromTap, { fromUserTap: true });
+          return;
+        }
+      } catch {
+        /* optional */
+      }
+    })();
+
     const subRecv = Notifications.addNotificationReceivedListener((n) => {
-      handleData(n.request.content.data as Record<string, unknown>);
+      const pending = pendingFromData(
+        n.request.content.data as Record<string, unknown>,
+      );
+      if (pending) void openApproachCompose(pending);
     });
     const subResp = Notifications.addNotificationResponseReceivedListener(
       (r) => {
-        handleData(r.notification.request.content.data as Record<string, unknown>);
+        const pending = pendingFromData(
+          r.notification.request.content.data as Record<string, unknown>,
+        );
+        if (pending) {
+          void openApproachCompose(pending, { fromUserTap: true });
+        }
       },
     );
     return () => {
@@ -1029,6 +1073,14 @@ export default function App() {
   }, [softFailChallenge]);
 
   const inChallenge = sessionState === "CHALLENGE";
+  const hasBuddyNudge = Boolean(buddyNudgeText) && !buddyNudgeDismissed;
+
+  // Buddy nudge: skip the "Start challenge" gate — show the nudge immediately.
+  useEffect(() => {
+    if (!inChallenge || !hasBuddyNudge || challengeOpened) return;
+    setChallengeOpened(true);
+    setChallengeMountKey((k) => k + 1);
+  }, [inChallenge, hasBuddyNudge, challengeOpened]);
   const monitoring =
     sessionState === "MONITORING" || sessionState === "COOLDOWN";
 
@@ -1093,15 +1145,21 @@ export default function App() {
           <Text style={styles.brandOnInk}>Unloop</Text>
           <Text style={styles.taglineOnInk}>{t("app.tagline")}</Text>
           <Text style={styles.messageOnInk}>
-            {buddyNudgeText ? t("buddy.nudge_from") : t("app.interrupt")}
+            {hasBuddyNudge
+              ? t("buddy.nudge_interrupt")
+              : t("app.interrupt")}
           </Text>
           <Pressable
             style={styles.openChallengeBtn}
             onPress={openChallengeFromOverlay}
             accessibilityRole="button"
-            accessibilityLabel={t("challenge.start")}
+            accessibilityLabel={
+              hasBuddyNudge ? t("buddy.nudge_open") : t("challenge.start")
+            }
           >
-            <Text style={styles.openChallengeLabel}>{t("challenge.start")}</Text>
+            <Text style={styles.openChallengeLabel}>
+              {hasBuddyNudge ? t("buddy.nudge_open") : t("challenge.start")}
+            </Text>
           </Pressable>
           <Pressable
             style={styles.skipChallengeBtn}
