@@ -25,7 +25,6 @@ Last updated: 2026-11-27
 | Need | Why | Status |
 |------|-----|--------|
 | **P3.5-08** two-device media acceptance | milestone — preset + photo + voice (± video) on both phones | **waiting on human** |
-| Republish privacy HTML if hosted | pages mirror | when publishing |
 | Play Console Data safety paste | mic/camera/photos | human Console |
 
 ## Notes
