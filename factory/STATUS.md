@@ -23,6 +23,7 @@ Last updated: 2026-11-27
 | Lockout lead default 30s | P3.5-09 feel | assumed 30s (configurable) |
 | Republish privacy HTML if hosted | pages / GitHub Pages mirror of `docs/site/privacy.html` | when publishing |
 | Play Console Data safety paste | mic/camera/photos + short-TTL media wording | human Console |
+| GitHub push auth | `git push` 403 as `federicozanco` to `unloopyourself/unloop-yourself` | **blocked** — local commit `5c1a4ce` on `main`; need project-account push |
 
 ## Notes
 
