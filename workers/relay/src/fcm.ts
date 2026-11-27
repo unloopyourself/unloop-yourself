@@ -101,9 +101,20 @@ export async function sendFcmDataMessage(
     },
   };
   if (notification) {
+    // Top-level notification → system tray when app is backgrounded.
+    // android.notification.channelId must match Expo's fallback channel or
+    // OEM builds often drop the tray entry silently.
     message.notification = {
       title: notification.title,
       body: notification.body,
+    };
+    message.android = {
+      priority: "HIGH",
+      notification: {
+        channelId: "expo_notifications_fallback_notification_channel",
+        defaultSound: true,
+        notificationCount: 1,
+      },
     };
   }
   const res = await fetch(url, {
