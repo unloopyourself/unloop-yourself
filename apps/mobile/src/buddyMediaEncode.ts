@@ -293,6 +293,15 @@ export function videoPickFailureI18nKey(
   }
 }
 
+/** Public wrapper for in-app recorder / reclaim paths. */
+export async function videoFileToResult(
+  uri: string,
+  mimeHint: string | null | undefined,
+  durationHint: number | null | undefined,
+): Promise<VideoPickResult> {
+  return videoAssetToResult(uri, mimeHint, durationHint);
+}
+
 async function videoAssetToResult(
   uri: string,
   mimeHint: string | null | undefined,

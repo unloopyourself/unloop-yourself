@@ -43,6 +43,7 @@ import {
 } from "../buddyMediaEncode";
 import { SOUND_PRESET_I18N_KEYS } from "../buddySoundPresets";
 import { BuddyVoiceRecorder } from "./BuddyVoiceRecorder";
+import { BuddyVideoRecorder } from "./BuddyVideoRecorder";
 import { StagedNudgeRow } from "./StagedNudgePreview";
 import {
   CollapsibleSection,
@@ -524,6 +525,7 @@ export function BuddyScreen({
 
         <View style={styles.block}>
           <Text style={styles.subhead}>{t("buddy.compose_video")}</Text>
+          <Text style={styles.meta}>{t("buddy.compose_video_lead")}</Text>
           <View style={styles.row}>
             <Pressable
               style={[styles.btn, styles.btnGrow, busy && styles.btnDisabled]}
@@ -535,17 +537,28 @@ export function BuddyScreen({
                 {t("buddy.compose_video_pick")}
               </Text>
             </Pressable>
-            <Pressable
-              style={[styles.btn, styles.btnGrow, busy && styles.btnDisabled]}
-              disabled={busy}
-              onPress={() => void stageVideo(true)}
-              accessibilityRole="button"
-            >
-              <Text style={styles.btnLabel}>
-                {t("buddy.compose_video_camera")}
-              </Text>
-            </Pressable>
           </View>
+          <BuddyVideoRecorder
+            t={t}
+            busy={busy}
+            onStatus={setPrepareStatus}
+            onReady={(media) => {
+              void addStagedMedia({
+                kind: "video",
+                media: {
+                  encoding: media.encoding,
+                  mime: media.mime,
+                  byteLength: media.byteLength,
+                  data: media.data,
+                },
+                durationMs: media.durationMs,
+                caption: mediaCaption,
+              }).then((next) => {
+                setStaged(next);
+                setStatus("prepare", t("buddy.compose_staged_saved"));
+              });
+            }}
+          />
         </View>
 
         <View style={styles.block}>

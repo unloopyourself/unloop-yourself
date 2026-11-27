@@ -10,7 +10,11 @@ export const NUDGE_CAPS = {
   gifBytes: 2 * 1024 * 1024,
   voiceBytes: 1 * 1024 * 1024,
   voiceMaxMs: 30_000,
-  videoBytes: 8 * 1024 * 1024,
+  /**
+   * Raw video bytes before base64. ~5.5 MiB so base64+JSON stay under the
+   * 8 MiB relay/envelope cap (Nokia/Samsung OEM clips are often huge).
+   */
+  videoBytes: Math.floor(5.5 * 1024 * 1024),
   videoMaxMs: 10_000,
   /** Max serialized mailbox string (UTF-8 length). */
   envelopeBytes: 8 * 1024 * 1024,

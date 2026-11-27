@@ -42,7 +42,16 @@
           "microphonePermission": "Unloop needs the mic when recording a short buddy nudge video. Audio is not kept on a server — only a short-lived relay blob for this interrupt."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Unloop needs the camera so you can record a short buddy nudge video (max ~10s, low resolution) for this interrupt only.",
+          "microphonePermission": "Unloop needs the mic when recording a short buddy nudge video. Audio is not kept on a server — only a short-lived relay blob for this interrupt.",
+          "recordAudioAndroid": true
+        }
+      ],
       "./plugins/withUnloopAndroidRelease.js",
+      "./plugins/withImagePickerVideoCaps.js",
       "expo-asset",
       [
         "expo-audio",

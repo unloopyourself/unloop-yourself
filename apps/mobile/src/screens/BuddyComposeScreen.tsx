@@ -32,7 +32,6 @@ import {
 } from "../buddyNudgeStore";
 import {
   captureCompressedPhoto,
-  captureVideoUnderCap,
   pickCompressedPhoto,
   pickGifUnderCap,
   pickVideoUnderCap,
@@ -44,6 +43,7 @@ import {
   SOUND_PRESET_I18N_KEYS,
 } from "../buddySoundPresets";
 import { BuddyVoiceRecorder } from "./BuddyVoiceRecorder";
+import { BuddyVideoRecorder } from "./BuddyVideoRecorder";
 import { StagedNudgeRow } from "./StagedNudgePreview";
 import { HttpRelayPort } from "../push/httpRelayPort";
 import { getRelayBaseUrl } from "../push/expoPushPort";
@@ -375,28 +375,6 @@ export function BuddyComposeScreen({
     }
   }, [t]);
 
-  const onCaptureVideo = useCallback(async () => {
-    setBusy(true);
-    setStatus(null);
-    try {
-      const picked = await captureVideoUnderCap({
-        mode: "compose",
-        caption: live.trim() || undefined,
-      });
-      if (!picked.ok) {
-        setStatus(t(videoPickFailureI18nKey(picked.reason)));
-        return;
-      }
-      setPhoto(null);
-      setGif(null);
-      setVoice(null);
-      setVideo(picked.media);
-      setStatus(t("buddy.compose_video_ready"));
-    } finally {
-      setBusy(false);
-    }
-  }, [live, t]);
-
   const uploadVoice = useCallback(async () => {
     if (!voice) {
       setStatus(t("buddy.compose_voice_needed"));
@@ -624,13 +602,6 @@ export function BuddyComposeScreen({
         >
           <Text style={styles.btnLabel}>{t("buddy.compose_video_pick")}</Text>
         </Pressable>
-        <Pressable
-          style={[styles.btn, busy && styles.disabled]}
-          disabled={busy}
-          onPress={() => void onCaptureVideo()}
-        >
-          <Text style={styles.btnLabel}>{t("buddy.compose_video_camera")}</Text>
-        </Pressable>
         {video ? (
           <Pressable
             style={[styles.btnPrimary, busy && styles.disabled]}
@@ -652,6 +623,18 @@ export function BuddyComposeScreen({
           </Pressable>
         ) : null}
       </View>
+      <BuddyVideoRecorder
+        t={t}
+        busy={busy}
+        onStatus={setStatus}
+        onReady={(media) => {
+          setPhoto(null);
+          setGif(null);
+          setVoice(null);
+          setVideo(media);
+          setStatus(t("buddy.compose_video_ready"));
+        }}
+      />
 
       <Text style={styles.section}>{t("buddy.compose_presets")}</Text>
       <Text style={styles.meta}>{t("buddy.compose_presets_lead")}</Text>
