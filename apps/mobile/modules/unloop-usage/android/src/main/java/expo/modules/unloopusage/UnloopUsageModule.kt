@@ -81,6 +81,10 @@ class UnloopUsageModule : Module() {
       UsageMonitorService.updatePackages(context, packagesCsv)
     }
 
+    Function("updateNativeThreshold") { thresholdMs: Double ->
+      UsageMonitorService.updateThreshold(context, thresholdMs.toLong())
+    }
+
     Function("stopNativeMonitoring") {
       UsageMonitorService.stop(context)
     }

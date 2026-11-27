@@ -15,6 +15,7 @@ Last updated: 2026-11-27
 - **Hotfix (2026-11-27):** Nokia video reclaim + P3.5-09 autosend/lockout + Settings/Buddy collapsible UI.
 - **Hotfix (2026-11-27):** Approaching notify moved into native UsageMonitorService (JS timers die when Unloop is backgrounded). Relay FCM adds tray `notification` for `type=approaching`.
 - **Hotfix (2026-11-27):** Seeker auto-opens Buddy nudge (distinct copy vs challenge gate). Notification tap force-opens live compose (text/video first); FCM `channelId` tray verified on Nokia.
+- **Hotfix (2026-11-27):** Native monitor threshold sync from Settings (`updateNativeThreshold` on persist + Start watching) — stuck harness 12s was firing push/interrupt almost together. Happy-path 5 min Dummy (Samsung→Nokia): push@180s HTTP 200 + compose, staged autosend@270s, interrupt@300s.
 
 ## Human decisions / inputs pending
 

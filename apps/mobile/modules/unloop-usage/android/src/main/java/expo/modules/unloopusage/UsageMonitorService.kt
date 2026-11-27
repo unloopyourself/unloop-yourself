@@ -165,6 +165,21 @@ class UsageMonitorService : Service() {
         Log.i(TAG, "UPDATE packages $packageTargets (cooldown=${inCooldown()})")
         updateNotification(friendlyStatus(matchedTargetPackage() != null, matchedTargetPackage()))
       }
+      ACTION_UPDATE_THRESHOLD -> {
+        val next = intent.getLongExtra(EXTRA_THRESHOLD_MS, thresholdMs).coerceAtLeast(1_000L)
+        if (next != thresholdMs) {
+          Log.i(TAG, "UPDATE threshold ${thresholdMs}ms → ${next}ms (reset bout)")
+          thresholdMs = next
+          liveThresholdMs = next
+          MonitorPrefs.setThresholdMs(this, thresholdMs)
+          // New timings → new Buddy eventId / approaching latch.
+          accumulatedMs = 0L
+          liveAccumulatedMs = 0L
+          fired = false
+          BuddyApproachingPrefs.beginBout(this)
+          updateNotification(friendlyStatus(matchedTargetPackage() != null, matchedTargetPackage()))
+        }
+      }
       else -> {
         // System sticky restart (null intent) or unknown action — resume if desired.
         if (!serviceRunning || packageTargets.isEmpty()) {
@@ -185,6 +200,7 @@ class UsageMonitorService : Service() {
   private fun applyStart(targets: Set<String>, threshold: Long) {
     packageTargets = targets
     thresholdMs = threshold
+    liveThresholdMs = threshold
     packagesCsv = packageTargets.joinToString(",")
     MonitorPrefs.setDesired(this, true, packagesCsv, thresholdMs)
     serviceRunning = true
@@ -366,6 +382,7 @@ class UsageMonitorService : Service() {
     const val ACTION_START = "io.github.unloopyourself.usage.START"
     const val ACTION_STOP = "io.github.unloopyourself.usage.STOP"
     const val ACTION_UPDATE_PACKAGES = "io.github.unloopyourself.usage.UPDATE_PACKAGES"
+    const val ACTION_UPDATE_THRESHOLD = "io.github.unloopyourself.usage.UPDATE_THRESHOLD"
     const val EXTRA_PACKAGE = "package"
     const val EXTRA_PACKAGES = "packages"
     const val EXTRA_THRESHOLD_MS = "thresholdMs"
@@ -413,7 +430,14 @@ class UsageMonitorService : Service() {
       Log.i(TAG, "armCooldownUntil=$epochMs (inCooldown=${inCooldown()})")
     }
 
+    @Volatile
+    var liveThresholdMs: Long = 600_000L
+      private set
+
     fun monitorSnapshot(context: Context? = null): Map<String, Any> {
+      val thr =
+        if (serviceRunning) liveThresholdMs
+        else context?.let { MonitorPrefs.thresholdMs(it) } ?: liveThresholdMs
       val base = mutableMapOf<String, Any>(
         "monitoring" to serviceRunning,
         "challengeOutstanding" to InterruptOverlay.challengeOutstanding,
@@ -425,6 +449,7 @@ class UsageMonitorService : Service() {
         "lastDeltaU" to lastInterruptDeltaU.toDouble(),
         "accumulatedMs" to liveAccumulatedMs.toDouble(),
         "inTargetFeed" to liveInTargetFeed,
+        "thresholdMs" to thr.toDouble(),
       )
       if (context != null) {
         base.putAll(BuddyApproachingPrefs.snapshot(context))
@@ -450,6 +475,15 @@ class UsageMonitorService : Service() {
       val intent = Intent(context, UsageMonitorService::class.java).apply {
         action = ACTION_UPDATE_PACKAGES
         putExtra(EXTRA_PACKAGES, packagesCsv)
+      }
+      context.startService(intent)
+    }
+
+    /** Hot-fix threshold from Settings (clears stuck harness timings). */
+    fun updateThreshold(context: Context, thresholdMs: Long) {
+      val intent = Intent(context, UsageMonitorService::class.java).apply {
+        action = ACTION_UPDATE_THRESHOLD
+        putExtra(EXTRA_THRESHOLD_MS, thresholdMs)
       }
       context.startService(intent)
     }

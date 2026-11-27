@@ -18,6 +18,8 @@ export type MonitorSnapshot = {
   lastDeltaU: number;
   /** Live usage accumulator toward threshold (ms). */
   accumulatedMs?: number;
+  /** Active native threshold (ms) — may differ from Settings if harness stuck. */
+  thresholdMs?: number;
   /** True while a watched feed is foreground / playing. */
   inTargetFeed?: boolean;
   /** Native Buddy approaching bout (when monitoring). */
@@ -51,6 +53,8 @@ type UnloopUsageNativeModule = {
   startNativeMonitoring(packagesCsv: string, thresholdMs: number): void;
   /** Hot-swap watch list while monitoring (keeps cooldown). */
   updateMonitoredPackages(packagesCsv: string): void;
+  /** Hot-update threshold while monitoring (clears stuck harness timings). */
+  updateNativeThreshold(thresholdMs: number): void;
   stopNativeMonitoring(): void;
   getMonitorSnapshot(): MonitorSnapshot;
   /** Persist Buddy notify targets for the native FGS (JS timers pause in BG). */

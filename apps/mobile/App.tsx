@@ -270,6 +270,17 @@ export default function App() {
       setSettings(saved);
       void saveSettings(saved);
       void syncBuddyApproachingNative(saved);
+      // Keep native FGS on Settings timings (harness / sticky resume can drift).
+      if (Platform.OS === "android") {
+        try {
+          const snap = UnloopUsage.getMonitorSnapshot();
+          if (snap.monitoring) {
+            UnloopUsage.updateNativeThreshold(saved.thresholdMs);
+          }
+        } catch {
+          /* optional */
+        }
+      }
     },
     [deviceCaps, engine],
   );
@@ -695,23 +706,25 @@ export default function App() {
       if (fired) return;
       fired = true;
       void (async () => {
+        // T−lockout: staged prereg into empty mailbox + clear tray.
         if (s?.buddyAutoSendStaged) {
           await silentAutoSendStaged(
             { eventId, mailboxId, receivedAtMs: Date.now(), interruptAtMs },
             { requireEmptyMailbox: true },
           );
         }
-        if (liveComposeHold) {
-          return;
-        }
-        await setPendingApproach(null);
-        setPendingApproachState(null);
-        setScreen((prev) => (prev === "buddyCompose" ? "home" : prev));
         try {
           await Notifications.dismissAllNotificationsAsync();
         } catch {
           /* optional */
         }
+        if (liveComposeHold) {
+          // User opened compose from tap — keep the live mask; tray is gone.
+          return;
+        }
+        await setPendingApproach(null);
+        setPendingApproachState(null);
+        setScreen((prev) => (prev === "buddyCompose" ? "home" : prev));
       })();
     }, 500);
     return () => clearInterval(id);
@@ -1070,6 +1083,9 @@ export default function App() {
       appId: packages.join(","),
       thresholdUnits: settings.thresholdMs,
     });
+    // Belt-and-suspenders: Settings threshold wins over any stuck harness value.
+    UnloopUsage.updateNativeThreshold(settings.thresholdMs);
+    await syncBuddyApproachingNative(settings);
     // Progressive Buddy live path (P3-05/07): gated by Settings.
     setBuddyNudgeText(null);
     buddyNudgeTextRef.current = null;

@@ -30,6 +30,7 @@ object BuddyApproachingNotifier {
 
     val warnLead = BuddyApproachingPrefs.warnLeadMs(context).coerceAtLeast(0L)
     val threshold = thresholdMs.coerceAtLeast(0L)
+    // Fire when remaining usage ≤ warnLead (e.g. thr=300s lead=120s → at 180s).
     val warnAfter = (threshold - warnLead).coerceAtLeast(0L)
     if (accumulatedMs < warnAfter) return
 
@@ -43,7 +44,7 @@ object BuddyApproachingNotifier {
     val interruptAtMs = System.currentTimeMillis() + remaining
     Log.i(
       TAG,
-      "approaching eventId=$eventId acc=${accumulatedMs}ms thr=${threshold}ms → ${mailboxes.size} buddy(ies)",
+      "approaching eventId=$eventId acc=${accumulatedMs}ms warnAfter=${warnAfter}ms thr=${threshold}ms lead=${warnLead}ms → ${mailboxes.size} buddy(ies)",
     )
 
     val appCtx = context.applicationContext

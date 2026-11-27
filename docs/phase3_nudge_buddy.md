@@ -209,3 +209,4 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 | 2026-11-27 | P3.5-09 implemented: settings toggles, FCM `interruptAtMs`, silent quiet autosend, lockout dismiss + empty-mailbox staged PUT. |
 | 2026-11-27 | Per-buddy seeker prefs: `notifyApproaching` (default off) + `acceptNudges` (default on, suspend without revoke). Samsung video: soft-clamp OEM over-duration under size cap. |
 | 2026-11-27 | Approaching notify runs in native UsageMonitorService (JS timers pause in BG). FCM tray notification for `approaching`. |
+| 2026-11-27 | Buddy timeline (5 min example): push at T−warn (≥2 min), staged autosend + tray clear at T−lockout (~30s), interrupt at T. Native threshold synced from Settings (no stuck harness). |

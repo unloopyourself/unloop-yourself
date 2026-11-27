@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as Notifications from "expo-notifications";
 import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
 import { statusBarTopInset } from "../layout";
@@ -95,6 +96,11 @@ export function BuddyComposeScreen({
           ciphertext,
           180,
         );
+        try {
+          await Notifications.dismissAllNotificationsAsync();
+        } catch {
+          /* tray optional */
+        }
         setStatus(t("buddy.compose_sent"));
         onDone();
       } catch {
