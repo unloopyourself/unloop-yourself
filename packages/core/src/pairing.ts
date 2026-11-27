@@ -135,6 +135,19 @@ export interface BuddyRecord {
   readonly role: PairRole;
   readonly pairedAtMs: number;
   readonly displayLabel?: string;
+  /**
+   * Seeker (scrolldoomer) opt-in: send approaching push to this buddy.
+   * Default **false** — live push is not imposed (privacy / no “tracking”).
+   * When false, this buddy will not get a live approaching ping; they can
+   * still have been paired, and the seeker may still accept mailbox nudges
+   * if {@link acceptNudges} is on (e.g. content already in the mailbox).
+   */
+  readonly notifyApproaching?: boolean;
+  /**
+   * Seeker: show mailbox nudges from the Buddy path for this pairing.
+   * Default **true**. Set false to suspend without revoking the pair.
+   */
+  readonly acceptNudges?: boolean;
 }
 
 /** Build a v0 invite (sig is placeholder until crypto ADR). */

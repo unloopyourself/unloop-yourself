@@ -44,8 +44,8 @@ Soft-unlock / timeout unchanged. Missing buddy hardware or empty mailbox ≠ app
 Defaults off until user enables Buddy features.
 
 1. **U** doomscrolls under monitoring (existing ΔU / threshold, e.g. 10 min).
-2. At **T−warn** (usage-based): U’s device → relay → **data push** to paired buddies (B).
-3. **B (active hours):** notification + compose. B may ignore | send staged | record live. Hourly cap + quiet hours are **B’s** choices.
+2. At **T−warn** (usage-based): U’s device → relay → **data push** only to buddies U opted in (`notifyApproaching`, default **off** — no imposed tracking ping).
+3. **B (active hours):** notification + compose. B may ignore | send staged | record live. Hourly cap + quiet hours are **B’s** choices. U may also **suspend** a buddy (`acceptNudges=false`) without revoking the pair — mailbox nudges are ignored while suspended.
 4. **B (quiet hours):** no notification / no compose. If B enabled **auto-send staged**, B’s device still handles the data push silently and PUT one staged nudge (round-robin; fallback default text if library empty).
 5. **Lockout ~T−30s** (configurable soft default): live compose closes / notification cleared; no further live uploads for that `eventId`. If mailbox still empty and **auto-send staged** is on → PUT next staged (round-robin) even in active hours.
 6. Worker holds ciphertext in **mailbox(U, eventId)** with short TTL.
@@ -207,3 +207,4 @@ Update statuses here as work proceeds: `todo` → `doing` → `done` / `blocked`
 | 2026-11-26 | P3.5-00…07 done (video via `expo-video`, reject-oversize; privacy/Play notes). **P3.5-08** human media acceptance next. |
 | 2026-11-27 | Locked Buddy cascade: quiet hours mute UI; optional auto-send staged (RR); active hours live until ~T−30s lockout then staged fallback if flag on. |
 | 2026-11-27 | P3.5-09 implemented: settings toggles, FCM `interruptAtMs`, silent quiet autosend, lockout dismiss + empty-mailbox staged PUT. |
+| 2026-11-27 | Per-buddy seeker prefs: `notifyApproaching` (default off) + `acceptNudges` (default on, suspend without revoke). Samsung video: soft-clamp OEM over-duration under size cap. |

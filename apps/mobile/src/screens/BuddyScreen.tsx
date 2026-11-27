@@ -22,6 +22,7 @@ import {
   loadBuddies,
   revokeBuddy,
   shortFingerprint,
+  updateBuddyPrefs,
 } from "../buddyStore";
 import {
   addStagedMedia,
@@ -47,6 +48,7 @@ import {
   CollapsibleSection,
   MIN_TOUCH,
   Section,
+  ToggleRow,
 } from "./SectionKit";
 
 type StatusScope = "invite" | "pair" | "prepare" | "staged";
@@ -367,33 +369,58 @@ export function BuddyScreen({
         </View>
       </CollapsibleSection>
 
-      {/* 2. Buddies list: always visible. */}
-      <Section title={t("buddy.paired_count", { n: buddies.length })}>
+      {/* 2. Buddies list: always visible. Seeker prefs per buddy (privacy). */}
+      <Section
+        title={t("buddy.paired_count", { n: buddies.length })}
+        subtitle={t("buddy.paired_prefs_lead")}
+      >
         {buddies.length === 0 ? (
           <Text style={styles.meta}>{t("buddy.empty")}</Text>
         ) : (
-          <View>
+          <View style={styles.buddyList}>
             {buddies.map((b) => (
-              <View key={b.buddyId} style={styles.buddyRow}>
-                <View style={styles.buddyMain}>
-                  <Text style={styles.buddyTitle}>
-                    {b.displayLabel ?? shortFingerprint(b.pub)}
-                  </Text>
-                  <Text style={styles.meta}>
-                    {b.role === "buddy"
-                      ? t("buddy.role_buddy")
-                      : t("buddy.role_seeker")}
-                  </Text>
+              <View key={b.buddyId} style={styles.buddyCard}>
+                <View style={styles.buddyRow}>
+                  <View style={styles.buddyMain}>
+                    <Text style={styles.buddyTitle}>
+                      {b.displayLabel ?? shortFingerprint(b.pub)}
+                    </Text>
+                    <Text style={styles.meta}>
+                      {b.role === "buddy"
+                        ? t("buddy.role_buddy")
+                        : t("buddy.role_seeker")}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      void revokeBuddy(b.buddyId).then(setBuddies);
+                    }}
+                    style={styles.revoke}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.revokeLabel}>{t("buddy.revoke")}</Text>
+                  </Pressable>
                 </View>
-                <Pressable
-                  onPress={() => {
-                    void revokeBuddy(b.buddyId).then(setBuddies);
+                <ToggleRow
+                  label={t("buddy.notify_approaching")}
+                  description={t("buddy.notify_approaching_lead")}
+                  value={b.notifyApproaching === true}
+                  onValueChange={(next) => {
+                    void updateBuddyPrefs(b.buddyId, {
+                      notifyApproaching: next,
+                    }).then(setBuddies);
                   }}
-                  style={styles.revoke}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.revokeLabel}>{t("buddy.revoke")}</Text>
-                </Pressable>
+                />
+                <ToggleRow
+                  label={t("buddy.accept_nudges")}
+                  description={t("buddy.accept_nudges_lead")}
+                  value={b.acceptNudges !== false}
+                  onValueChange={(next) => {
+                    void updateBuddyPrefs(b.buddyId, {
+                      acceptNudges: next,
+                    }).then(setBuddies);
+                  }}
+                />
               </View>
             ))}
           </View>
@@ -647,14 +674,19 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   status: { fontSize: 14, color: colors.teal, fontWeight: "600" },
+  buddyList: { gap: 16 },
+  buddyCard: {
+    gap: 4,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(10,37,64,0.12)",
+  },
   buddyRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    minHeight: 56,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(10,37,64,0.12)",
+    minHeight: 48,
+    paddingVertical: 4,
   },
   buddyMain: { flex: 1, gap: 2 },
   buddyTitle: { fontWeight: "700", color: colors.ink, fontSize: 15 },

@@ -304,14 +304,27 @@ async function videoAssetToResult(
   const info = await FileSystem.getInfoAsync(localUri);
   if (!info.exists || info.isDirectory) return { ok: false, reason: "read_fail" };
 
-  const durationMs = normalizeVideoDurationMs(durationHint);
-  if (durationMs != null && durationMs > NUDGE_CAPS.videoMaxMs + 1500) {
-    return { ok: false, reason: "too_long" };
-  }
-
   const byteLength = typeof info.size === "number" ? info.size : 0;
   if (byteLength > NUDGE_CAPS.videoBytes) {
     return { ok: false, reason: "too_big" };
+  }
+
+  /**
+   * Many OEM cameras (Samsung) ignore `videoMaxDuration`. If the file is still
+   * under the size cap and duration is only modestly over 10s, clamp instead of
+   * rejecting — hard-reject past 2× so a long clip cannot sneak through.
+   */
+  const rawDurationMs = normalizeVideoDurationMs(durationHint);
+  const softMax = NUDGE_CAPS.videoMaxMs + 2_500;
+  const hardMax = NUDGE_CAPS.videoMaxMs * 2;
+  if (rawDurationMs != null && rawDurationMs > hardMax) {
+    return { ok: false, reason: "too_long" };
+  }
+  if (rawDurationMs != null && rawDurationMs > softMax) {
+    // Between soft and hard: only accept if size looks like a short clip.
+    if (byteLength <= 0 || byteLength > NUDGE_CAPS.videoBytes * 0.85) {
+      return { ok: false, reason: "too_long" };
+    }
   }
 
   let data: string;
@@ -342,8 +355,8 @@ async function videoAssetToResult(
       byteLength: resolvedBytes,
       data,
       durationMs:
-        durationMs != null && durationMs > 0
-          ? Math.min(NUDGE_CAPS.videoMaxMs, durationMs)
+        rawDurationMs != null && rawDurationMs > 0
+          ? Math.min(NUDGE_CAPS.videoMaxMs, rawDurationMs)
           : NUDGE_CAPS.videoMaxMs,
     },
   };
@@ -393,7 +406,8 @@ export async function captureVideoUnderCap(
   const picked = await ImagePicker.launchCameraAsync({
     mediaTypes: ["videos"],
     videoMaxDuration: Math.floor(NUDGE_CAPS.videoMaxMs / 1000),
-    quality: 0.4,
+    // Low quality — Samsung/OEM often ignore max duration and emit large files.
+    quality: 0.2,
     exif: false,
   });
   let a = await firstPickerAsset(picked);

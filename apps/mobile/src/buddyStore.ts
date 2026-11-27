@@ -72,7 +72,7 @@ export async function loadBuddies(): Promise<BuddyRecord[]> {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isBuddyRecord);
+    return parsed.filter(isBuddyRecord).map(normalizeBuddyRecord);
   } catch {
     return [];
   }
@@ -88,6 +88,15 @@ function isBuddyRecord(value: unknown): value is BuddyRecord {
     (o.role === "seeker" || o.role === "buddy") &&
     typeof o.pairedAtMs === "number"
   );
+}
+
+/** Normalize optional per-buddy seeker prefs (backward-compatible). */
+export function normalizeBuddyRecord(raw: BuddyRecord): BuddyRecord {
+  return {
+    ...raw,
+    notifyApproaching: raw.notifyApproaching === true,
+    acceptNudges: raw.acceptNudges !== false,
+  };
 }
 
 async function saveBuddies(list: BuddyRecord[]): Promise<void> {
@@ -118,14 +127,17 @@ export async function acceptInviteLink(
   );
   if (found) return { ok: true, buddy: found, alreadyPaired: true };
 
-  const buddy: BuddyRecord = {
+  const buddy: BuddyRecord = normalizeBuddyRecord({
     buddyId: `b_${randomHex(8)}`,
     mailboxId: invite.mailboxId,
     pub: invite.pub,
     role: invite.role === "buddy" ? "buddy" : "seeker",
     pairedAtMs: nowMs,
     displayLabel: shortFingerprint(invite.pub),
-  };
+    // Privacy default: no live approaching push until the seeker opts in.
+    notifyApproaching: false,
+    acceptNudges: true,
+  });
   await saveBuddies([...existing, buddy]);
   return { ok: true, buddy, alreadyPaired: false };
 }
@@ -134,6 +146,42 @@ export async function revokeBuddy(buddyId: string): Promise<BuddyRecord[]> {
   const next = (await loadBuddies()).filter((b) => b.buddyId !== buddyId);
   await saveBuddies(next);
   return next;
+}
+
+export type BuddyPrefsPatch = {
+  readonly notifyApproaching?: boolean;
+  readonly acceptNudges?: boolean;
+  readonly displayLabel?: string;
+};
+
+/** Update seeker-side prefs for one paired buddy (no revoke). */
+export async function updateBuddyPrefs(
+  buddyId: string,
+  patch: BuddyPrefsPatch,
+): Promise<BuddyRecord[]> {
+  const list = await loadBuddies();
+  const next = list.map((b) => {
+    if (b.buddyId !== buddyId) return b;
+    return normalizeBuddyRecord({
+      ...b,
+      ...(patch.notifyApproaching !== undefined
+        ? { notifyApproaching: patch.notifyApproaching }
+        : {}),
+      ...(patch.acceptNudges !== undefined
+        ? { acceptNudges: patch.acceptNudges }
+        : {}),
+      ...(patch.displayLabel !== undefined
+        ? { displayLabel: patch.displayLabel }
+        : {}),
+    });
+  });
+  await saveBuddies(next);
+  return next;
+}
+
+/** True when at least one buddy may contribute a mailbox nudge. */
+export function anyBuddyAcceptsNudges(buddies: readonly BuddyRecord[]): boolean {
+  return buddies.some((b) => b.acceptNudges !== false);
 }
 
 export function shortFingerprint(pub: string): string {

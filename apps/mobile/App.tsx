@@ -49,7 +49,11 @@ import { BuddyScreen } from "./src/screens/BuddyScreen";
 import { BuddyComposeScreen } from "./src/screens/BuddyComposeScreen";
 import { BuddyNudgeView } from "./src/screens/BuddyNudgeView";
 import { MenuSheet } from "./src/screens/MenuSheet";
-import { loadBuddies, loadOrCreateIdentity } from "./src/buddyStore";
+import {
+  anyBuddyAcceptsNudges,
+  loadBuddies,
+  loadOrCreateIdentity,
+} from "./src/buddyStore";
 import {
   allowApproachingPush,
   buildAutoSendCipher,
@@ -297,11 +301,14 @@ export default function App() {
                 return true;
               }
             });
-            void nudgeBusRef.current?.fetchNudge().then((blob) => {
+            void (async () => {
+              const buddies = await loadBuddies();
+              if (!anyBuddyAcceptsNudges(buddies)) return;
+              const blob = await nudgeBusRef.current?.fetchNudge();
               if (!blob) return;
               const decoded = decodeNudgeBlob(blob);
               if (decoded) applyDecodedBuddyNudge(decoded);
-            });
+            })();
             if (Platform.OS === "android") {
               UnloopUsage.stopChallengeTone();
               UnloopUsage.logHarness(`enter_challenge:${effect.challengeId}`);
@@ -628,9 +635,13 @@ export default function App() {
             const relayUrl = getRelayBaseUrl();
             if (!relayUrl) return;
             const buddies = await loadBuddies();
-            if (buddies.length === 0) return;
+            // Opt-in only: do not ping buddies unless the seeker enabled notify.
+            const notifyList = buddies.filter(
+              (b) => b.notifyApproaching === true && b.acceptNudges !== false,
+            );
+            if (notifyList.length === 0) return;
             await Promise.all(
-              buddies.map(async (b) => {
+              notifyList.map(async (b) => {
                 try {
                   const res = await fetch(
                     `${relayUrl.replace(/\/+$/, "")}/v1/notify/${encodeURIComponent(b.mailboxId)}`,
@@ -664,7 +675,10 @@ export default function App() {
           })();
         }
         if (intent.type === "interrupt_fetch") {
-          void nb.fetchNudge().then((blob) => {
+          void (async () => {
+            const buddies = await loadBuddies();
+            if (!anyBuddyAcceptsNudges(buddies)) return;
+            const blob = await nb.fetchNudge();
             if (!blob) return;
             const decoded = decodeNudgeBlob(blob);
             if (decoded) applyDecodedBuddyNudge(decoded);
@@ -673,7 +687,7 @@ export default function App() {
               atMs: Date.now(),
               detail: intent.eventId,
             });
-          });
+          })();
         }
       }
     }, 500);
