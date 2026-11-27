@@ -17,6 +17,8 @@ type Props = {
   busy: boolean;
   onReady: (media: NudgeMediaInline, durationMs: number) => void;
   onStatus: (msg: string | null) => void;
+  /** Live compose sits on the ink gradient. */
+  onInk?: boolean;
 };
 
 /** Mono AAC voice preset kept under Phase 3.5 caps. */
@@ -27,7 +29,13 @@ const VOICE_PRESET = {
   sampleRate: 22_050,
 } as const;
 
-export function BuddyVoiceRecorder({ t, busy, onReady, onStatus }: Props) {
+export function BuddyVoiceRecorder({
+  t,
+  busy,
+  onReady,
+  onStatus,
+  onInk,
+}: Props) {
   const recorder = useAudioRecorder(VOICE_PRESET);
   const state = useAudioRecorderState(recorder, 250);
   const [recording, setRecording] = useState(false);
@@ -103,7 +111,7 @@ export function BuddyVoiceRecorder({ t, busy, onReady, onStatus }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.meta}>
+      <Text style={[styles.meta, onInk && styles.metaOnInk]}>
         {recording
           ? t("buddy.compose_voice_timer", {
               secs: String(secs),
@@ -141,6 +149,7 @@ export function BuddyVoiceRecorder({ t, busy, onReady, onStatus }: Props) {
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
   meta: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
+  metaOnInk: { color: "rgba(242,245,248,0.7)" },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   btn: {
     alignSelf: "flex-start",
