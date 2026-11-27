@@ -45,7 +45,7 @@ import { BuddyVideoRecorder } from "./BuddyVideoRecorder";
 import { StagedNudgeRow } from "./StagedNudgePreview";
 import { HttpRelayPort } from "../push/httpRelayPort";
 import { getRelayBaseUrl } from "../push/expoPushPort";
-import { loadBuddies, shortFingerprint } from "../buddyStore";
+import { buddyDisplayName, loadBuddies } from "../buddyStore";
 
 type WizardKind = "text" | "react" | "audio" | "video";
 
@@ -88,10 +88,7 @@ export function BuddyComposeScreen({
     void loadBuddies().then((list) => {
       if (!alive) return;
       const match = list.find((b) => b.mailboxId === pending.mailboxId);
-      const label =
-        match?.displayLabel?.trim() ||
-        (match?.pub ? shortFingerprint(match.pub) : "");
-      if (label) setSeekerLabel(label);
+      if (match) setSeekerLabel(buddyDisplayName(match));
     });
     return () => {
       alive = false;

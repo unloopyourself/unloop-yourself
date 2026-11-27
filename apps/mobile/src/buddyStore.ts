@@ -133,7 +133,7 @@ export async function acceptInviteLink(
     pub: invite.pub,
     role: invite.role === "buddy" ? "buddy" : "seeker",
     pairedAtMs: nowMs,
-    displayLabel: shortFingerprint(invite.pub),
+    // Nickname is chosen in UI after accept (not the pub fingerprint).
     // Privacy default: no live approaching push until the seeker opts in.
     notifyApproaching: false,
     acceptNudges: true,
@@ -171,7 +171,9 @@ export async function updateBuddyPrefs(
         ? { acceptNudges: patch.acceptNudges }
         : {}),
       ...(patch.displayLabel !== undefined
-        ? { displayLabel: patch.displayLabel }
+        ? {
+            displayLabel: patch.displayLabel.trim().slice(0, 40) || undefined,
+          }
         : {}),
     });
   });
@@ -187,4 +189,11 @@ export function anyBuddyAcceptsNudges(buddies: readonly BuddyRecord[]): boolean 
 export function shortFingerprint(pub: string): string {
   const cleaned = pub.replace(/^pub_/, "");
   return cleaned.slice(0, 8).toUpperCase();
+}
+
+/** Prefer human nickname; fall back to short pub fingerprint. */
+export function buddyDisplayName(buddy: BuddyRecord): string {
+  const nick = buddy.displayLabel?.trim();
+  if (nick) return nick.slice(0, 40);
+  return shortFingerprint(buddy.pub);
 }

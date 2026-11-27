@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AppState,
+  Modal,
   Pressable,
   ScrollView,
   Share,
@@ -18,6 +19,7 @@ import { colors, typography } from "../theme";
 import { statusBarTopInset } from "../layout";
 import {
   acceptInviteLink,
+  buddyDisplayName,
   buildMyInvite,
   loadBuddies,
   revokeBuddy,
@@ -94,6 +96,9 @@ export function BuddyScreen({
   const [pairingOpen, setPairingOpen] = useState(true);
   const [prepareOpen, setPrepareOpen] = useState(false);
   const disclosureInit = useRef(false);
+  /** Local-only nickname after pair (or rename). */
+  const [nickBuddyId, setNickBuddyId] = useState<string | null>(null);
+  const [nickDraft, setNickDraft] = useState("");
 
   const refresh = useCallback(async () => {
     const [{ link: inviteLink, invite }, list, stagedList] = await Promise.all([
@@ -233,6 +238,25 @@ export function BuddyScreen({
     }
   }, [stageText, t]);
 
+  const openNickEditor = useCallback((buddy: BuddyRecord) => {
+    setNickBuddyId(buddy.buddyId);
+    setNickDraft(buddy.displayLabel?.trim() ?? "");
+  }, []);
+
+  const saveNick = useCallback(async () => {
+    if (!nickBuddyId) return;
+    const name = nickDraft.trim().slice(0, 40);
+    const list = await updateBuddyPrefs(nickBuddyId, {
+      displayLabel: name || undefined,
+    });
+    setBuddies(list);
+    setNickBuddyId(null);
+    setNickDraft("");
+    if (name) {
+      setStatus("pair", t("buddy.nick_saved", { name }));
+    }
+  }, [nickBuddyId, nickDraft, setStatus, t]);
+
   const applyInvite = useCallback(
     async (raw: string) => {
       const trimmed = raw.trim();
@@ -246,20 +270,25 @@ export function BuddyScreen({
           setStatus("pair", t(`buddy.accept_${result.reason}`));
           return;
         }
-        const fp = shortFingerprint(result.buddy.pub);
-        setStatus("pair", 
+        const name = buddyDisplayName(result.buddy);
+        setStatus(
+          "pair",
           t(result.alreadyPaired ? "buddy.accept_already" : "buddy.accept_ok", {
-            fp,
+            name,
           }),
         );
         setPaste("");
         setBuddies(await loadBuddies());
         void syncBuddyApproachingNative(await loadSettings());
+        // New pair → ask for a local nickname (skip keeps fingerprint fallback).
+        if (!result.alreadyPaired) {
+          openNickEditor(result.buddy);
+        }
       } finally {
         setBusy(false);
       }
     },
-    [t],
+    [openNickEditor, setStatus, t],
   );
 
   useEffect(() => {
@@ -297,6 +326,51 @@ export function BuddyScreen({
 
       <Text style={styles.title}>{t("buddy.title")}</Text>
       <Text style={styles.lead}>{t("buddy.lead")}</Text>
+
+      <Modal
+        visible={nickBuddyId != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNickBuddyId(null)}
+      >
+        <View style={styles.nickBackdrop}>
+          <View style={styles.nickCard}>
+            <Text style={styles.nickTitle}>{t("buddy.nick_title")}</Text>
+            <Text style={styles.nickLead}>{t("buddy.nick_lead")}</Text>
+            <TextInput
+              style={styles.nickInput}
+              value={nickDraft}
+              onChangeText={setNickDraft}
+              placeholder={t("buddy.nick_placeholder")}
+              placeholderTextColor={colors.textMuted}
+              maxLength={40}
+              autoFocus
+              autoCapitalize="words"
+            />
+            <View style={styles.row}>
+              <Pressable
+                style={[styles.btnPrimary, styles.btnGrow]}
+                onPress={() => void saveNick()}
+                accessibilityRole="button"
+              >
+                <Text style={styles.btnPrimaryLabel}>
+                  {t("buddy.nick_save")}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.btn, styles.btnGrow]}
+                onPress={() => {
+                  setNickBuddyId(null);
+                  setNickDraft("");
+                }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.btnLabel}>{t("buddy.nick_skip")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* 1. Pairing: open by default; invite + paste live together. */}
       <CollapsibleSection
@@ -386,14 +460,23 @@ export function BuddyScreen({
               <View key={b.buddyId} style={styles.buddyCard}>
                 <View style={styles.buddyRow}>
                   <View style={styles.buddyMain}>
-                    <Text style={styles.buddyTitle}>
-                      {b.displayLabel ?? shortFingerprint(b.pub)}
-                    </Text>
+                    <Text style={styles.buddyTitle}>{buddyDisplayName(b)}</Text>
                     <Text style={styles.meta}>
                       {b.role === "buddy"
                         ? t("buddy.role_buddy")
                         : t("buddy.role_seeker")}
+                      {" · "}
+                      {shortFingerprint(b.pub)}
                     </Text>
+                    <Pressable
+                      onPress={() => openNickEditor(b)}
+                      accessibilityRole="button"
+                      style={styles.nickEdit}
+                    >
+                      <Text style={styles.nickEditLabel}>
+                        {t("buddy.nick_edit")}
+                      </Text>
+                    </Pressable>
                   </View>
                   <Pressable
                     onPress={() => {
@@ -715,10 +798,43 @@ const styles = StyleSheet.create({
   },
   buddyMain: { flex: 1, gap: 2 },
   buddyTitle: { fontWeight: "700", color: colors.ink, fontSize: 15 },
+  nickEdit: { paddingVertical: 4, alignSelf: "flex-start" },
+  nickEditLabel: { fontWeight: "700", color: colors.teal, fontSize: 13 },
   revoke: {
     minHeight: MIN_TOUCH,
     justifyContent: "center",
     paddingHorizontal: 12,
   },
   revokeLabel: { fontWeight: "700", color: colors.ember, fontSize: 14 },
+  nickBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(10,37,64,0.45)",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+  nickCard: {
+    borderRadius: 16,
+    padding: 20,
+    backgroundColor: colors.mist,
+    gap: 12,
+  },
+  nickTitle: {
+    fontSize: typography.titleSize,
+    fontWeight: "800",
+    color: colors.ink,
+  },
+  nickLead: {
+    fontSize: typography.bodySize,
+    lineHeight: 22,
+    color: colors.textMuted,
+  },
+  nickInput: {
+    minHeight: 48,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: colors.white,
+    color: colors.ink,
+    fontSize: 16,
+  },
 });

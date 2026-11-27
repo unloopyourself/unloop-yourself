@@ -392,11 +392,12 @@ Caps (initial): text ≤500 chars; photo/GIF ≤2 MiB each; voice ≤30 s / 
 - **Escalate if:** Policy wording ambiguity.
 
 ### P3.5-08 — Two-device media acceptance (human)
-- **Status:** ready
+- **Status:** done
 - **Deps:** P3.5-02, P3.5-03, P3.5-05 (video optional if 06 done)
 - **AC:** Preset + photo/composed + voice path verified on two devices; documented in STATUS.
 - **Tests:** Human device acceptance.
 - **Escalate if:** Always — milestone.
+- **Notes (2026-11-27):** Human validated after Phase 3.5 media + timeline/wizard hotfixes; will keep smoking in the following days.
 
 ### P3.5-09 — Auto-send staged + lockout window
 - **Status:** done
