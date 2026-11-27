@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   AppState,
@@ -73,6 +73,7 @@ export function BuddyComposeScreen({
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [seekerLabel, setSeekerLabel] = useState(seekerLabelProp ?? "");
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     void loadStagedNudges().then(setStaged);
@@ -368,11 +369,14 @@ export function BuddyComposeScreen({
 
   return (
     <ScrollView
+      ref={scrollRef}
       contentContainerStyle={[
         styles.container,
         { paddingTop: statusBarTopInset(4) },
       ]}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      automaticallyAdjustKeyboardInsets
     >
       <Pressable onPress={onBack} style={styles.back} accessibilityRole="button">
         <Text style={styles.backLabel}>← {t("nav.back")}</Text>
@@ -424,6 +428,11 @@ export function BuddyComposeScreen({
             multiline
             maxLength={280}
             autoFocus
+            onFocus={() => {
+              setTimeout(() => {
+                scrollRef.current?.scrollTo({ y: 160, animated: true });
+              }, 280);
+            }}
           />
           <Pressable
             style={[styles.btnPrimary, busy && styles.disabled]}

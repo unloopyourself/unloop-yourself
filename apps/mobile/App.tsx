@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AppState,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -158,6 +159,8 @@ export default function App() {
   /** Buddy tapped the approaching tray — keep live compose open past lockout. */
   const [liveComposeHold, setLiveComposeHold] = useState(false);
   const buddyNudgeTextRef = useRef<string | null>(null);
+  /** Keep typing challenges above the soft keyboard (Android resize alone is not enough). */
+  const challengeScrollRef = useRef<ScrollView>(null);
 
   const applyDecodedBuddyNudge = useCallback(
     (decoded: NonNullable<ReturnType<typeof decodeNudgeBlob>>) => {
@@ -1175,6 +1178,21 @@ export default function App() {
   const inChallenge = sessionState === "CHALLENGE";
   const hasBuddyNudge = Boolean(buddyNudgeText) && !buddyNudgeDismissed;
 
+  // Soft keyboard covers the unlock phrase field on Android unless we scroll.
+  useEffect(() => {
+    if (!inChallenge || !challengeOpened) return;
+    const event =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const sub = Keyboard.addListener(event, () => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          challengeScrollRef.current?.scrollToEnd({ animated: true });
+        }, 60);
+      });
+    });
+    return () => sub.remove();
+  }, [challengeOpened, inChallenge]);
+
   // Buddy nudge: skip the "Start challenge" gate — show the nudge immediately.
   useEffect(() => {
     if (!inChallenge || !hasBuddyNudge || challengeOpened) return;
@@ -1256,6 +1274,7 @@ export default function App() {
         </ScrollView>
       ) : inChallenge && settings && challengeOpened ? (
         <ScrollView
+          ref={challengeScrollRef}
           contentContainerStyle={styles.challengeContainer}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -1365,9 +1384,10 @@ const styles = StyleSheet.create({
   challengeContainer: {
     flexGrow: 1,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: 28,
-    paddingVertical: 48,
+    paddingTop: 56,
+    paddingBottom: 120,
     gap: 14,
   },
   brandOnInk: {

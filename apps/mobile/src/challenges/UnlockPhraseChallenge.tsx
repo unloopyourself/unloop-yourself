@@ -1,11 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-} from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 import { detectLocale, type Translate } from "../i18n";
 import { colors, typography } from "../theme";
 import { pickUnlockPhrase } from "./unlockPhrases";
@@ -48,11 +42,7 @@ export function UnlockPhraseChallenge({ t, onComplete }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.wrap}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={24}
-    >
+    <View style={styles.wrap}>
       <Text style={styles.title}>{t("challenge.phrase.title")}</Text>
       <Text style={styles.subtitle}>{t("challenge.phrase.body")}</Text>
       <Text
@@ -71,11 +61,12 @@ export function UnlockPhraseChallenge({ t, onComplete }: Props) {
         autoComplete="off"
         textContentType="none"
         spellCheck={false}
+        autoFocus
         placeholderTextColor={colors.textMuted}
         accessibilityLabel="Unlock phrase"
         testID="unlock-phrase"
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
