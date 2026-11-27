@@ -11,6 +11,7 @@ import {
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 import type { BuddyRecord } from "@unloop/core";
+import { SOUND_PRESET_IDS } from "@unloop/core";
 import type { Translate } from "../i18n";
 import { colors, typography } from "../theme";
 import { statusBarTopInset } from "../layout";
@@ -21,6 +22,24 @@ import {
   revokeBuddy,
   shortFingerprint,
 } from "../buddyStore";
+import {
+  addStagedMedia,
+  addStagedNudge,
+  addStagedPreset,
+  loadStagedNudges,
+  removeStagedNudge,
+  stagedNudgeSummary,
+  type StagedNudge,
+} from "../buddyNudgeStore";
+import {
+  captureCompressedPhoto,
+  captureVideoUnderCap,
+  pickCompressedPhoto,
+  pickGifUnderCap,
+  pickVideoUnderCap,
+} from "../buddyMediaEncode";
+import { SOUND_PRESET_I18N_KEYS } from "../buddySoundPresets";
+import { BuddyVoiceRecorder } from "./BuddyVoiceRecorder";
 
 type Props = {
   t: Translate;
@@ -39,23 +58,110 @@ export function BuddyScreen({
   const [link, setLink] = useState<string>("");
   const [myFp, setMyFp] = useState<string>("");
   const [buddies, setBuddies] = useState<BuddyRecord[]>([]);
+  const [staged, setStaged] = useState<StagedNudge[]>([]);
   const [paste, setPaste] = useState("");
+  const [stageText, setStageText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [{ link: inviteLink, invite }, list] = await Promise.all([
+    const [{ link: inviteLink, invite }, list, stagedList] = await Promise.all([
       buildMyInvite("seeker"),
       loadBuddies(),
+      loadStagedNudges(),
     ]);
     setLink(inviteLink);
     setMyFp(shortFingerprint(invite.pub));
     setBuddies(list);
+    setStaged(stagedList);
   }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const saveStagedText = useCallback(async () => {
+    const next = await addStagedNudge(stageText);
+    setStaged(next);
+    setStageText("");
+    setStatus(t("buddy.compose_staged_saved"));
+  }, [stageText, t]);
+
+  const stagePhoto = useCallback(async (fromCamera: boolean) => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const media = fromCamera
+        ? await captureCompressedPhoto()
+        : await pickCompressedPhoto();
+      if (!media) {
+        setStatus(t("buddy.compose_photo_cancel"));
+        return;
+      }
+      setStaged(
+        await addStagedMedia({
+          kind: "photo",
+          media,
+          caption: stageText.trim() || undefined,
+        }),
+      );
+      setStatus(t("buddy.compose_staged_saved"));
+    } finally {
+      setBusy(false);
+    }
+  }, [stageText, t]);
+
+  const stageGif = useCallback(async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const media = await pickGifUnderCap();
+      if (!media) {
+        setStatus(t("buddy.compose_gif_cancel"));
+        return;
+      }
+      setStaged(
+        await addStagedMedia({
+          kind: "gif",
+          media,
+          caption: stageText.trim() || undefined,
+        }),
+      );
+      setStatus(t("buddy.compose_staged_saved"));
+    } finally {
+      setBusy(false);
+    }
+  }, [stageText, t]);
+
+  const stageVideo = useCallback(async (fromCamera: boolean) => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const media = fromCamera
+        ? await captureVideoUnderCap()
+        : await pickVideoUnderCap();
+      if (!media) {
+        setStatus(t("buddy.compose_video_cancel"));
+        return;
+      }
+      setStaged(
+        await addStagedMedia({
+          kind: "video",
+          media: {
+            encoding: media.encoding,
+            mime: media.mime,
+            byteLength: media.byteLength,
+            data: media.data,
+          },
+          durationMs: media.durationMs,
+          caption: stageText.trim() || undefined,
+        }),
+      );
+      setStatus(t("buddy.compose_staged_saved"));
+    } finally {
+      setBusy(false);
+    }
+  }, [stageText, t]);
 
   const applyInvite = useCallback(
     async (raw: string) => {
@@ -188,6 +294,125 @@ export function BuddyScreen({
               accessibilityRole="button"
             >
               <Text style={styles.revokeLabel}>{t("buddy.revoke")}</Text>
+            </Pressable>
+          </View>
+        ))
+      )}
+
+      <Text style={styles.section}>{t("buddy.prepare_title")}</Text>
+      <Text style={styles.meta}>{t("buddy.prepare_lead")}</Text>
+      <TextInput
+        style={styles.input}
+        value={stageText}
+        onChangeText={setStageText}
+        placeholder={t("buddy.prepare_caption_placeholder")}
+        placeholderTextColor={colors.textMuted}
+        multiline
+      />
+      <View style={styles.row}>
+        <Pressable
+          style={[styles.btnPrimary, busy && styles.btnDisabled]}
+          disabled={busy}
+          onPress={() => void saveStagedText()}
+        >
+          <Text style={styles.btnPrimaryLabel}>{t("buddy.prepare_save_text")}</Text>
+        </Pressable>
+      </View>
+      <View style={styles.row}>
+        <Pressable
+          style={[styles.btn, busy && styles.btnDisabled]}
+          disabled={busy}
+          onPress={() => void stagePhoto(false)}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_photo_pick")}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, busy && styles.btnDisabled]}
+          disabled={busy}
+          onPress={() => void stagePhoto(true)}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_photo_camera")}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, busy && styles.btnDisabled]}
+          disabled={busy}
+          onPress={() => void stageGif()}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_gif_pick")}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, busy && styles.btnDisabled]}
+          disabled={busy}
+          onPress={() => void stageVideo(false)}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_video_pick")}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, busy && styles.btnDisabled]}
+          disabled={busy}
+          onPress={() => void stageVideo(true)}
+        >
+          <Text style={styles.btnLabel}>{t("buddy.compose_video_camera")}</Text>
+        </Pressable>
+      </View>
+      <BuddyVoiceRecorder
+        t={t}
+        busy={busy}
+        onStatus={setStatus}
+        onReady={(media, durationMs) => {
+          void addStagedMedia({
+            kind: "voice",
+            media,
+            durationMs,
+            caption: stageText.trim() || undefined,
+          }).then((next) => {
+            setStaged(next);
+            setStatus(t("buddy.compose_staged_saved"));
+          });
+        }}
+      />
+      <View style={styles.row}>
+        {SOUND_PRESET_IDS.map((id) => (
+          <Pressable
+            key={id}
+            style={[styles.btn, busy && styles.btnDisabled]}
+            disabled={busy}
+            onPress={() => {
+              void addStagedPreset(id, stageText.trim() || undefined).then(
+                (next) => {
+                  setStaged(next);
+                  setStatus(t("buddy.compose_staged_saved"));
+                },
+              );
+            }}
+          >
+            <Text style={styles.btnLabel}>{t(SOUND_PRESET_I18N_KEYS[id])}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={styles.section}>{t("buddy.compose_staged")}</Text>
+      {staged.length === 0 ? (
+        <Text style={styles.meta}>{t("buddy.compose_staged_empty")}</Text>
+      ) : (
+        staged.map((n) => (
+          <View key={n.id} style={styles.buddyRow}>
+            <View style={styles.buddyMain}>
+              <Text style={styles.buddyTitle}>{t(`buddy.kind_${n.kind}`)}</Text>
+              <Text style={styles.meta} numberOfLines={2}>
+                {stagedNudgeSummary(n)}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                void removeStagedNudge(n.id).then(setStaged);
+              }}
+              style={styles.revoke}
+              accessibilityRole="button"
+            >
+              <Text style={styles.revokeLabel}>
+                {t("buddy.compose_staged_delete")}
+              </Text>
             </Pressable>
           </View>
         ))

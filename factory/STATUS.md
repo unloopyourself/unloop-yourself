@@ -11,6 +11,7 @@ Last updated: 2026-11-27
 
 - **P3.5-00…07** done.
 - **Hotfix (2026-11-27):** stuck CHALLENGE shield with no Start/Skip — in-app Start+Skip, overlay Skip, Buddy in hamburger (list + revoke).
+- **Hotfix (2026-11-27):** staged nudges now support photo/GIF/voice/video/preset (file-backed on device); prepare under Buddy ☰, send from compose.
 
 ## Human decisions / inputs pending
 

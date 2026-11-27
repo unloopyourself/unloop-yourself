@@ -19,9 +19,14 @@ import {
   type SoundPresetId,
 } from "@unloop/core";
 import {
+  addStagedMedia,
   addStagedNudge,
+  addStagedPreset,
   encodeNudgeBlob,
+  encodeStagedNudgeCipher,
   loadStagedNudges,
+  removeStagedNudge,
+  stagedNudgeSummary,
   type PendingApproach,
   type StagedNudge,
 } from "../buddyNudgeStore";
@@ -110,6 +115,91 @@ export function BuddyComposeScreen({
     [putCipher, t],
   );
 
+  const uploadStaged = useCallback(
+    async (row: StagedNudge) => {
+      setStatus(null);
+      setBusy(true);
+      let cipher: string | null = null;
+      try {
+        cipher = await encodeStagedNudgeCipher(row);
+      } catch {
+        setStatus(t("buddy.compose_fail"));
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      if (!cipher) {
+        setStatus(t("buddy.compose_staged_missing"));
+        return;
+      }
+      await putCipher(cipher);
+    },
+    [putCipher, t],
+  );
+
+  const savePhotoStaged = useCallback(async () => {
+    if (!photo) {
+      setStatus(t("buddy.compose_photo_needed"));
+      return;
+    }
+    const next = await addStagedMedia({
+      kind: "photo",
+      media: photo,
+      caption: live.trim() || undefined,
+    });
+    setStaged(next);
+    setStatus(t("buddy.compose_staged_saved"));
+  }, [live, photo, t]);
+
+  const saveGifStaged = useCallback(async () => {
+    if (!gif) {
+      setStatus(t("buddy.compose_gif_needed"));
+      return;
+    }
+    const next = await addStagedMedia({
+      kind: "gif",
+      media: gif,
+      caption: live.trim() || undefined,
+    });
+    setStaged(next);
+    setStatus(t("buddy.compose_staged_saved"));
+  }, [gif, live, t]);
+
+  const saveVoiceStaged = useCallback(async () => {
+    if (!voice) {
+      setStatus(t("buddy.compose_voice_needed"));
+      return;
+    }
+    const next = await addStagedMedia({
+      kind: "voice",
+      media: voice.media,
+      durationMs: voice.durationMs,
+      caption: live.trim() || undefined,
+    });
+    setStaged(next);
+    setStatus(t("buddy.compose_staged_saved"));
+  }, [live, t, voice]);
+
+  const saveVideoStaged = useCallback(async () => {
+    if (!video) {
+      setStatus(t("buddy.compose_video_needed"));
+      return;
+    }
+    const next = await addStagedMedia({
+      kind: "video",
+      media: {
+        encoding: video.encoding,
+        mime: video.mime,
+        byteLength: video.byteLength,
+        data: video.data,
+      },
+      durationMs: video.durationMs,
+      caption: live.trim() || undefined,
+    });
+    setStaged(next);
+    setStatus(t("buddy.compose_staged_saved"));
+  }, [live, t, video]);
+
   const uploadPreset = useCallback(
     async (presetId: SoundPresetId) => {
       const caption = live.trim() || undefined;
@@ -118,6 +208,15 @@ export function BuddyComposeScreen({
       );
     },
     [live, putCipher],
+  );
+
+  const savePresetStaged = useCallback(
+    async (presetId: SoundPresetId) => {
+      const next = await addStagedPreset(presetId, live.trim() || undefined);
+      setStaged(next);
+      setStatus(t("buddy.compose_staged_saved"));
+    },
+    [live, t],
   );
 
   const uploadPhoto = useCallback(async () => {
@@ -346,18 +445,38 @@ export function BuddyComposeScreen({
       ) : null}
 
       <Text style={styles.section}>{t("buddy.compose_staged")}</Text>
+      <Text style={styles.meta}>{t("buddy.compose_staged_lead")}</Text>
       {staged.length === 0 ? (
         <Text style={styles.meta}>{t("buddy.compose_staged_empty")}</Text>
       ) : (
         staged.map((n) => (
-          <Pressable
-            key={n.id}
-            style={[styles.staged, busy && styles.disabled]}
-            disabled={busy}
-            onPress={() => void upload(n.body)}
-          >
-            <Text style={styles.stagedBody}>{n.body}</Text>
-          </Pressable>
+          <View key={n.id} style={styles.stagedRow}>
+            <Pressable
+              style={[styles.staged, busy && styles.disabled]}
+              disabled={busy}
+              onPress={() => void uploadStaged(n)}
+            >
+              <Text style={styles.stagedKind}>
+                {t(`buddy.kind_${n.kind}`)}
+              </Text>
+              <Text style={styles.stagedBody} numberOfLines={2}>
+                {stagedNudgeSummary(n)}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={styles.stagedDelete}
+              disabled={busy}
+              onPress={() => {
+                void removeStagedNudge(n.id).then(setStaged);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t("buddy.compose_staged_delete")}
+            >
+              <Text style={styles.stagedDeleteLabel}>
+                {t("buddy.compose_staged_delete")}
+              </Text>
+            </Pressable>
+          </View>
         ))
       )}
 
@@ -387,6 +506,15 @@ export function BuddyComposeScreen({
             <Text style={styles.btnPrimaryLabel}>
               {t("buddy.compose_photo_send")}
             </Text>
+          </Pressable>
+        ) : null}
+        {photo ? (
+          <Pressable
+            style={[styles.btn, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void savePhotoStaged()}
+          >
+            <Text style={styles.btnLabel}>{t("buddy.compose_save_staged")}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -419,6 +547,15 @@ export function BuddyComposeScreen({
             </Text>
           </Pressable>
         ) : null}
+        {gif ? (
+          <Pressable
+            style={[styles.btn, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void saveGifStaged()}
+          >
+            <Text style={styles.btnLabel}>{t("buddy.compose_save_staged")}</Text>
+          </Pressable>
+        ) : null}
       </View>
       {gif ? (
         <Image
@@ -441,15 +578,24 @@ export function BuddyComposeScreen({
         }}
       />
       {voice ? (
-        <Pressable
-          style={[styles.btnPrimary, busy && styles.disabled]}
-          disabled={busy}
-          onPress={() => void uploadVoice()}
-        >
-          <Text style={styles.btnPrimaryLabel}>
-            {t("buddy.compose_voice_send")}
-          </Text>
-        </Pressable>
+        <View style={styles.row}>
+          <Pressable
+            style={[styles.btnPrimary, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void uploadVoice()}
+          >
+            <Text style={styles.btnPrimaryLabel}>
+              {t("buddy.compose_voice_send")}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.btn, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void saveVoiceStaged()}
+          >
+            <Text style={styles.btnLabel}>{t("buddy.compose_save_staged")}</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       <Text style={styles.section}>{t("buddy.compose_video")}</Text>
@@ -480,21 +626,40 @@ export function BuddyComposeScreen({
             </Text>
           </Pressable>
         ) : null}
+        {video ? (
+          <Pressable
+            style={[styles.btn, busy && styles.disabled]}
+            disabled={busy}
+            onPress={() => void saveVideoStaged()}
+          >
+            <Text style={styles.btnLabel}>{t("buddy.compose_save_staged")}</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <Text style={styles.section}>{t("buddy.compose_presets")}</Text>
       <Text style={styles.meta}>{t("buddy.compose_presets_lead")}</Text>
       <View style={styles.row}>
         {SOUND_PRESET_IDS.map((id) => (
-          <Pressable
-            key={id}
-            style={[styles.btn, busy && styles.disabled]}
-            disabled={busy}
-            onPress={() => void uploadPreset(id)}
-            accessibilityRole="button"
-          >
-            <Text style={styles.btnLabel}>{t(SOUND_PRESET_I18N_KEYS[id])}</Text>
-          </Pressable>
+          <View key={id} style={styles.presetCol}>
+            <Pressable
+              style={[styles.btn, busy && styles.disabled]}
+              disabled={busy}
+              onPress={() => void uploadPreset(id)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.btnLabel}>
+                {t(SOUND_PRESET_I18N_KEYS[id])}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btn, busy && styles.disabled]}
+              disabled={busy}
+              onPress={() => void savePresetStaged(id)}
+            >
+              <Text style={styles.btnLabel}>{t("buddy.compose_save_staged")}</Text>
+            </Pressable>
+          </View>
         ))}
       </View>
 
@@ -577,12 +742,33 @@ const styles = StyleSheet.create({
   },
   btnPrimaryLabel: { fontWeight: "700", color: colors.white },
   disabled: { opacity: 0.5 },
+  stagedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   staged: {
+    flex: 1,
     padding: 14,
     borderRadius: 12,
     backgroundColor: colors.chipOff,
+    gap: 4,
+  },
+  stagedKind: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
   stagedBody: { color: colors.ink, fontSize: 15, lineHeight: 20 },
+  stagedDelete: { paddingVertical: 8, paddingHorizontal: 6 },
+  stagedDeleteLabel: {
+    fontWeight: "700",
+    color: colors.ember,
+    fontSize: 12,
+  },
+  presetCol: { gap: 6 },
   input: {
     minHeight: 88,
     borderRadius: 12,
