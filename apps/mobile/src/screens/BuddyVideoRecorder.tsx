@@ -30,6 +30,8 @@ export function BuddyVideoRecorder({ t, busy, onReady, onStatus }: Props) {
   const camRef = useRef<CameraView>(null);
   const [open, setOpen] = useState(false);
   const [recording, setRecording] = useState(false);
+  /** Buddy nudges are usually selfies — default front. */
+  const [facing, setFacing] = useState<"front" | "back">("front");
   const [camPerm, requestCamPerm] = useCameraPermissions();
   const [micPerm, requestMicPerm] = useMicrophonePermissions();
   const stoppingRef = useRef(false);
@@ -38,7 +40,13 @@ export function BuddyVideoRecorder({ t, busy, onReady, onStatus }: Props) {
     setOpen(false);
     setRecording(false);
     stoppingRef.current = false;
+    setFacing("front");
   }, []);
+
+  const flip = useCallback(() => {
+    if (recording) return;
+    setFacing((prev) => (prev === "front" ? "back" : "front"));
+  }, [recording]);
 
   const stop = useCallback(async () => {
     if (stoppingRef.current) return;
@@ -124,16 +132,30 @@ export function BuddyVideoRecorder({ t, busy, onReady, onStatus }: Props) {
         }}
       >
         <View style={styles.modal}>
-          <CameraView
-            ref={camRef}
-            style={styles.preview}
-            mode="video"
-            facing="back"
-            videoQuality="480p"
-            // ~1 Mbps keeps ~10s well under the mailbox cap on low-end OEMs.
-            videoBitrate={1_000_000}
-            mute={false}
-          />
+          <View style={styles.previewWrap}>
+            <CameraView
+              ref={camRef}
+              style={styles.preview}
+              mode="video"
+              facing={facing}
+              mirror={facing === "front"}
+              videoQuality="480p"
+              // ~1 Mbps keeps ~10s well under the mailbox cap on low-end OEMs.
+              videoBitrate={1_000_000}
+              mute={false}
+            />
+            <Pressable
+              style={[styles.flipBtn, recording && styles.btnDisabled]}
+              disabled={recording}
+              onPress={flip}
+              accessibilityRole="button"
+              accessibilityLabel={t("buddy.compose_video_flip")}
+            >
+              <Text style={styles.flipLabel}>
+                {t("buddy.compose_video_flip")}
+              </Text>
+            </Pressable>
+          </View>
           <Text style={styles.hint}>{t("buddy.compose_video_inapp_hint")}</Text>
           <View style={styles.actions}>
             {!recording ? (
@@ -209,12 +231,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
   },
-  preview: {
+  previewWrap: {
     flex: 1,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: "#000",
   },
+  preview: { flex: 1 },
+  flipBtn: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: "rgba(10,37,64,0.72)",
+    justifyContent: "center",
+  },
+  flipLabel: { color: colors.white, fontWeight: "700", fontSize: 14 },
   hint: { color: colors.white, fontSize: 13, opacity: 0.85, textAlign: "center" },
   actions: { flexDirection: "row", gap: 10, alignItems: "center" },
 });
