@@ -260,6 +260,15 @@ object InterruptOverlay {
     }
   }
 
+  /**
+   * Bring Unloop's activity to the front without wiping React state.
+   * Used by overlay Open / Skip and by JS when auto-opening in-app surfaces
+   * (Buddy nudge, audio challenge) so tone/UI are not buried under the feed.
+   */
+  fun bringActivityToFront(context: Context) {
+    launchApp(context)
+  }
+
   private fun launchApp(context: Context) {
     try {
       val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
@@ -270,6 +279,7 @@ object InterruptOverlay {
           Intent.FLAG_ACTIVITY_SINGLE_TOP,
       )
       context.startActivity(launch)
+      Log.i(TAG, "bringActivityToFront")
     } catch (t: Throwable) {
       Log.e(TAG, "launchApp from overlay failed", t)
     }

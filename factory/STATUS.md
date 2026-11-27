@@ -18,6 +18,7 @@ Last updated: 2026-11-27
 - **Hotfix (2026-11-27):** Native monitor threshold sync from Settings (`updateNativeThreshold` on persist + Start watching) — stuck harness 12s was firing push/interrupt almost together. Happy-path 5 min Dummy (Samsung→Nokia): push@180s HTTP 200 + compose, staged autosend@270s, interrupt@300s.
 - **Hotfix (2026-11-27):** Live Buddy compose wizard — type chips (text / GIF·emoji / audio / video), built-in stickers+emoticons, save-after-record prompt.
 - **Hotfix (2026-11-27):** Broader default challenge set so unlock_phrase is not ~1/3 of interrupts when Settings only had a tiny enabled list.
+- **Hotfix (2026-11-27):** Audio silence-tap — bring MainActivity to front before tone; defer ToneGenerator until AppState active (no buried-feed beep).
 
 ## Human decisions / inputs pending
 

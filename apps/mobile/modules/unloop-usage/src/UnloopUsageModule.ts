@@ -44,6 +44,8 @@ type UnloopUsageNativeModule = {
   openOverlaySettings(): void;
   getUsageMsForPackage(packageName: string, startMs: number, endMs: number): number;
   bringAppToForeground(): void;
+  /** Reorder Unloop activity to front (in-app challenge / Buddy — not overlay-only). */
+  bringActivityToFront(): void;
   dismissInterruptOverlay(): void;
   /** Hide shield without clearing outstanding (Buddy nudge / in-app challenge). */
   hideInterruptOverlayForInApp(): void;

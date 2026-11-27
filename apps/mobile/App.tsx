@@ -936,6 +936,13 @@ export default function App() {
       pendingOpenRef.current = true;
       return;
     }
+    if (Platform.OS === "android") {
+      try {
+        UnloopUsage.bringActivityToFront();
+      } catch {
+        /* overlay already tried launchApp */
+      }
+    }
     // Already in CHALLENGE (threshold entered under the overlay): give the user
     // a full timeout window and mount UI — Open is the real start.
     if (engine.state === "CHALLENGE") {
@@ -1194,9 +1201,14 @@ export default function App() {
   }, [challengeOpened, inChallenge]);
 
   // Buddy nudge: skip the "Start challenge" gate — show the nudge immediately.
+  // Must bring MainActivity forward first: hide-overlay alone leaves the feed
+  // on top while audio/sensors can already run in the buried Unloop activity.
   useEffect(() => {
     if (!inChallenge || !hasBuddyNudge || challengeOpened) return;
     try {
+      if (Platform.OS === "android") {
+        UnloopUsage.bringActivityToFront();
+      }
       UnloopUsage.hideInterruptOverlayForInApp();
     } catch {
       /* optional */

@@ -54,7 +54,13 @@ class UnloopUsageModule : Module() {
     }
 
     Function("bringAppToForeground") {
+      // Threshold path: show the interrupt shield only (avoids PiP on some OEMs).
       bringAppToForeground(context)
+    }
+
+    /** Bring MainActivity to front for in-app challenge / Buddy surfaces. */
+    Function("bringActivityToFront") {
+      InterruptOverlay.bringActivityToFront(context)
     }
 
     Function("dismissInterruptOverlay") {

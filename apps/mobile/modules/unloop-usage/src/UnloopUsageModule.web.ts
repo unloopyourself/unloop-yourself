@@ -20,6 +20,9 @@ const UnloopUsageModule = {
   bringAppToForeground(): void {
     /* no-op */
   },
+  bringActivityToFront(): void {
+    /* no-op */
+  },
   dismissInterruptOverlay(): void {
     /* no-op */
   },
