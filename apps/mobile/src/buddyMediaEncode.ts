@@ -140,27 +140,79 @@ export async function pickGifUnderCap(): Promise<NudgeMediaInline | null> {
   };
 }
 
-async function videoAssetToMedia(
+/**
+ * ImagePicker `duration` is ms on most builds; some OEMs report seconds.
+ * Values ≤ 180 are treated as seconds.
+ */
+export function normalizeVideoDurationMs(
+  hint: number | null | undefined,
+): number | null {
+  if (hint == null || !Number.isFinite(hint) || hint <= 0) return null;
+  if (hint <= 180) return Math.round(hint * 1000);
+  return Math.round(hint);
+}
+
+export type VideoPickFailure =
+  | "cancel"
+  | "perm"
+  | "too_big"
+  | "too_long"
+  | "read_fail";
+
+export type VideoPickResult =
+  | { ok: true; media: VideoNudgeMedia }
+  | { ok: false; reason: VideoPickFailure };
+
+export function videoPickFailureI18nKey(
+  reason: VideoPickFailure,
+): 
+  | "buddy.compose_video_cancel"
+  | "buddy.compose_video_perm"
+  | "buddy.compose_video_too_big"
+  | "buddy.compose_video_too_long" {
+  switch (reason) {
+    case "perm":
+      return "buddy.compose_video_perm";
+    case "too_big":
+      return "buddy.compose_video_too_big";
+    case "too_long":
+      return "buddy.compose_video_too_long";
+    default:
+      return "buddy.compose_video_cancel";
+  }
+}
+
+async function videoAssetToResult(
   uri: string,
   mimeHint: string | null | undefined,
-  durationMsHint: number | null | undefined,
-): Promise<VideoNudgeMedia | null> {
+  durationHint: number | null | undefined,
+): Promise<VideoPickResult> {
   const info = await FileSystem.getInfoAsync(uri);
-  if (!info.exists || info.isDirectory) return null;
-  const data = await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  const byteLength =
-    typeof info.size === "number" ? info.size : approxBytesFromBase64(data);
-  if (byteLength <= 0 || byteLength > NUDGE_CAPS.videoBytes) return null;
+  if (!info.exists || info.isDirectory) return { ok: false, reason: "read_fail" };
 
-  const durationMs = Math.min(
-    NUDGE_CAPS.videoMaxMs,
-    Math.max(0, Math.round(durationMsHint ?? 0)),
-  );
-  // Reject unknown/over-long clips when the picker reports duration.
-  if (durationMsHint != null && durationMsHint > NUDGE_CAPS.videoMaxMs + 500) {
-    return null;
+  const durationMs = normalizeVideoDurationMs(durationHint);
+  if (durationMs != null && durationMs > NUDGE_CAPS.videoMaxMs + 1500) {
+    return { ok: false, reason: "too_long" };
+  }
+
+  const byteLength = typeof info.size === "number" ? info.size : 0;
+  if (byteLength > NUDGE_CAPS.videoBytes) {
+    return { ok: false, reason: "too_big" };
+  }
+
+  let data: string;
+  try {
+    data = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  } catch {
+    return { ok: false, reason: "read_fail" };
+  }
+  const resolvedBytes =
+    byteLength > 0 ? byteLength : approxBytesFromBase64(data);
+  if (resolvedBytes <= 0) return { ok: false, reason: "read_fail" };
+  if (resolvedBytes > NUDGE_CAPS.videoBytes) {
+    return { ok: false, reason: "too_big" };
   }
 
   const mime =
@@ -169,20 +221,26 @@ async function videoAssetToMedia(
       : "video/mp4";
 
   return {
-    encoding: "base64",
-    mime,
-    byteLength,
-    data,
-    durationMs: durationMs > 0 ? durationMs : NUDGE_CAPS.videoMaxMs,
+    ok: true,
+    media: {
+      encoding: "base64",
+      mime,
+      byteLength: resolvedBytes,
+      data,
+      durationMs:
+        durationMs != null && durationMs > 0
+          ? Math.min(NUDGE_CAPS.videoMaxMs, durationMs)
+          : NUDGE_CAPS.videoMaxMs,
+    },
   };
 }
 
 /**
  * Pick a short video (≤10s / ≤8 MiB). No FFmpeg re-encode — oversize is rejected.
  */
-export async function pickVideoUnderCap(): Promise<VideoNudgeMedia | null> {
+export async function pickVideoUnderCap(): Promise<VideoPickResult> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!perm.granted) return null;
+  if (!perm.granted) return { ok: false, reason: "perm" };
 
   const picked = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["videos"],
@@ -190,28 +248,39 @@ export async function pickVideoUnderCap(): Promise<VideoNudgeMedia | null> {
     quality: 0.5,
     exif: false,
   });
-  if (picked.canceled || !picked.assets[0]?.uri) return null;
+  if (picked.canceled || !picked.assets[0]?.uri) {
+    return { ok: false, reason: "cancel" };
+  }
   const a = picked.assets[0];
-  return videoAssetToMedia(a.uri, a.mimeType, a.duration);
+  return videoAssetToResult(a.uri, a.mimeType, a.duration);
 }
 
 /**
  * Capture a short video (≤10s / ≤8 MiB). Device may still produce large files —
  * we reject if over cap (no paid/cloud compress).
  */
-export async function captureVideoUnderCap(): Promise<VideoNudgeMedia | null> {
-  const perm = await ImagePicker.requestCameraPermissionsAsync();
-  if (!perm.granted) return null;
+export async function captureVideoUnderCap(): Promise<VideoPickResult> {
+  const cam = await ImagePicker.requestCameraPermissionsAsync();
+  if (!cam.granted) return { ok: false, reason: "perm" };
+  // Video with audio needs mic on many OEMs.
+  try {
+    const { requestRecordingPermissionsAsync } = await import("expo-audio");
+    await requestRecordingPermissionsAsync();
+  } catch {
+    /* optional */
+  }
 
   const picked = await ImagePicker.launchCameraAsync({
     mediaTypes: ["videos"],
     videoMaxDuration: Math.floor(NUDGE_CAPS.videoMaxMs / 1000),
-    quality: 0.5,
+    quality: 0.4,
     exif: false,
   });
-  if (picked.canceled || !picked.assets[0]?.uri) return null;
+  if (picked.canceled || !picked.assets[0]?.uri) {
+    return { ok: false, reason: "cancel" };
+  }
   const a = picked.assets[0];
-  return videoAssetToMedia(a.uri, a.mimeType, a.duration);
+  return videoAssetToResult(a.uri, a.mimeType, a.duration);
 }
 
 /** Persist base64 video for expo-video playback. */

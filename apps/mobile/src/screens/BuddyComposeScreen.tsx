@@ -26,7 +26,6 @@ import {
   encodeStagedNudgeCipher,
   loadStagedNudges,
   removeStagedNudge,
-  stagedNudgeSummary,
   type PendingApproach,
   type StagedNudge,
 } from "../buddyNudgeStore";
@@ -36,12 +35,14 @@ import {
   pickCompressedPhoto,
   pickGifUnderCap,
   pickVideoUnderCap,
+  videoPickFailureI18nKey,
   type VideoNudgeMedia,
 } from "../buddyMediaEncode";
 import {
   SOUND_PRESET_I18N_KEYS,
 } from "../buddySoundPresets";
 import { BuddyVoiceRecorder } from "./BuddyVoiceRecorder";
+import { StagedNudgeRow } from "./StagedNudgePreview";
 import { HttpRelayPort } from "../push/httpRelayPort";
 import { getRelayBaseUrl } from "../push/expoPushPort";
 
@@ -330,15 +331,15 @@ export function BuddyComposeScreen({
     setBusy(true);
     setStatus(null);
     try {
-      const media = await pickVideoUnderCap();
-      if (!media) {
-        setStatus(t("buddy.compose_video_cancel"));
+      const picked = await pickVideoUnderCap();
+      if (!picked.ok) {
+        setStatus(t(videoPickFailureI18nKey(picked.reason)));
         return;
       }
       setPhoto(null);
       setGif(null);
       setVoice(null);
-      setVideo(media);
+      setVideo(picked.media);
       setStatus(t("buddy.compose_video_ready"));
     } finally {
       setBusy(false);
@@ -349,15 +350,15 @@ export function BuddyComposeScreen({
     setBusy(true);
     setStatus(null);
     try {
-      const media = await captureVideoUnderCap();
-      if (!media) {
-        setStatus(t("buddy.compose_video_cancel"));
+      const picked = await captureVideoUnderCap();
+      if (!picked.ok) {
+        setStatus(t(videoPickFailureI18nKey(picked.reason)));
         return;
       }
       setPhoto(null);
       setGif(null);
       setVoice(null);
-      setVideo(media);
+      setVideo(picked.media);
       setStatus(t("buddy.compose_video_ready"));
     } finally {
       setBusy(false);
@@ -450,33 +451,16 @@ export function BuddyComposeScreen({
         <Text style={styles.meta}>{t("buddy.compose_staged_empty")}</Text>
       ) : (
         staged.map((n) => (
-          <View key={n.id} style={styles.stagedRow}>
-            <Pressable
-              style={[styles.staged, busy && styles.disabled]}
-              disabled={busy}
-              onPress={() => void uploadStaged(n)}
-            >
-              <Text style={styles.stagedKind}>
-                {t(`buddy.kind_${n.kind}`)}
-              </Text>
-              <Text style={styles.stagedBody} numberOfLines={2}>
-                {stagedNudgeSummary(n)}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={styles.stagedDelete}
-              disabled={busy}
-              onPress={() => {
-                void removeStagedNudge(n.id).then(setStaged);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={t("buddy.compose_staged_delete")}
-            >
-              <Text style={styles.stagedDeleteLabel}>
-                {t("buddy.compose_staged_delete")}
-              </Text>
-            </Pressable>
-          </View>
+          <StagedNudgeRow
+            key={n.id}
+            t={t}
+            nudge={n}
+            busy={busy}
+            onSend={() => void uploadStaged(n)}
+            onDelete={() => {
+              void removeStagedNudge(n.id).then(setStaged);
+            }}
+          />
         ))
       )}
 

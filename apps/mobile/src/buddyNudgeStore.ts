@@ -121,24 +121,26 @@ async function stagedDir(): Promise<string> {
   return dir;
 }
 
+function extForMime(mime: string): string {
+  if (mime.includes("webm")) return "webm";
+  if (mime.includes("gif")) return "gif";
+  if (mime.includes("png")) return "png";
+  if (mime.includes("jpeg") || mime.includes("jpg")) return "jpg";
+  if (mime.startsWith("audio/")) return "m4a";
+  if (mime.startsWith("video/")) return "mp4";
+  return "bin";
+}
+
+/** Write base64 payload as a real media file (not UTF-8 text of base64). */
 async function writeStagedMediaFile(
   id: string,
   mime: string,
   data: string,
 ): Promise<string> {
   const dir = await stagedDir();
-  const ext = mime.includes("webm")
-    ? "webm"
-    : mime.includes("gif")
-      ? "gif"
-      : mime.startsWith("audio/")
-        ? "m4a"
-        : mime.startsWith("video/")
-          ? "mp4"
-          : "bin";
-  const path = `${dir}${id}.${ext}.b64`;
+  const path = `${dir}${id}.${extForMime(mime)}`;
   await FileSystem.writeAsStringAsync(path, data, {
-    encoding: FileSystem.EncodingType.UTF8,
+    encoding: FileSystem.EncodingType.Base64,
   });
   return path;
 }
@@ -289,14 +291,25 @@ async function readStagedMedia(
   byteLengthHint?: number,
 ): Promise<NudgeMediaInline | null> {
   try {
+    // Legacy rows used UTF-8 files of base64 characters (*.b64).
+    const legacyText = path.endsWith(".b64");
     const data = await FileSystem.readAsStringAsync(path, {
-      encoding: FileSystem.EncodingType.UTF8,
+      encoding: legacyText
+        ? FileSystem.EncodingType.UTF8
+        : FileSystem.EncodingType.Base64,
     });
     if (!data) return null;
+    const info = await FileSystem.getInfoAsync(path);
+    const fileSize =
+      info.exists && !info.isDirectory && typeof info.size === "number"
+        ? info.size
+        : 0;
     const byteLength =
-      byteLengthHint && byteLengthHint > 0
-        ? byteLengthHint
-        : Math.floor((data.length * 3) / 4);
+      !legacyText && fileSize > 0
+        ? fileSize
+        : byteLengthHint && byteLengthHint > 0
+          ? byteLengthHint
+          : Math.floor((data.length * 3) / 4);
     return {
       encoding: "base64",
       mime,
@@ -306,6 +319,31 @@ async function readStagedMedia(
   } catch {
     return null;
   }
+}
+
+/** Local file URI for Image / VideoView thumbnails (binary staged files). */
+export async function stagedMediaFileUri(
+  staged: StagedNudge,
+): Promise<string | null> {
+  if (!staged.mediaPath || !staged.mime) return null;
+  if (staged.mediaPath.endsWith(".b64")) {
+    // Materialize a binary cache file for preview.
+    const media = await readStagedMedia(
+      staged.mediaPath,
+      staged.mime,
+      staged.byteLength,
+    );
+    if (!media) return null;
+    const dir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+    if (!dir) return null;
+    const path = `${dir}staged-preview-${staged.id}.${extForMime(staged.mime)}`;
+    await FileSystem.writeAsStringAsync(path, media.data, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return path;
+  }
+  const info = await FileSystem.getInfoAsync(staged.mediaPath);
+  return info.exists ? staged.mediaPath : null;
 }
 
 /** Build a mailbox ciphertext from a staged row (reads media file if needed). */

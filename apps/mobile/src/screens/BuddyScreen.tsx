@@ -28,7 +28,6 @@ import {
   addStagedPreset,
   loadStagedNudges,
   removeStagedNudge,
-  stagedNudgeSummary,
   type StagedNudge,
 } from "../buddyNudgeStore";
 import {
@@ -37,9 +36,11 @@ import {
   pickCompressedPhoto,
   pickGifUnderCap,
   pickVideoUnderCap,
+  videoPickFailureI18nKey,
 } from "../buddyMediaEncode";
 import { SOUND_PRESET_I18N_KEYS } from "../buddySoundPresets";
 import { BuddyVoiceRecorder } from "./BuddyVoiceRecorder";
+import { StagedNudgeRow } from "./StagedNudgePreview";
 
 type Props = {
   t: Translate;
@@ -137,27 +138,29 @@ export function BuddyScreen({
     setBusy(true);
     setStatus(null);
     try {
-      const media = fromCamera
+      const picked = fromCamera
         ? await captureVideoUnderCap()
         : await pickVideoUnderCap();
-      if (!media) {
-        setStatus(t("buddy.compose_video_cancel"));
+      if (!picked.ok) {
+        setStatus(t(videoPickFailureI18nKey(picked.reason)));
         return;
       }
       setStaged(
         await addStagedMedia({
           kind: "video",
           media: {
-            encoding: media.encoding,
-            mime: media.mime,
-            byteLength: media.byteLength,
-            data: media.data,
+            encoding: picked.media.encoding,
+            mime: picked.media.mime,
+            byteLength: picked.media.byteLength,
+            data: picked.media.data,
           },
-          durationMs: media.durationMs,
+          durationMs: picked.media.durationMs,
           caption: stageText.trim() || undefined,
         }),
       );
       setStatus(t("buddy.compose_staged_saved"));
+    } catch {
+      setStatus(t("buddy.compose_video_cancel"));
     } finally {
       setBusy(false);
     }
@@ -396,25 +399,15 @@ export function BuddyScreen({
         <Text style={styles.meta}>{t("buddy.compose_staged_empty")}</Text>
       ) : (
         staged.map((n) => (
-          <View key={n.id} style={styles.buddyRow}>
-            <View style={styles.buddyMain}>
-              <Text style={styles.buddyTitle}>{t(`buddy.kind_${n.kind}`)}</Text>
-              <Text style={styles.meta} numberOfLines={2}>
-                {stagedNudgeSummary(n)}
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => {
-                void removeStagedNudge(n.id).then(setStaged);
-              }}
-              style={styles.revoke}
-              accessibilityRole="button"
-            >
-              <Text style={styles.revokeLabel}>
-                {t("buddy.compose_staged_delete")}
-              </Text>
-            </Pressable>
-          </View>
+          <StagedNudgeRow
+            key={n.id}
+            t={t}
+            nudge={n}
+            busy={busy}
+            onDelete={() => {
+              void removeStagedNudge(n.id).then(setStaged);
+            }}
+          />
         ))
       )}
     </ScrollView>
