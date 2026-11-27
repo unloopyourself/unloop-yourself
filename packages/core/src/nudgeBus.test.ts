@@ -10,7 +10,7 @@ describe("createNudgeEventId", () => {
 });
 
 describe("NudgeBus", () => {
-  it("emits approaching once then interrupt_fetch", async () => {
+  it("emits approaching from usage, not wall clock", () => {
     let now = 1_000;
     const relay = new InMemoryRelayPort(() => now);
     const bus = new NudgeBus(relay, { now: () => now }, 60);
@@ -19,15 +19,59 @@ describe("NudgeBus", () => {
       interruptAtMs: 1_000 + 10_000,
       warnLeadMs: 2_000,
     });
-    expect(bus.tick()).toEqual([]);
+    // Wall clock at warn time must not fire approaching anymore.
     now = 1_000 + 8_000;
-    const warn = bus.tick();
+    expect(bus.tick()).toEqual([]);
+    // Outside feed — no warn.
+    expect(
+      bus.observeUsage({
+        accumulatedMs: 9_000,
+        thresholdMs: 10_000,
+        warnLeadMs: 2_000,
+        inTargetFeed: false,
+      }),
+    ).toEqual([]);
+    // In feed, past warnAfter (8s) — approaching once.
+    const warn = bus.observeUsage({
+      accumulatedMs: 8_000,
+      thresholdMs: 10_000,
+      warnLeadMs: 2_000,
+      inTargetFeed: true,
+    });
     expect(warn).toHaveLength(1);
     expect(warn[0]?.type).toBe("approaching");
-    expect(bus.tick()).toEqual([]);
-    now = 1_000 + 10_000;
-    const fetch = bus.tick();
+    expect(
+      bus.observeUsage({
+        accumulatedMs: 9_000,
+        thresholdMs: 10_000,
+        warnLeadMs: 2_000,
+        inTargetFeed: true,
+      }),
+    ).toEqual([]);
+    const fetch = bus.observeUsage({
+      accumulatedMs: 10_000,
+      thresholdMs: 10_000,
+      warnLeadMs: 2_000,
+      inTargetFeed: true,
+    });
     expect(fetch.some((i) => i.type === "interrupt_fetch")).toBe(true);
+  });
+
+  it("warnLead >= threshold → approaching as soon as feed is active", () => {
+    const relay = new InMemoryRelayPort(() => 1_000);
+    const bus = new NudgeBus(relay, { now: () => 1_000 }, 60);
+    bus.begin({
+      mailboxId: "mb1",
+      interruptAtMs: 1_000 + 60_000,
+      warnLeadMs: 60_000,
+    });
+    const warn = bus.observeUsage({
+      accumulatedMs: 0,
+      thresholdMs: 60_000,
+      warnLeadMs: 60_000,
+      inTargetFeed: true,
+    });
+    expect(warn[0]?.type).toBe("approaching");
   });
 
   it("put/get mailbox for active eventId; cancel purges", async () => {

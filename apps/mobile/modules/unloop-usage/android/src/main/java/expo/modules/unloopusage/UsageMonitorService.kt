@@ -79,6 +79,9 @@ class UsageMonitorService : Service() {
         }
         lastTickElapsedRealtime = nowElapsed
 
+        liveAccumulatedMs = accumulatedMs
+        liveInTargetFeed = matching
+
         val msg =
           "fg=$lastKnownFgPackage play=$matchingPlaybackPackage match=$matching " +
             "acc=${accumulatedMs / 1000}s / ${thresholdMs / 1000}s"
@@ -176,6 +179,8 @@ class UsageMonitorService : Service() {
     MonitorPrefs.setDesired(this, true, packagesCsv, thresholdMs)
     serviceRunning = true
     accumulatedMs = 0L
+    liveAccumulatedMs = 0L
+    liveInTargetFeed = false
     lastTickElapsedRealtime = 0L
     lastKnownFgPackage = null
     matchingPlaybackPackage = null
@@ -377,6 +382,15 @@ class UsageMonitorService : Service() {
     var lastInterruptDeltaU: Long = 0L
       private set
 
+    /** Live accumulator for Buddy approaching (JS poll). */
+    @Volatile
+    var liveAccumulatedMs: Long = 0L
+      private set
+
+    @Volatile
+    var liveInTargetFeed: Boolean = false
+      private set
+
     /** Wall-clock ms; monitor ignores thresholds while now < this. */
     @Volatile
     private var cooldownUntilEpochMs: Long = 0L
@@ -397,6 +411,8 @@ class UsageMonitorService : Service() {
       "packagesCsv" to packagesCsv,
       "lastAppId" to lastInterruptAppId,
       "lastDeltaU" to lastInterruptDeltaU.toDouble(),
+      "accumulatedMs" to liveAccumulatedMs.toDouble(),
+      "inTargetFeed" to liveInTargetFeed,
     )
 
     fun start(context: Context, packagesCsv: String, thresholdMs: Long) {

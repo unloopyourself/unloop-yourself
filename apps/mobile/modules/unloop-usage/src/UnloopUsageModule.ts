@@ -16,6 +16,10 @@ export type MonitorSnapshot = {
   packagesCsv: string;
   lastAppId: string;
   lastDeltaU: number;
+  /** Live usage accumulator toward threshold (ms). */
+  accumulatedMs?: number;
+  /** True while a watched feed is foreground / playing. */
+  inTargetFeed?: boolean;
 };
 
 type UnloopUsageNativeModule = {

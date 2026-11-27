@@ -48,6 +48,8 @@ const UnloopUsageModule = {
       packagesCsv: "",
       lastAppId: "",
       lastDeltaU: 0,
+      accumulatedMs: 0,
+      inTargetFeed: false,
     };
   },
   getHarnessForceChallengeId(): string {

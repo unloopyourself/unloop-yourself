@@ -11,10 +11,12 @@ export function createNudgeEventId(nowMs: number, random = Math.random): string 
 export type NudgeLiveSession = {
   readonly eventId: string;
   readonly mailboxId: string;
+  /** Wall-clock hint only (legacy); approaching is usage-driven. */
   readonly warnAtMs: number;
   readonly interruptAtMs: number;
   cancelled: boolean;
   approachingSent: boolean;
+  interruptFetchSent: boolean;
 };
 
 export type NudgeBusClock = { now: () => number };
@@ -22,6 +24,9 @@ export type NudgeBusClock = { now: () => number };
 /**
  * Coordinates approaching → mailbox → cancel for one local monitoring stretch.
  * Network I/O stays on RelayPort (adapters).
+ *
+ * Approaching is driven by usage accumulation ({@link observeUsage}), not wall
+ * clock — otherwise a long pause outside the feed would warn too early/late.
  */
 export class NudgeBus {
   private session: NudgeLiveSession | null = null;
@@ -37,8 +42,8 @@ export class NudgeBus {
   }
 
   /**
-   * Start a live window. `warnLeadMs` before interrupt emits approaching intent
-   * (caller/adapter turns that into push).
+   * Start a live window. `warnLeadMs` is stored for {@link observeUsage}.
+   * `interruptAtMs` remains a soft wall-clock fallback for interrupt_fetch.
    */
   begin(input: {
     mailboxId: string;
@@ -58,26 +63,64 @@ export class NudgeBus {
       interruptAtMs: input.interruptAtMs,
       cancelled: false,
       approachingSent: false,
+      interruptFetchSent: false,
     };
     return this.session;
   }
 
-  /** Tick: returns intents the adapter should act on (at most once each). */
-  tick(): NudgeBusIntent[] {
+  /**
+   * Usage-driven intents. Call from the app tick with native accumulator state.
+   * Emits `approaching` once when in a target feed and remaining time to
+   * threshold is ≤ warnLeadMs (including warnLead ≥ threshold → as soon as
+   * the feed is active).
+   */
+  observeUsage(input: {
+    accumulatedMs: number;
+    thresholdMs: number;
+    warnLeadMs: number;
+    inTargetFeed: boolean;
+  }): NudgeBusIntent[] {
     const s = this.session;
     if (!s || s.cancelled) return [];
-    const now = this.clock.now();
+    if (!input.inTargetFeed) return [];
+    const threshold = Math.max(0, input.thresholdMs);
+    const warnLead = Math.max(0, input.warnLeadMs);
+    const warnAfter = Math.max(0, threshold - warnLead);
     const out: NudgeBusIntent[] = [];
-    if (!s.approachingSent && now >= s.warnAtMs) {
+    if (!s.approachingSent && input.accumulatedMs >= warnAfter) {
       s.approachingSent = true;
       out.push({
         type: "approaching",
         eventId: s.eventId,
         mailboxId: s.mailboxId,
-        warnAtMs: s.warnAtMs,
+        warnAtMs: this.clock.now(),
       });
     }
-    if (now >= s.interruptAtMs) {
+    if (
+      !s.interruptFetchSent &&
+      threshold > 0 &&
+      input.accumulatedMs >= threshold
+    ) {
+      s.interruptFetchSent = true;
+      out.push({
+        type: "interrupt_fetch",
+        eventId: s.eventId,
+        mailboxId: s.mailboxId,
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Wall-clock fallback tick (interrupt_fetch only). Prefer {@link observeUsage}.
+   */
+  tick(): NudgeBusIntent[] {
+    const s = this.session;
+    if (!s || s.cancelled) return [];
+    const now = this.clock.now();
+    const out: NudgeBusIntent[] = [];
+    if (!s.interruptFetchSent && now >= s.interruptAtMs) {
+      s.interruptFetchSent = true;
       out.push({
         type: "interrupt_fetch",
         eventId: s.eventId,

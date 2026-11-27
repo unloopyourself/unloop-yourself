@@ -238,6 +238,30 @@ export default function App() {
     [deviceCaps, engine],
   );
 
+  const rearmBuddyNudgeBus = useCallback(async () => {
+    const s = settingsRef.current;
+    nudgeBusRef.current = null;
+    if (!s?.buddyEnabled) return;
+    try {
+      const identity = await loadOrCreateIdentity();
+      const buddies = await loadBuddies();
+      const relayUrl = getRelayBaseUrl();
+      if (!relayUrl || buddies.length === 0) return;
+      const relay = new HttpRelayPort(relayUrl);
+      const busLive = new NudgeBus(relay, { now: () => Date.now() });
+      const now = Date.now();
+      busLive.begin({
+        mailboxId: identity.mailboxId,
+        // Soft wall-clock fallback only; approaching is usage-driven.
+        interruptAtMs: now + s.thresholdMs,
+        warnLeadMs: Math.min(s.buddyWarnLeadMs, s.thresholdMs),
+      });
+      nudgeBusRef.current = busLive;
+    } catch {
+      nudgeBusRef.current = null;
+    }
+  }, []);
+
   const applyEffects = useCallback(
     (effects: EngineEffect[]) => {
       setSessionState(engine.state);
@@ -291,6 +315,8 @@ export default function App() {
             if (Platform.OS === "android") {
               UnloopUsage.logHarness(`cooldown_${effect.reason}`);
             }
+            // Next feed bout needs a fresh approaching window.
+            void rearmBuddyNudgeBus();
             setMessage(
               effect.reason === "completed"
                 ? t("app.challenge_ok", {
@@ -335,7 +361,7 @@ export default function App() {
         }
       }
     },
-    [applyDecodedBuddyNudge, bus, engine, t],
+    [applyDecodedBuddyNudge, bus, engine, rearmBuddyNudgeBus, t],
   );
 
   useEffect(() => {
@@ -379,6 +405,8 @@ export default function App() {
     };
   }, []);
 
+  const lastApproachEventIdRef = useRef<string | null>(null);
+
   const openApproachCompose = useCallback(async (pending: PendingApproach) => {
     const s = settingsRef.current;
     if (s?.buddyQuietHoursEnabled) {
@@ -389,9 +417,11 @@ export default function App() {
         return;
       }
     }
-    if (s && !(await allowApproachingPush(s.buddyMaxPushPerHour))) {
+    // Dedupe only — hourly cap is enforced on the seeker when sending notify.
+    if (lastApproachEventIdRef.current === pending.eventId) {
       return;
     }
+    lastApproachEventIdRef.current = pending.eventId;
     await setPendingApproach(pending);
     setPendingApproachState(pending);
     setScreen("buddyCompose");
@@ -419,6 +449,7 @@ export default function App() {
     if (Platform.OS !== "android") return;
     void loadPendingApproach().then((p) => {
       if (p) {
+        lastApproachEventIdRef.current = p.eventId;
         setPendingApproachState(p);
       }
     });
@@ -469,7 +500,24 @@ export default function App() {
       }
       const nb = nudgeBusRef.current;
       if (!nb) return;
-      const intents = nb.tick();
+      const sTick = settingsRef.current;
+      let intents = nb.tick();
+      if (Platform.OS === "android" && sTick?.buddyEnabled) {
+        try {
+          const snap = UnloopUsage.getMonitorSnapshot();
+          intents = [
+            ...nb.observeUsage({
+              accumulatedMs: snap.accumulatedMs ?? 0,
+              thresholdMs: sTick.thresholdMs,
+              warnLeadMs: sTick.buddyWarnLeadMs,
+              inTargetFeed: snap.inTargetFeed === true,
+            }),
+            ...intents,
+          ];
+        } catch {
+          /* snapshot optional */
+        }
+      }
       for (const intent of intents) {
         if (intent.type === "approaching") {
           console.log(
@@ -483,6 +531,12 @@ export default function App() {
           void (async () => {
             const s = settingsRef.current;
             if (!s?.buddyEnabled) return;
+            if (!(await allowApproachingPush(s.buddyMaxPushPerHour))) {
+              if (Platform.OS === "android") {
+                UnloopUsage.logHarness("buddy_approaching_rate_limited");
+              }
+              return;
+            }
             const relayUrl = getRelayBaseUrl();
             if (!relayUrl) return;
             const buddies = await loadBuddies();
@@ -490,7 +544,7 @@ export default function App() {
             await Promise.all(
               buddies.map(async (b) => {
                 try {
-                  await fetch(
+                  const res = await fetch(
                     `${relayUrl.replace(/\/+$/, "")}/v1/notify/${encodeURIComponent(b.mailboxId)}`,
                     {
                       method: "POST",
@@ -504,6 +558,11 @@ export default function App() {
                       }),
                     },
                   );
+                  if (Platform.OS === "android") {
+                    UnloopUsage.logHarness(
+                      `buddy_notify:${b.mailboxId.slice(0, 12)}:${res.status}`,
+                    );
+                  }
                 } catch {
                   /* best-effort */
                 }
@@ -756,34 +815,11 @@ export default function App() {
       thresholdUnits: settings.thresholdMs,
     });
     // Progressive Buddy live path (P3-05/07): gated by Settings.
-    nudgeBusRef.current = null;
     setBuddyNudgeText(null);
     setBuddyNudgePresetId(null);
     setBuddyNudgeMedia(null);
     setBuddyNudgeDismissed(false);
-    if (settings.buddyEnabled) {
-      try {
-        const identity = await loadOrCreateIdentity();
-        const buddies = await loadBuddies();
-        const relayUrl = getRelayBaseUrl();
-        if (relayUrl && buddies.length > 0) {
-          const relay = new HttpRelayPort(relayUrl);
-          const busLive = new NudgeBus(relay, { now: () => Date.now() });
-          const now = Date.now();
-          busLive.begin({
-            mailboxId: identity.mailboxId,
-            interruptAtMs: now + settings.thresholdMs,
-            warnLeadMs: Math.min(
-              settings.buddyWarnLeadMs,
-              settings.thresholdMs,
-            ),
-          });
-          nudgeBusRef.current = busLive;
-        }
-      } catch {
-        nudgeBusRef.current = null;
-      }
-    }
+    await rearmBuddyNudgeBus();
     setMessage(
       t("app.watching", {
         feeds: settings.enabledLabels.join(", "),
