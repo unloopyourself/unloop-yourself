@@ -19,7 +19,7 @@ class UnloopUsageModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("UnloopUsage")
 
-    Events("onThresholdReached", "onOpenChallenge")
+    Events("onThresholdReached", "onOpenChallenge", "onSoftSkipChallenge")
 
     Function("hasUsagePermission") {
       hasUsagePermission()
@@ -127,12 +127,17 @@ class UnloopUsageModule : Module() {
         Log.i(TAG, "open challenge → notifying JS")
         sendEvent("onOpenChallenge", emptyMap<String, Any>())
       }
+      InterruptOverlay.softSkipCallback = {
+        Log.i(TAG, "soft skip → notifying JS")
+        sendEvent("onSoftSkipChallenge", emptyMap<String, Any>())
+      }
     }
 
     OnDestroy {
       ChallengeTonePlayer.stop(context)
       UsageMonitorService.thresholdCallback = null
       InterruptOverlay.openChallengeCallback = null
+      InterruptOverlay.softSkipCallback = null
     }
   }
 

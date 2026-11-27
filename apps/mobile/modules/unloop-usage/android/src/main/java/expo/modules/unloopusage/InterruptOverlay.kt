@@ -38,6 +38,10 @@ object InterruptOverlay {
   @Volatile
   var openChallengeCallback: (() -> Unit)? = null
 
+  /** JS soft-fails when the user taps Skip on the overlay (escape hatch). */
+  @Volatile
+  var softSkipCallback: (() -> Unit)? = null
+
   /** After "Open challenge", skip re-show briefly so the Activity can come up. */
   @Volatile
   private var suppressReshowUntilElapsed: Long = 0L
@@ -170,10 +174,30 @@ object InterruptOverlay {
           }
         }
 
+        val skipText = if (italian) {
+          "Salta per ora"
+        } else {
+          "Skip for now"
+        }
+        val skip = Button(appContext).apply {
+          text = skipText
+          setBackgroundColor(Color.TRANSPARENT)
+          setTextColor(Color.parseColor("#F2F5F8"))
+          setOnClickListener {
+            Log.i(TAG, "overlay soft-skip tapped")
+            softSkipCallback?.invoke()
+            // JS arms cooldown; clear outstanding so the feed is usable again.
+            challengeOutstanding = false
+            dismissLocked(appContext, clearOutstanding = false)
+            launchApp(appContext)
+          }
+        }
+
         root.addView(icon)
         root.addView(brand)
         root.addView(copy)
         root.addView(open)
+        root.addView(skip)
 
         wm.addView(root, params)
         attachedView = root

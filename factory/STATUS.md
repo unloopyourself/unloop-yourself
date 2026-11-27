@@ -1,6 +1,6 @@
 # Factory status
 
-Last updated: 2026-11-26
+Last updated: 2026-11-27
 
 ## Active item
 
@@ -9,9 +9,8 @@ Last updated: 2026-11-26
 
 ## Last gate result
 
-- **P3.5-00…07** done — envelope, relay size reject, presets, photo, GIF, voice (`expo-audio`), video (`expo-video`, ≤10s / ≤8 MiB reject-oversize), privacy + Play notes.
-- Mobile typecheck green; Core `nudgeEnvelope` tests green.
-- Debug APK with video path installed on Samsung `192.168.1.7:44068` + Nokia `192.168.1.225:40431`.
+- **P3.5-00…07** done.
+- **Hotfix (2026-11-27):** stuck CHALLENGE shield with no Start/Skip — in-app Start+Skip, overlay Skip, Buddy in hamburger (list + revoke).
 
 ## Human decisions / inputs pending
 
@@ -25,3 +24,4 @@ Last updated: 2026-11-26
 
 - Voice: hard stop at 30s; mono ~48 kbps AAC; mailbox ≤1 MiB.
 - Video: no FFmpeg re-encode; oversize/over-duration rejected on device.
+- If Samsung is stuck mid-challenge on an older APK: force-stop Unloop or wait soft-unlock (~3 min), then install the new build.

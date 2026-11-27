@@ -23,6 +23,8 @@ type Props = {
   presetId?: SoundPresetId;
   media?: BuddyNudgeMedia;
   onContinue: () => void;
+  /** Soft-unlock escape when media/challenge path is broken. */
+  onSkip?: () => void;
 };
 
 function PresetPlayer({ presetId }: { presetId: SoundPresetId }) {
@@ -103,6 +105,7 @@ export function BuddyNudgeView({
   presetId,
   media,
   onContinue,
+  onSkip,
 }: Props) {
   const [voiceUri, setVoiceUri] = useState<string | null>(null);
   const [videoUri, setVideoUri] = useState<string | null>(null);
@@ -197,6 +200,16 @@ export function BuddyNudgeView({
       >
         <Text style={styles.btnLabel}>{t("buddy.nudge_continue")}</Text>
       </Pressable>
+      {onSkip ? (
+        <Pressable
+          style={styles.skip}
+          onPress={onSkip}
+          accessibilityRole="button"
+          accessibilityLabel={t("challenge.skip")}
+        >
+          <Text style={styles.skipLabel}>{t("challenge.skip")}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -250,4 +263,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ember,
   },
   btnLabel: { fontWeight: "800", color: colors.white, fontSize: 15 },
+  skip: { paddingVertical: 10, paddingHorizontal: 16 },
+  skipLabel: {
+    color: colors.textOnInk,
+    opacity: 0.75,
+    fontSize: 14,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
 });

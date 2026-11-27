@@ -9,6 +9,7 @@ type Props = {
   t: Translate;
   onClose: () => void;
   onOpenSettings: () => void;
+  onOpenBuddy: () => void;
   onOpenAbout: () => void;
 };
 
@@ -17,6 +18,7 @@ export function MenuSheet({
   t,
   onClose,
   onOpenSettings,
+  onOpenBuddy,
   onOpenAbout,
 }: Props) {
   return (
@@ -52,6 +54,23 @@ export function MenuSheet({
               style={styles.rowIcon}
             />
             <Text style={styles.rowLabel}>{t("nav.settings")}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.row}
+            onPress={() => {
+              onClose();
+              onOpenBuddy();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t("nav.buddy")}
+          >
+            <Ionicons
+              name="people-outline"
+              size={22}
+              color={colors.ink}
+              style={styles.rowIcon}
+            />
+            <Text style={styles.rowLabel}>{t("nav.buddy")}</Text>
           </Pressable>
           <Pressable
             style={styles.row}

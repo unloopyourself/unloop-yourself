@@ -145,6 +145,27 @@ export function ChallengeHost({
       {challengeId === "audio_silence_tap" && (
         <AudioSilenceTapChallenge t={t} onComplete={finishComplete} />
       )}
+      {![
+        "shake",
+        "breath_tap",
+        "unlock_phrase",
+        "nearest_multiple",
+        "face_down_flip",
+        "coin_spin",
+        "air_write",
+        "hold_still",
+        "countdown_type",
+        "long_press",
+        "intention_type",
+        "look_away",
+        "rotate_phone",
+        "stand_up",
+        "sip_water",
+        "feeling_check",
+        "audio_silence_tap",
+      ].includes(challengeId) ? (
+        <Text style={hostStyles.fallback}>{t("app.interrupt")}</Text>
+      ) : null}
 
       <Text style={hostStyles.timer}>{remainingSec}s</Text>
       <Pressable
@@ -172,6 +193,13 @@ const hostStyles = StyleSheet.create({
     fontSize: typography.metaSize,
     color: colors.emberSoft,
     opacity: 0.85,
+  },
+  fallback: {
+    fontSize: typography.bodySize,
+    lineHeight: 24,
+    color: colors.textOnInk,
+    textAlign: "center",
+    opacity: 0.9,
   },
   skip: {
     paddingVertical: 10,

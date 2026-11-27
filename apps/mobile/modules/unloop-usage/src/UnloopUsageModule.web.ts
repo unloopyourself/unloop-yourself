@@ -42,6 +42,7 @@ const UnloopUsageModule = {
     return {
       monitoring: false,
       challengeOutstanding: false,
+      overlayShowing: false,
       inCooldown: false,
       cooldownUntilMs: 0,
       packagesCsv: "",

@@ -9,6 +9,8 @@ export type ThresholdNativeEvent = {
 export type MonitorSnapshot = {
   monitoring: boolean;
   challengeOutstanding: boolean;
+  /** True while the TYPE_APPLICATION_OVERLAY shield is attached. */
+  overlayShowing?: boolean;
   inCooldown: boolean;
   cooldownUntilMs: number;
   packagesCsv: string;
@@ -46,7 +48,7 @@ type UnloopUsageNativeModule = {
   playChallengeTone(durationMs: number): boolean;
   stopChallengeTone(): void;
   addListener(
-    eventName: "onThresholdReached" | "onOpenChallenge",
+    eventName: "onThresholdReached" | "onOpenChallenge" | "onSoftSkipChallenge",
     listener: (event: ThresholdNativeEvent | Record<string, never>) => void,
   ): { remove: () => void };
 };
@@ -61,6 +63,12 @@ export function addThresholdListener(
 
 export function addOpenChallengeListener(listener: () => void): { remove: () => void } {
   return UnloopUsage.addListener("onOpenChallenge", () => {
+    listener();
+  });
+}
+
+export function addSoftSkipChallengeListener(listener: () => void): { remove: () => void } {
+  return UnloopUsage.addListener("onSoftSkipChallenge", () => {
     listener();
   });
 }

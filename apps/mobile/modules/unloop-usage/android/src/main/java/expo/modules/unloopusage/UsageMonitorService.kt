@@ -391,6 +391,7 @@ class UsageMonitorService : Service() {
     fun monitorSnapshot(): Map<String, Any> = mapOf(
       "monitoring" to serviceRunning,
       "challengeOutstanding" to InterruptOverlay.challengeOutstanding,
+      "overlayShowing" to InterruptOverlay.isShowing(),
       "inCooldown" to inCooldown(),
       "cooldownUntilMs" to cooldownUntilEpochMs.toDouble(),
       "packagesCsv" to packagesCsv,

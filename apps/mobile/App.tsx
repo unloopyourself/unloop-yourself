@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AppState,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   ScrollView,
@@ -21,6 +22,7 @@ import { MemoryStoragePort } from "./src/memoryStorage";
 import { LocalAuditTrail } from "./src/localAuditTrail";
 import UnloopUsage, {
   addOpenChallengeListener,
+  addSoftSkipChallengeListener,
 } from "./modules/unloop-usage/src/UnloopUsageModule";
 import { colors, typography } from "./src/theme";
 import {
@@ -155,6 +157,8 @@ export default function App() {
     [],
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [buddyReturnScreen, setBuddyReturnScreen] =
+    useState<AppScreen>("home");
   const nudgeBusRef = useRef<NudgeBus | null>(null);
   /** Remount ChallengeHost when the user taps Open (fresh sensors + timeout). */
   const [challengeMountKey, setChallengeMountKey] = useState(0);
@@ -251,9 +255,21 @@ export default function App() {
             setActiveChallengeId(effect.challengeId as ChallengeId);
             setLastDelta(effect.deltaU);
             setMessage(t("app.interrupt"));
-            // Wait for Open — do not mount ChallengeHost under the shield yet.
-            setChallengeOpened(false);
             setBuddyNudgeDismissed(false);
+            // Keep Open if already true (race with overlay Start). If Unloop is
+            // already foreground and the overlay is not covering, mount now —
+            // otherwise the in-app shield had no buttons and felt stuck.
+            setChallengeOpened((wasOpen) => {
+              if (wasOpen) return true;
+              if (AppState.currentState !== "active") return false;
+              if (Platform.OS !== "android") return true;
+              try {
+                const snap = UnloopUsage.getMonitorSnapshot();
+                return snap.overlayShowing !== true;
+              } catch {
+                return true;
+              }
+            });
             void nudgeBusRef.current?.fetchNudge().then((blob) => {
               if (!blob) return;
               const decoded = decodeNudgeBlob(blob);
@@ -333,6 +349,7 @@ export default function App() {
     const openPair = (url: string | null) => {
       if (!url || !isPairDeepLink(url)) return;
       setPendingPairInvite(url);
+      setBuddyReturnScreen("home");
       setScreen("buddy");
       setMenuOpen(false);
     };
@@ -836,6 +853,16 @@ export default function App() {
     applyEffects(engine.onChallengeSoftFail());
   }, [applyEffects, engine]);
 
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+    const sub = addSoftSkipChallengeListener(() => {
+      softFailChallenge();
+    });
+    return () => sub.remove();
+  }, [softFailChallenge]);
+
   const inChallenge = sessionState === "CHALLENGE";
   const monitoring =
     sessionState === "MONITORING" || sessionState === "COOLDOWN";
@@ -882,6 +909,7 @@ export default function App() {
               presetId={buddyNudgePresetId ?? undefined}
               media={buddyNudgeMedia ?? undefined}
               onContinue={() => setBuddyNudgeDismissed(true)}
+              onSkip={softFailChallenge}
             />
           ) : (
             <ChallengeHost
@@ -902,6 +930,22 @@ export default function App() {
           <Text style={styles.messageOnInk}>
             {buddyNudgeText ? t("buddy.nudge_from") : t("app.interrupt")}
           </Text>
+          <Pressable
+            style={styles.openChallengeBtn}
+            onPress={openChallengeFromOverlay}
+            accessibilityRole="button"
+            accessibilityLabel={t("challenge.start")}
+          >
+            <Text style={styles.openChallengeLabel}>{t("challenge.start")}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.skipChallengeBtn}
+            onPress={softFailChallenge}
+            accessibilityRole="button"
+            accessibilityLabel={t("challenge.skip")}
+          >
+            <Text style={styles.skipChallengeLabel}>{t("challenge.skip")}</Text>
+          </Pressable>
         </ScrollView>
       ) : screen === "settings" && settings ? (
         <SettingsScreen
@@ -915,7 +959,10 @@ export default function App() {
           onToggleChallenge={toggleChallenge}
           onSetTiming={setTiming}
           onPatchSettings={(patch) => persist({ ...settings, ...patch })}
-          onOpenBuddy={() => setScreen("buddy")}
+          onOpenBuddy={() => {
+            setBuddyReturnScreen("settings");
+            setScreen("buddy");
+          }}
         />
       ) : screen === "buddyCompose" && pendingApproach ? (
         <BuddyComposeScreen
@@ -932,7 +979,7 @@ export default function App() {
       ) : screen === "buddy" ? (
         <BuddyScreen
           t={t}
-          onBack={() => setScreen("settings")}
+          onBack={() => setScreen(buddyReturnScreen)}
           pendingInvite={pendingPairInvite}
           onPendingInviteConsumed={() => setPendingPairInvite(null)}
         />
@@ -958,6 +1005,10 @@ export default function App() {
         t={t}
         onClose={() => setMenuOpen(false)}
         onOpenSettings={() => setScreen("settings")}
+        onOpenBuddy={() => {
+          setBuddyReturnScreen("home");
+          setScreen("buddy");
+        }}
         onOpenAbout={() => setScreen("about")}
       />
       <StatusBar style={inChallenge ? "light" : "dark"} />
@@ -995,5 +1046,28 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 12,
     opacity: 0.92,
+  },
+  openChallengeBtn: {
+    marginTop: 20,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 999,
+    backgroundColor: colors.ember,
+  },
+  openChallengeLabel: {
+    fontWeight: "800",
+    color: colors.white,
+    fontSize: 16,
+  },
+  skipChallengeBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  skipChallengeLabel: {
+    color: colors.textOnInk,
+    opacity: 0.75,
+    fontSize: 14,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });
